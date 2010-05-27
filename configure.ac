@@ -232,6 +232,11 @@ dnl ******************************
 GTK_DOC_CHECK(1.9)
 
 dnl ******************************
+dnl GObject Introspection
+GOBJECT_INTROSPECTION_CHECK([0.6.7])
+dnl ******************************
+
+dnl ******************************
 dnl Check for Win32
 dnl ******************************
 AC_MSG_CHECKING([for Win32])
