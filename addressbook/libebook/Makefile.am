@@ -1,3 +1,5 @@
+CLEANFILES=
+
 # The marshallers
 MARSHAL_GENERATED = e-book-marshal.c e-book-marshal.h
 @EVO_MARSHAL_RULE@
@@ -67,8 +69,42 @@ DBUS_GENERATED_H = e-data-book-factory-bindings.h e-data-book-bindings.h e-data-
 %-bindings.h: $(top_srcdir)/addressbook/libedata-book/%.xml
 	@DBUS_BINDING_TOOL@ --mode=glib-client --output=$@ --prefix=$(subst -,_,$*) $^
 
+-include $(INTROSPECTION_MAKEFILE)
+INTROSPECTION_GIRS =
+INTROSPECTION_SCANNER_ARGS = --add-include-path=$(srcdir)
+INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
+
+if HAVE_INTROSPECTION
+introspection_sources = $(libebook_1_2_la_SOURCES)
+
+EBook-1.2.gir: libebook-1.2.la
+EBook_1_2_gir_INCLUDES = GObject-2.0
+EBook_1_2_gir_CFLAGS = $(INCLUDES) \
+		       -I$(top_srcdir) \
+		       -I$(top_builddir) \
+		       -I$(top_builddir)/addressbook/ \
+		       -I$(top_builddir)/addressbook/libebook
+EBook_1_2_gir_LIBS = libebook-1.2.la
+EBook_1_2_gir_FILES = e-contact.c e-contact.h \
+		      e-vcard.c e-vcard.h \
+		      e-book.c e-book.h \
+		      e-book-view.c e-book-view.h \
+		      e-error.h e-book-types.h \
+		      e-book-query.c e-book-query.h
+
+INTROSPECTION_GIRS += EBook-1.2.gir
+
+girdir = $(datadir)/gir-1.0
+dist_gir_DATA = $(INTROSPECTION_GIRS)
+
+typelibdir = $(libdir)/girepository-1.0
+typelib_DATA = $(INTROSPECTION_GIRS:.gir=.typelib)
+
+CLEANFILES += $(dist_gir_DATA) $(typelib_DATA)
+endif
+
 BUILT_SOURCES = $(DBUS_GENERATED_H) $(MARSHAL_GENERATED)
-CLEANFILES    = $(BUILT_SOURCES)
+CLEANFILES    += $(BUILT_SOURCES)
 DISTCLEANFILES = $(pkgconfig_DATA)
 
 EXTRA_DIST = 						\
