@@ -862,7 +862,7 @@ e_book_async_authenticate_user (EBook                 *book,
  * e_book_get_contact:
  * @book: an #EBook
  * @id: a unique string ID specifying the contact
- * @contact: an #EContact
+ * @contact: (out) (transfer: full): an #EContact
  * @error: a #GError to set on failure
  *
  * Fills in @contact with the contents of the vcard in @book
