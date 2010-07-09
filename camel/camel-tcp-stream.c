@@ -42,7 +42,7 @@ static CamelStreamClass *parent_class = NULL;
 /* Returns the class for a CamelTcpStream */
 #define CTS_CLASS(so) CAMEL_TCP_STREAM_CLASS (CAMEL_OBJECT_GET_CLASS(so))
 
-static gint tcp_connect    (CamelTcpStream *stream, struct addrinfo *host);
+static gint tcp_connect    (CamelTcpStream *stream, const char *host, const char *service, gint fallback_port, CamelException *ex);
 static gint tcp_getsockopt (CamelTcpStream *stream, CamelSockOptData *data);
 static gint tcp_setsockopt (CamelTcpStream *stream, const CamelSockOptData *data);
 static struct sockaddr *tcp_get_local_address (CamelTcpStream *stream, socklen_t *len);
@@ -108,7 +108,7 @@ camel_tcp_stream_get_type (void)
 }
 
 static gint
-tcp_connect (CamelTcpStream *stream, struct addrinfo *host)
+tcp_connect (CamelTcpStream *stream, const char *host, const char *service, gint fallback_port, CamelException *ex)
 {
 	w(g_warning ("CamelTcpStream::connect called on default implementation"));
 	return -1;
@@ -117,19 +117,24 @@ tcp_connect (CamelTcpStream *stream, struct addrinfo *host)
 /**
  * camel_tcp_stream_connect:
  * @stream: a #CamelTcpStream object
- * @host: a linked list of addrinfo structures to try to connect, in
- * the order of most likely to least likely to work.
+ * @host: Hostname for connection
+ * @service: Service name or port number in string form
+ * @fallback_port: Port number to retry if @service is not present in the system's services database, or 0 to avoid retrying.
+ * @ex: a #CamelException
  *
  * Create a socket and connect based upon the data provided.
  *
  * Returns: %0 on success or %-1 on fail
  **/
 gint
-camel_tcp_stream_connect (CamelTcpStream *stream, struct addrinfo *host)
+camel_tcp_stream_connect (CamelTcpStream *stream, const char *host, const char *service, gint fallback_port, CamelException *ex)
 {
 	g_return_val_if_fail (CAMEL_IS_TCP_STREAM (stream), -1);
+	g_return_val_if_fail (host != NULL, -1);
+	g_return_val_if_fail (service != NULL, -1);
+	g_return_val_if_fail (ex == NULL || !camel_exception_is_set (ex), -1);
 
-	return CTS_CLASS (stream)->connect (stream, host);
+	return CTS_CLASS (stream)->connect (stream, host, service, fallback_port, ex);
 }
 
 static gint

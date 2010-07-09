@@ -37,6 +37,7 @@
 #endif
 #include <unistd.h>
 
+#include <camel/camel-exception.h>
 #include <camel/camel-stream.h>
 
 #define CAMEL_TCP_STREAM_TYPE     (camel_tcp_stream_get_type ())
@@ -100,7 +101,7 @@ typedef struct {
 	CamelStreamClass parent_class;
 
 	/* Virtual methods */
-	gint (*connect)    (CamelTcpStream *stream, struct addrinfo *host);
+	gint (*connect)    (CamelTcpStream *stream, const char *host, const char *service, gint fallback_port, CamelException *ex);
 	gint (*getsockopt) (CamelTcpStream *stream, CamelSockOptData *data);
 	gint (*setsockopt) (CamelTcpStream *stream, const CamelSockOptData *data);
 
@@ -112,7 +113,7 @@ typedef struct {
 CamelType camel_tcp_stream_get_type (void);
 
 /* public methods */
-gint         camel_tcp_stream_connect    (CamelTcpStream *stream, struct addrinfo *host);
+gint         camel_tcp_stream_connect    (CamelTcpStream *stream, const char *host, const char *service, gint fallback_port, CamelException *ex);
 gint         camel_tcp_stream_getsockopt (CamelTcpStream *stream, CamelSockOptData *data);
 gint         camel_tcp_stream_setsockopt (CamelTcpStream *stream, const CamelSockOptData *data);
 

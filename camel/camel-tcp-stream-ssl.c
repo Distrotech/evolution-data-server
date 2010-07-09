@@ -79,7 +79,7 @@ static gint stream_close  (CamelStream *stream);
 
 static PRFileDesc *enable_ssl (CamelTcpStreamSSL *ssl, PRFileDesc *fd);
 
-static gint stream_connect    (CamelTcpStream *stream, struct addrinfo *host);
+static gint stream_connect    (CamelTcpStream *stream, const char *host, const char *service, gint fallback_port, CamelException *ex);
 static gint stream_getsockopt (CamelTcpStream *stream, CamelSockOptData *data);
 static gint stream_setsockopt (CamelTcpStream *stream, const CamelSockOptData *data);
 static struct sockaddr *stream_get_local_address (CamelTcpStream *stream, socklen_t *len);
@@ -1300,7 +1300,7 @@ connect_to_socks4_proxy (CamelTcpStreamSSL *ssl, const gchar *proxy_host, gint p
 		goto error;
 	}
 
-	g_assert (connect_addr->ai_addr->sa_family == AF_INET); /* FIXME: what to do about IPv6?  Are we just screwed with SOCKS4? */
+	g_assert (connect_addr->ai_addr->sa_family == AF_INET); /* FMQ: check for AF_INET in the caller */
 	sin = (struct sockaddr_in *) connect_addr->ai_addr;
 
 	request[0] = 0x04;				/* SOCKS4 */
@@ -1368,27 +1368,60 @@ out:
 }
 
 static gint
-stream_connect(CamelTcpStream *stream, struct addrinfo *host)
+stream_connect(CamelTcpStream *stream, const char *host, const char *service, gint fallback_port, CamelException *ex)
 {
 	CamelTcpStreamSSL *ssl = CAMEL_TCP_STREAM_SSL (stream);
+	struct addrinfo *addr, *ai;
+	struct addrinfo hints;
+	CamelException my_ex;
+	gint retval;
 	const gchar *proxy_host;
 	gint proxy_port;
 
-	camel_tcp_stream_peek_socks_proxy (stream, &proxy_host, &proxy_port);
+	memset (&hints, 0, sizeof (hints));
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_family = PF_UNSPEC;
 
-	while (host) {
-		if (proxy_host)
-			ssl->priv->sockfd = connect_to_socks4_proxy (ssl, proxy_host, proxy_port, host);
-		else
-			ssl->priv->sockfd = socket_connect (stream, host, TRUE);
+	camel_exception_init (&my_ex);
+	addr = camel_getaddrinfo (host, service, &hints, &my_ex);
+	if (addr == NULL && fallback_port != 0 && camel_exception_get_id (&my_ex) != CAMEL_EXCEPTION_USER_CANCEL) {
+		char str_port[16];
 
-		if (ssl->priv->sockfd)
-			return 0;
-
-		host = host->ai_next;
+		camel_exception_clear (&my_ex);
+		sprintf (str_port, "%d", fallback_port);
+		addr = camel_getaddrinfo (host, str_port, &hints, &my_ex);
 	}
 
-	return -1;
+	if (addr == NULL) {
+		camel_exception_xfer (ex, &my_ex);
+		return -1;
+	}
+
+	camel_tcp_stream_peek_socks_proxy (stream, &proxy_host, &proxy_port);
+
+	ai = addr;
+
+	while (ai) {
+		if (proxy_host)
+			ssl->priv->sockfd = connect_to_socks4_proxy (ssl, proxy_host, proxy_port, ai);
+		else
+			ssl->priv->sockfd = socket_connect (stream, ai, TRUE);
+
+		if (ssl->priv->sockfd) {
+			retval = 0;
+			goto out;
+		}
+
+		ai = ai->ai_next;
+	}
+
+	retval = -1;
+
+out:
+
+	camel_freeaddrinfo (addr);
+
+	return retval;
 }
 
 static gint
