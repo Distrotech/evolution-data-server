@@ -173,7 +173,6 @@ static CamelStream *
 http_connect (CamelHttpStream *http, CamelURL *url)
 {
 	CamelStream *stream = NULL;
-	struct addrinfo *ai, hints = { 0 };
 	gint errsave;
 	gchar *serv;
 
@@ -198,23 +197,13 @@ http_connect (CamelHttpStream *http, CamelURL *url)
 	} else {
 		serv = url->protocol;
 	}
-	hints.ai_socktype = SOCK_STREAM;
 
-	ai = camel_getaddrinfo(url->host, serv, &hints, NULL);
-	if (ai == NULL) {
-		camel_object_unref (stream);
-		return NULL;
-	}
-
-	if (camel_tcp_stream_connect (CAMEL_TCP_STREAM (stream), ai) == -1) {
+	if (camel_tcp_stream_connect (CAMEL_TCP_STREAM (stream), url->host, serv, 0, NULL) == -1) { /* NULL-CamelException */
 		errsave = errno;
 		camel_object_unref (stream);
-		camel_freeaddrinfo(ai);
 		errno = errsave;
 		return NULL;
 	}
-
-	camel_freeaddrinfo(ai);
 
 	http->raw = stream;
 	http->read = camel_stream_buffer_new (stream, CAMEL_STREAM_BUFFER_READ);
