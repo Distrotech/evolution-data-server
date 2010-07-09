@@ -64,8 +64,8 @@ extern gint camel_verbose_debug;
 #define d(x) (camel_verbose_debug ? (x) : 0)
 
 /* Specified in RFC 821 */
-#define SMTP_PORT "25"
-#define SMTPS_PORT "465"
+#define SMTP_PORT  25
+#define SMTPS_PORT 465
 
 /* camel smtp transport class prototypes */
 static gboolean smtp_send_to (CamelTransport *transport, CamelMimeMessage *message,
@@ -233,7 +233,7 @@ enum {
 #endif
 
 static gboolean
-connect_to_server (CamelService *service, struct addrinfo *ai, gint ssl_mode, CamelException *ex)
+connect_to_server (CamelService *service, const char *host, const char *serv, gint fallback_port, gint ssl_mode, CamelException *ex)
 {
 	CamelSmtpTransport *transport = CAMEL_SMTP_TRANSPORT (service);
 	CamelSession *session;
@@ -276,14 +276,20 @@ connect_to_server (CamelService *service, struct addrinfo *ai, gint ssl_mode, Ca
 		g_free (socks_host);
 	}
 
-	if ((ret = camel_tcp_stream_connect ((CamelTcpStream *) tcp_stream, ai)) == -1) {
-		if (errno == EINTR)
-			camel_exception_set (ex, CAMEL_EXCEPTION_USER_CANCEL,
-					     _("Connection canceled"));
-		else
-			camel_exception_setv (ex, CAMEL_EXCEPTION_SERVICE_UNAVAILABLE,
-					      _("Could not connect to %s: %s"),
-					      service->url->host, g_strerror (errno));
+	if ((ret = camel_tcp_stream_connect ((CamelTcpStream *) tcp_stream, host, serv, fallback_port, ex)) == -1) {
+		gint saved_errno;
+
+		saved_errno = errno;
+
+		if (!camel_exception_is_set (ex)) {
+			if (saved_errno == EINTR)
+				camel_exception_set (ex, CAMEL_EXCEPTION_USER_CANCEL,
+						     _("Connection canceled"));
+			else
+				camel_exception_setv (ex, CAMEL_EXCEPTION_SERVICE_UNAVAILABLE,
+						      _("Could not connect to %s: %s"),
+						      host, g_strerror (saved_errno));
+		}
 
 		camel_object_unref (tcp_stream);
 
@@ -408,7 +414,7 @@ connect_to_server (CamelService *service, struct addrinfo *ai, gint ssl_mode, Ca
 static struct {
 	const gchar *value;
 	const gchar *serv;
-	const gchar *port;
+	gint fallback_port;
 	gint mode;
 } ssl_options[] = {
 	{ "",              "smtps", SMTPS_PORT, MODE_SSL   },  /* really old (1.x) */
@@ -421,11 +427,10 @@ static struct {
 static gboolean
 connect_to_server_wrapper (CamelService *service, CamelException *ex)
 {
-	struct addrinfo hints, *ai;
 	const gchar *ssl_mode;
-	gint mode, ret, i;
+	gint mode, i;
 	gchar *serv;
-	const gchar *port;
+	gint fallback_port;
 
 	if ((ssl_mode = camel_url_get_param (service->url, "use_ssl"))) {
 		for (i = 0; ssl_options[i].value; i++)
@@ -433,36 +438,20 @@ connect_to_server_wrapper (CamelService *service, CamelException *ex)
 				break;
 		mode = ssl_options[i].mode;
 		serv = (gchar *) ssl_options[i].serv;
-		port = ssl_options[i].port;
+		fallback_port = ssl_options[i].fallback_port;
 	} else {
 		mode = MODE_CLEAR;
 		serv = (gchar *) "smtp";
-		port = SMTP_PORT;
+		fallback_port = SMTP_PORT;
 	}
 
 	if (service->url->port) {
 		serv = g_alloca (16);
 		sprintf (serv, "%d", service->url->port);
-		port = NULL;
+		fallback_port = 0;
 	}
 
-	memset (&hints, 0, sizeof (hints));
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_family = PF_UNSPEC;
-	ai = camel_getaddrinfo(service->url->host, serv, &hints, ex);
-	if (ai == NULL && port != NULL && camel_exception_get_id(ex) != CAMEL_EXCEPTION_USER_CANCEL) {
-		camel_exception_clear (ex);
-		ai = camel_getaddrinfo(service->url->host, port, &hints, ex);
-	}
-
-	if (ai == NULL)
-		return FALSE;
-
-	ret = connect_to_server (service, ai, mode, ex);
-
-	camel_freeaddrinfo (ai);
-
-	return ret;
+	return connect_to_server (service, service->url->host, serv, fallback_port, mode, ex);
 }
 
 static gboolean
