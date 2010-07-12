@@ -2475,8 +2475,7 @@ imapx_connect_to_server (CamelIMAPXServer *is, CamelException *ex)
 	guchar *token;
 	gint tok;
 	const gchar *serv;
-	const gchar *port = NULL;
-	struct addrinfo *ai, hints = { 0 };
+	gint fallback_port;
 	CamelIMAPXCommand *ic;
 
 #ifndef G_OS_WIN32
@@ -2495,9 +2494,10 @@ imapx_connect_to_server (CamelIMAPXServer *is, CamelException *ex)
 	if (is->url->port) {
 		serv = g_alloca(16);
 		sprintf((gchar *) serv, "%d", is->url->port);
+		fallback_port = 0;
 	} else {
 		serv = "imap";
-		port = "143";
+		fallback_port = 143;
 	}
 #ifdef HAVE_SSL
 	mode = camel_url_get_param(is->url, "use_ssl");
@@ -2508,7 +2508,7 @@ imapx_connect_to_server (CamelIMAPXServer *is, CamelException *ex)
 		} else {
 			if (is->url->port == 0) {
 				serv = "imaps";
-				port = "993";
+				fallback_port = 993;
 			}
 			tcp_stream = camel_tcp_stream_ssl_new(is->session, is->url->host, SSL_PORT_FLAGS);
 		}
@@ -2529,28 +2529,22 @@ imapx_connect_to_server (CamelIMAPXServer *is, CamelException *ex)
 		g_free (socks_host);
 	}
 
-	hints.ai_socktype = SOCK_STREAM;
-	ai = camel_getaddrinfo(is->url->host, serv, &hints, ex);
-	if (ex && ex->id && ex->id != CAMEL_EXCEPTION_USER_CANCEL && port != NULL) {
-		camel_exception_clear(ex);
-		ai = camel_getaddrinfo(is->url->host, port, &hints, ex);
-	}
+	ret = camel_tcp_stream_connect (CAMEL_TCP_STREAM(tcp_stream), is->url->host, serv, fallback_port, ex);
 
-	if (ex && ex->id) {
-		e(printf ("Unable to connect %d %s \n", ex->id, ex->desc));
-		camel_object_unref(tcp_stream);
-		return FALSE;
-	}
-
-	ret = camel_tcp_stream_connect(CAMEL_TCP_STREAM(tcp_stream), ai);
-	camel_freeaddrinfo(ai);
 	if (ret == -1) {
-		if (errno == EINTR)
-			camel_exception_set (ex, CAMEL_EXCEPTION_USER_CANCEL, _("Connection cancelled"));
-		else
-			camel_exception_setv (ex, CAMEL_EXCEPTION_SERVICE_UNAVAILABLE,
-					_("Could not connect to %s (port %s): %s"),
-					is->url->host, serv, g_strerror(errno));
+		gint saved_errno;
+
+		saved_errno = errno;
+
+		if (!camel_exception_is_set (ex)) {
+			if (saved_errno == EINTR)
+				camel_exception_set (ex, CAMEL_EXCEPTION_USER_CANCEL, _("Connection cancelled"));
+			else
+				camel_exception_setv (ex, CAMEL_EXCEPTION_SERVICE_UNAVAILABLE,
+						      _("Could not connect to %s (port %s): %s"),
+						      is->url->host, serv, g_strerror (saved_errno));
+		}
+
 		camel_object_unref(tcp_stream);
 		return FALSE;
 	}
