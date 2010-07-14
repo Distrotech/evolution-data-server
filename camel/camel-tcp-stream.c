@@ -47,6 +47,7 @@ static gint tcp_getsockopt (CamelTcpStream *stream, CamelSockOptData *data);
 static gint tcp_setsockopt (CamelTcpStream *stream, const CamelSockOptData *data);
 static struct sockaddr *tcp_get_local_address (CamelTcpStream *stream, socklen_t *len);
 static struct sockaddr *tcp_get_remote_address (CamelTcpStream *stream, socklen_t *len);
+static PRFileDesc *tcp_get_file_desc (CamelTcpStream *stream);
 
 static void
 camel_tcp_stream_class_init (CamelTcpStreamClass *camel_tcp_stream_class)
@@ -61,6 +62,7 @@ camel_tcp_stream_class_init (CamelTcpStreamClass *camel_tcp_stream_class)
 	camel_tcp_stream_class->setsockopt         = tcp_setsockopt;
 	camel_tcp_stream_class->get_local_address  = tcp_get_local_address;
 	camel_tcp_stream_class->get_remote_address = tcp_get_remote_address;
+	camel_tcp_stream_class->get_file_desc      = tcp_get_file_desc;
 }
 
 static void
@@ -185,6 +187,14 @@ camel_tcp_stream_setsockopt (CamelTcpStream *stream, const CamelSockOptData *dat
 	return CTS_CLASS (stream)->setsockopt (stream, data);
 }
 
+PRFileDesc *
+camel_tcp_stream_get_file_desc (CamelTcpStream *stream)
+{
+	g_return_val_if_fail (CAMEL_IS_TCP_STREAM (stream), NULL);
+
+	return CTS_CLASS (stream)->get_file_desc (stream);
+}
+
 /**
  * camel_tcp_stream_set_socks_proxy:
  * @stream: a #CamelTcpStream object
@@ -262,6 +272,13 @@ static struct sockaddr *
 tcp_get_remote_address (CamelTcpStream *stream, socklen_t *len)
 {
 	w(g_warning ("CamelTcpStream::get_remote_address called on default implementation"));
+	return NULL;
+}
+
+static PRFileDesc *
+tcp_get_file_desc (CamelTcpStream *stream)
+{
+	w(g_warning ("CamelTcpStream::get_file_desc called on default implementation"));
 	return NULL;
 }
 
