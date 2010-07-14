@@ -36,10 +36,7 @@ struct _CamelTcpStreamRaw
 {
 	CamelTcpStream parent_object;
 
-	gint sockfd;
-#ifdef G_OS_WIN32
-	gint is_nonblocking;
-#endif
+	struct _CamelTcpStreamRawPrivate *priv;
 };
 
 typedef struct {
@@ -54,6 +51,8 @@ CamelType camel_tcp_stream_raw_get_type (void);
 
 /* public methods */
 CamelStream *camel_tcp_stream_raw_new (void);
+
+gint camel_tcp_stream_raw_get_fd (CamelTcpStreamRaw *raw);
 
 G_END_DECLS
 
