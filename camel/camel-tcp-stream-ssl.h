@@ -62,8 +62,6 @@ CamelStream *camel_tcp_stream_ssl_new_raw (struct _CamelSession *session, const 
 
 gint camel_tcp_stream_ssl_enable_ssl (CamelTcpStreamSSL *ssl);
 
-PRFileDesc * camel_tcp_stream_ssl_sockfd (CamelTcpStreamSSL *stream);
-
 G_END_DECLS
 
 #endif /* CAMEL_TCP_STREAM_SSL_H */

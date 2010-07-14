@@ -84,6 +84,7 @@ static gint stream_getsockopt (CamelTcpStream *stream, CamelSockOptData *data);
 static gint stream_setsockopt (CamelTcpStream *stream, const CamelSockOptData *data);
 static struct sockaddr *stream_get_local_address (CamelTcpStream *stream, socklen_t *len);
 static struct sockaddr *stream_get_remote_address (CamelTcpStream *stream, socklen_t *len);
+static PRFileDesc *stream_get_file_desc (CamelTcpStream *stream);
 
 struct _CamelTcpStreamSSLPrivate {
 	PRFileDesc *sockfd;
@@ -115,6 +116,7 @@ camel_tcp_stream_ssl_class_init (CamelTcpStreamSSLClass *camel_tcp_stream_ssl_cl
 	camel_tcp_stream_class->setsockopt = stream_setsockopt;
 	camel_tcp_stream_class->get_local_address  = stream_get_local_address;
 	camel_tcp_stream_class->get_remote_address = stream_get_remote_address;
+	camel_tcp_stream_class->get_file_desc = stream_get_file_desc;
 }
 
 static void
@@ -1511,18 +1513,12 @@ stream_get_remote_address (CamelTcpStream *stream, socklen_t *len)
 	return sockaddr_from_praddr(&addr, len);
 }
 
-/**
- * camel_tcp_stream_ssl_sockfd:
- * @stream: a #CamelTcpStreamSSL
- *
- * FIXME Document me!
- *
- * Since: 2.30
- **/
-PRFileDesc *
-camel_tcp_stream_ssl_sockfd (CamelTcpStreamSSL *stream)
+static PRFileDesc *
+stream_get_file_desc (CamelTcpStream *stream)
 {
-	return stream->priv->sockfd;
+	CamelTcpStreamSSL *ssl = CAMEL_TCP_STREAM_SSL (stream);
+
+	return ssl->priv->sockfd;
 }
 
 #endif /* HAVE_NSS */
