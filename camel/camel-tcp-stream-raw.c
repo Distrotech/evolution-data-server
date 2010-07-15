@@ -32,31 +32,24 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+#include <nspr.h>
+#include <prio.h>
+#include <prerror.h>
+#include <prerr.h>
+
 #include "camel-file-utils.h"
 #include "camel-net-utils.h"
 #include "camel-operation.h"
 #include "camel-tcp-stream-raw.h"
 
-typedef struct _CamelTcpStreamRawPrivate {
-	gint sockfd;
-#ifdef G_OS_WIN32
-	gint is_nonblocking;
-#endif
-} CamelTcpStreamRawPrivate;
+#define d(x)
 
-#ifndef G_OS_WIN32
-#define SOCKET_ERROR_CODE() errno
-#define SOCKET_CLOSE(fd) close (fd)
-#define SOCKET_ERROR_IS_EINPROGRESS() (errno == EINPROGRESS)
-#define SOCKET_ERROR_IS_EINTR() (errno == EINTR)
-#else
-#define SOCKET_ERROR_CODE() WSAGetLastError ()
-#define SOCKET_CLOSE(fd) closesocket (fd)
-#define SOCKET_ERROR_IS_EINPROGRESS() (WSAGetLastError () == WSAEWOULDBLOCK)
-#define SOCKET_ERROR_IS_EINTR() 0 /* No WSAEINTR in WinSock2 */
-#undef ETIMEDOUT		/* In case pthreads-win32's <pthread.h> bogusly defined it */
-#define ETIMEDOUT EAGAIN
-#endif
+#define IO_TIMEOUT (PR_TicksPerSecond() * 4 * 60)
+#define CONNECT_TIMEOUT (PR_TicksPerSecond () * 4 * 60)
+
+typedef struct _CamelTcpStreamRawPrivate {
+	PRFileDesc *sockfd;
+} CamelTcpStreamRawPrivate;
 
 static CamelTcpStreamClass *parent_class = NULL;
 
@@ -73,6 +66,7 @@ static gint stream_getsockopt (CamelTcpStream *stream, CamelSockOptData *data);
 static gint stream_setsockopt (CamelTcpStream *stream, const CamelSockOptData *data);
 static struct sockaddr *stream_get_local_address (CamelTcpStream *stream, socklen_t *len);
 static struct sockaddr *stream_get_remote_address (CamelTcpStream *stream, socklen_t *len);
+static PRFileDesc *stream_get_file_desc (CamelTcpStream *stream);
 
 static void
 camel_tcp_stream_raw_class_init (CamelTcpStreamRawClass *camel_tcp_stream_raw_class)
@@ -95,6 +89,7 @@ camel_tcp_stream_raw_class_init (CamelTcpStreamRawClass *camel_tcp_stream_raw_cl
 	camel_tcp_stream_class->setsockopt  = stream_setsockopt;
 	camel_tcp_stream_class->get_local_address  = stream_get_local_address;
 	camel_tcp_stream_class->get_remote_address = stream_get_remote_address;
+	camel_tcp_stream_class->get_file_desc = stream_get_file_desc;
 }
 
 static void
@@ -106,7 +101,7 @@ camel_tcp_stream_raw_init (gpointer object, gpointer klass)
 	stream->priv = g_new0 (CamelTcpStreamRawPrivate, 1);
 	priv = stream->priv;
 
-	priv->sockfd = -1;
+	priv->sockfd = NULL;
 }
 
 static void
@@ -115,8 +110,10 @@ camel_tcp_stream_raw_finalize (CamelObject *object)
 	CamelTcpStreamRaw *raw = CAMEL_TCP_STREAM_RAW (object);
 	CamelTcpStreamRawPrivate *priv = raw->priv;
 
-	if (priv->sockfd != -1)
-		SOCKET_CLOSE (priv->sockfd);
+	if (priv->sockfd != NULL) {
+		PR_Shutdown (priv->sockfd, PR_SHUTDOWN_BOTH);
+		PR_Close (priv->sockfd);
+	}
 
 	g_free (raw->priv);
 	raw->priv = NULL;
@@ -259,13 +256,258 @@ camel_tcp_stream_raw_new (void)
 	return CAMEL_STREAM (stream);
 }
 
+static void
+set_errno (gint code)
+{
+	/* FIXME: this should handle more. */
+	switch (code) {
+	case PR_INVALID_ARGUMENT_ERROR:
+		errno = EINVAL;
+		break;
+	case PR_PENDING_INTERRUPT_ERROR:
+		errno = EINTR;
+		break;
+	case PR_IO_PENDING_ERROR:
+		errno = EAGAIN;
+		break;
+#ifdef EWOULDBLOCK
+	case PR_WOULD_BLOCK_ERROR:
+		errno = EWOULDBLOCK;
+		break;
+#endif
+#ifdef EINPROGRESS
+	case PR_IN_PROGRESS_ERROR:
+		errno = EINPROGRESS;
+		break;
+#endif
+#ifdef EALREADY
+	case PR_ALREADY_INITIATED_ERROR:
+		errno = EALREADY;
+		break;
+#endif
+#ifdef EHOSTUNREACH
+	case PR_NETWORK_UNREACHABLE_ERROR:
+		errno = EHOSTUNREACH;
+		break;
+#endif
+#ifdef ECONNREFUSED
+	case PR_CONNECT_REFUSED_ERROR:
+		errno = ECONNREFUSED;
+		break;
+#endif
+#ifdef ETIMEDOUT
+	case PR_CONNECT_TIMEOUT_ERROR:
+	case PR_IO_TIMEOUT_ERROR:
+		errno = ETIMEDOUT;
+		break;
+#endif
+#ifdef ENOTCONN
+	case PR_NOT_CONNECTED_ERROR:
+		errno = ENOTCONN;
+		break;
+#endif
+#ifdef ECONNRESET
+	case PR_CONNECT_RESET_ERROR:
+		errno = ECONNRESET;
+		break;
+#endif
+	case PR_IO_ERROR:
+	default:
+		errno = EIO;
+		break;
+	}
+}
+
+static gssize
+read_from_prfd (PRFileDesc *fd, gchar *buffer, gsize n)
+{
+	PRFileDesc *cancel_fd;
+	gssize nread;
+
+	if (camel_operation_cancel_check (NULL)) {
+		errno = EINTR;
+		return -1;
+	}
+
+	cancel_fd = camel_operation_cancel_prfd (NULL);
+	if (cancel_fd == NULL) {
+		do {
+			nread = PR_Read (fd, buffer, n);
+			if (nread == -1)
+				set_errno (PR_GetError ());
+		} while (nread == -1 && (PR_GetError () == PR_PENDING_INTERRUPT_ERROR ||
+					 PR_GetError () == PR_IO_PENDING_ERROR ||
+					 PR_GetError () == PR_WOULD_BLOCK_ERROR));
+	} else {
+		PRSocketOptionData sockopts;
+		PRPollDesc pollfds[2];
+		gboolean nonblock;
+		gint error;
+
+		/* get O_NONBLOCK options */
+		sockopts.option = PR_SockOpt_Nonblocking;
+		PR_GetSocketOption (fd, &sockopts);
+		sockopts.option = PR_SockOpt_Nonblocking;
+		nonblock = sockopts.value.non_blocking;
+		sockopts.value.non_blocking = TRUE;
+		PR_SetSocketOption (fd, &sockopts);
+
+		pollfds[0].fd = fd;
+		pollfds[0].in_flags = PR_POLL_READ;
+		pollfds[1].fd = cancel_fd;
+		pollfds[1].in_flags = PR_POLL_READ;
+
+		do {
+			PRInt32 res;
+
+			pollfds[0].out_flags = 0;
+			pollfds[1].out_flags = 0;
+			nread = -1;
+
+			res = PR_Poll(pollfds, 2, IO_TIMEOUT);
+			if (res == -1)
+				set_errno(PR_GetError());
+			else if (res == 0) {
+#ifdef ETIMEDOUT
+				errno = ETIMEDOUT;
+#else
+				errno = EIO;
+#endif
+				goto failed;
+			} else if (pollfds[1].out_flags == PR_POLL_READ) {
+				errno = EINTR;
+				goto failed;
+			} else {
+				do {
+					nread = PR_Read (fd, buffer, n);
+					if (nread == -1)
+						set_errno (PR_GetError ());
+				} while (nread == -1 && PR_GetError () == PR_PENDING_INTERRUPT_ERROR);
+			}
+		} while (nread == -1 && (PR_GetError () == PR_PENDING_INTERRUPT_ERROR ||
+					 PR_GetError () == PR_IO_PENDING_ERROR ||
+					 PR_GetError () == PR_WOULD_BLOCK_ERROR));
+
+		/* restore O_NONBLOCK options */
+	failed:
+		error = errno;
+		sockopts.option = PR_SockOpt_Nonblocking;
+		sockopts.value.non_blocking = nonblock;
+		PR_SetSocketOption (fd, &sockopts);
+		errno = error;
+	}
+
+	return nread;
+}
+
 static gssize
 stream_read (CamelStream *stream, gchar *buffer, gsize n)
 {
 	CamelTcpStreamRaw *raw = CAMEL_TCP_STREAM_RAW (stream);
 	CamelTcpStreamRawPrivate *priv = raw->priv;
+	gssize result;
 
-	return camel_read_socket (priv->sockfd, buffer, n);
+	d (g_print ("TcpStreamRaw %p: reading %" G_GSIZE_FORMAT " bytes...\n", ssl, n));
+
+	result = read_from_prfd (priv->sockfd, buffer, n);
+
+	d (g_print ("TcpStreamRaw %p: read %" G_GSSIZE_FORMAT " bytes, errno = %d\n", ssl, result, result == -1 ? errno : 0));
+
+	return result;
+}
+
+static gssize
+write_to_prfd (PRFileDesc *fd, const gchar *buffer, gsize n)
+{
+	gssize w, written = 0;
+	PRFileDesc *cancel_fd;
+
+	if (camel_operation_cancel_check (NULL)) {
+		errno = EINTR;
+		return -1;
+	}
+
+	cancel_fd = camel_operation_cancel_prfd (NULL);
+	if (cancel_fd == NULL) {
+		do {
+			do {
+				w = PR_Write (fd, buffer + written, n - written);
+				if (w == -1)
+					set_errno (PR_GetError ());
+			} while (w == -1 && (PR_GetError () == PR_PENDING_INTERRUPT_ERROR ||
+					     PR_GetError () == PR_IO_PENDING_ERROR ||
+					     PR_GetError () == PR_WOULD_BLOCK_ERROR));
+
+			if (w > 0)
+				written += w;
+		} while (w != -1 && written < n);
+	} else {
+		PRSocketOptionData sockopts;
+		PRPollDesc pollfds[2];
+		gboolean nonblock;
+		gint error;
+
+		/* get O_NONBLOCK options */
+		sockopts.option = PR_SockOpt_Nonblocking;
+		PR_GetSocketOption (fd, &sockopts);
+		sockopts.option = PR_SockOpt_Nonblocking;
+		nonblock = sockopts.value.non_blocking;
+		sockopts.value.non_blocking = TRUE;
+		PR_SetSocketOption (fd, &sockopts);
+
+		pollfds[0].fd = fd;
+		pollfds[0].in_flags = PR_POLL_WRITE;
+		pollfds[1].fd = cancel_fd;
+		pollfds[1].in_flags = PR_POLL_READ;
+
+		do {
+			PRInt32 res;
+
+			pollfds[0].out_flags = 0;
+			pollfds[1].out_flags = 0;
+			w = -1;
+
+			res = PR_Poll (pollfds, 2, IO_TIMEOUT);
+			if (res == -1) {
+				set_errno(PR_GetError());
+				if (PR_GetError () == PR_PENDING_INTERRUPT_ERROR)
+					w = 0;
+			} else if (res == 0) {
+#ifdef ETIMEDOUT
+				errno = ETIMEDOUT;
+#else
+				errno = EIO;
+#endif
+			} else if (pollfds[1].out_flags == PR_POLL_READ) {
+				errno = EINTR;
+			} else {
+				do {
+					w = PR_Write (fd, buffer + written, n - written);
+					if (w == -1)
+						set_errno (PR_GetError ());
+				} while (w == -1 && PR_GetError () == PR_PENDING_INTERRUPT_ERROR);
+
+				if (w == -1) {
+					if (PR_GetError () == PR_IO_PENDING_ERROR ||
+					    PR_GetError () == PR_WOULD_BLOCK_ERROR)
+						w = 0;
+				} else
+					written += w;
+			}
+		} while (w != -1 && written < n);
+
+		/* restore O_NONBLOCK options */
+		error = errno;
+		sockopts.option = PR_SockOpt_Nonblocking;
+		sockopts.value.non_blocking = nonblock;
+		PR_SetSocketOption (fd, &sockopts);
+		errno = error;
+	}
+
+	if (w == -1)
+		return -1;
+
+	return written;
 }
 
 static gssize
@@ -273,13 +515,26 @@ stream_write (CamelStream *stream, const gchar *buffer, gsize n)
 {
 	CamelTcpStreamRaw *raw = CAMEL_TCP_STREAM_RAW (stream);
 	CamelTcpStreamRawPrivate *priv = raw->priv;
+	gssize result;
 
-	return camel_write_socket (priv->sockfd, buffer, n);
+	d (g_print ("TcpStreamRaw %p: writing %" G_GSIZE_FORMAT " bytes...\n", ssl, n));
+
+	result = write_to_prfd (priv->sockfd, buffer, n);
+
+	d (g_print ("TcpStreamRaw %p: wrote %" G_GSSIZE_FORMAT " bytes, errno = %d\n", ssl, result, result == -1 ? errno : 0));
+
+	return result;
 }
 
 static gint
 stream_flush (CamelStream *stream)
 {
+#if 0
+	CamelTcpStreamRaw *raw = CAMEL_TCP_STREAM_RAW (stream);
+	CamelTcpStreamRawPrivate *priv = raw->priv;
+	
+	return PR_Sync (priv->sockfd);
+#endif
 	return 0;
 }
 
@@ -289,148 +544,144 @@ stream_close (CamelStream *stream)
 	CamelTcpStreamRaw *raw = CAMEL_TCP_STREAM_RAW (stream);
 	CamelTcpStreamRawPrivate *priv = raw->priv;
 
-	if (SOCKET_CLOSE (priv->sockfd) == -1)
-		return -1;
+	d (g_print ("TcpStreamRaw %p: closing\n", stream));
 
-	priv->sockfd = -1;
-	return 0;
-}
-
-/* this is a 'cancellable' connect, cancellable from camel_operation_cancel etc */
-/* returns -1 & errno == EINTR if the connection was cancelled */
-static gint
-socket_connect(struct addrinfo *h)
-{
-	struct timeval tv;
-	socklen_t len;
-	gint cancel_fd;
-	gint errnosav;
-	gint ret, fd;
-
-	/* see if we're cancelled yet */
-	if (camel_operation_cancel_check (NULL)) {
-		errno = EINTR;
-		return -1;
-	}
-
-	if (h->ai_socktype != SOCK_STREAM) {
+	if (priv->sockfd == NULL) {
 		errno = EINVAL;
 		return -1;
 	}
 
-	if ((fd = socket (h->ai_family, SOCK_STREAM, 0)) == -1)
+	PR_Shutdown (priv->sockfd, PR_SHUTDOWN_BOTH);
+	if (PR_Close (priv->sockfd) == PR_FAILURE)
 		return -1;
 
-	cancel_fd = camel_operation_cancel_fd (NULL);
-	if (cancel_fd == -1) {
-		if (connect (fd, h->ai_addr, h->ai_addrlen) == -1) {
-			/* Yeah, errno is meaningless on Win32 after a
-			 * Winsock call fails, but I doubt the callers
-			 * check errno anyway.
-			 */
-			errnosav = errno;
-			SOCKET_CLOSE (fd);
-			errno = errnosav;
-			return -1;
-		}
+	priv->sockfd = NULL;
 
-		return fd;
-	} else {
-#ifndef G_OS_WIN32
-		gint flags;
+	return 0;
+}
+
+static gint
+sockaddr_to_praddr(struct sockaddr *s, gint len, PRNetAddr *addr)
+{
+	/* We assume the ip addresses are the same size - they have to be anyway.
+	   We could probably just use memcpy *shrug* */
+
+	memset(addr, 0, sizeof(*addr));
+
+	if (s->sa_family == AF_INET) {
+		struct sockaddr_in *sin = (struct sockaddr_in *)s;
+
+		if (len < sizeof(*sin))
+			return -1;
+
+		addr->inet.family = PR_AF_INET;
+		addr->inet.port = sin->sin_port;
+		memcpy(&addr->inet.ip, &sin->sin_addr, sizeof(addr->inet.ip));
+
+		return 0;
+	}
+#ifdef ENABLE_IPv6
+	else if (s->sa_family == PR_AF_INET6) {
+		struct sockaddr_in6 *sin = (struct sockaddr_in6 *)s;
+
+		if (len < sizeof(*sin))
+			return -1;
+
+		addr->ipv6.family = PR_AF_INET6;
+		addr->ipv6.port = sin->sin6_port;
+		addr->ipv6.flowinfo = sin->sin6_flowinfo;
+		memcpy(&addr->ipv6.ip, &sin->sin6_addr, sizeof(addr->ipv6.ip));
+		addr->ipv6.scope_id = sin->sin6_scope_id;
+
+		return 0;
+	}
 #endif
-		gint fdmax, status;
-		fd_set rdset, wrset;
 
-#ifndef G_OS_WIN32
-		flags = fcntl (fd, F_GETFL);
-		fcntl (fd, F_SETFL, flags | O_NONBLOCK);
-#else
-		{
-			u_long yes = 1;
-			ioctlsocket (fd, FIONBIO, &yes);
-		}
-#endif
-		if (connect (fd, h->ai_addr, h->ai_addrlen) == 0) {
-#ifndef G_OS_WIN32
-			fcntl (fd, F_SETFL, flags);
-#else
-			{
-				u_long no = 0;
-				ioctlsocket (fd, FIONBIO, &no);
-			}
-#endif
-			return fd;
-		}
+	return -1;
+}
 
-		if (!SOCKET_ERROR_IS_EINPROGRESS ()) {
-			errnosav = errno;
-			SOCKET_CLOSE (fd);
-			errno = errnosav;
-			return -1;
-		}
+static PRFileDesc *
+socket_connect(struct addrinfo *host)
+{
+	PRNetAddr netaddr;
+	PRFileDesc *fd, *cancel_fd;
 
-		do {
-			FD_ZERO (&rdset);
-			FD_ZERO (&wrset);
-			FD_SET (fd, &wrset);
-			FD_SET (cancel_fd, &rdset);
-			fdmax = MAX (fd, cancel_fd) + 1;
-			tv.tv_sec = 60 * 4;
-			tv.tv_usec = 0;
+	if (sockaddr_to_praddr(host->ai_addr, host->ai_addrlen, &netaddr) != 0) {
+		errno = EINVAL;
+		return NULL;
+	}
 
-			status = select (fdmax, &rdset, &wrset, NULL, &tv);
-		} while (status == -1 && SOCKET_ERROR_IS_EINTR ());
+	fd = PR_OpenTCPSocket(netaddr.raw.family);
+	if (fd == NULL) {
+		set_errno (PR_GetError ());
+		return NULL;
+	}
 
-		if (status <= 0) {
-			SOCKET_CLOSE (fd);
-			errno = ETIMEDOUT;
-			return -1;
-		}
+	cancel_fd = camel_operation_cancel_prfd(NULL);
 
-		if (cancel_fd != -1 && FD_ISSET (cancel_fd, &rdset)) {
-			SOCKET_CLOSE (fd);
-			errno = EINTR;
-			return -1;
+	if (PR_Connect (fd, &netaddr, cancel_fd?0:CONNECT_TIMEOUT) == PR_FAILURE) {
+		gint errnosave;
+
+		set_errno (PR_GetError ());
+		if (PR_GetError () == PR_IN_PROGRESS_ERROR ||
+		    (cancel_fd && (PR_GetError () == PR_CONNECT_TIMEOUT_ERROR ||
+				   PR_GetError () == PR_IO_TIMEOUT_ERROR))) {
+			gboolean connected = FALSE;
+			PRPollDesc poll[2];
+
+			poll[0].fd = fd;
+			poll[0].in_flags = PR_POLL_WRITE | PR_POLL_EXCEPT;
+			poll[1].fd = cancel_fd;
+			poll[1].in_flags = PR_POLL_READ;
+
+			do {
+				poll[0].out_flags = 0;
+				poll[1].out_flags = 0;
+
+				if (PR_Poll (poll, cancel_fd?2:1, CONNECT_TIMEOUT) == PR_FAILURE) {
+					set_errno (PR_GetError ());
+					goto exception;
+				}
+
+				if (poll[1].out_flags == PR_POLL_READ) {
+					errno = EINTR;
+					goto exception;
+				}
+
+				if (PR_ConnectContinue(fd, poll[0].out_flags) == PR_FAILURE) {
+					set_errno (PR_GetError ());
+					if (PR_GetError () != PR_IN_PROGRESS_ERROR)
+						goto exception;
+				} else {
+					connected = TRUE;
+				}
+			} while (!connected);
 		} else {
-			len = sizeof (gint);
+		exception:
+			errnosave = errno;
+			PR_Shutdown (fd, PR_SHUTDOWN_BOTH);
+			PR_Close (fd);
+			errno = errnosave;
 
-			if (getsockopt (fd, SOL_SOCKET, SO_ERROR, (gchar *) &ret, &len) == -1) {
-				errnosav = errno;
-				SOCKET_CLOSE (fd);
-				errno = errnosav;
-				return -1;
-			}
+			return NULL;
+		}
 
-			if (ret != 0) {
-				SOCKET_CLOSE (fd);
-				errno = ret;
-				return -1;
-			}
-		}
-#ifndef G_OS_WIN32
-		fcntl (fd, F_SETFL, flags);
-#else
-		{
-			u_long no = 0;
-			ioctlsocket (fd, FIONBIO, &no);
-		}
-#endif
+		errno = 0;
 	}
 
 	return fd;
 }
 
 /* Returns the FD of a socket, already connected to and validated by the SOCKS4
- * proxy that is configured in the stream.  Otherwise returns -1.  Assumes that
+ * proxy that is configured in the stream.  Otherwise returns NULL.  Assumes that
  * a proxy *is* configured with camel_tcp_stream_set_socks_proxy().
  */
-static gint
+static PRFileDesc *
 connect_to_socks4_proxy (const gchar *proxy_host, gint proxy_port, struct addrinfo *connect_addr)
 {
 	struct addrinfo *ai, hints;
 	gchar serv[16];
-	gint fd;
+	PRFileDesc *fd;
 	gchar request[9];
 	struct sockaddr_in *sin;
 	gchar reply[8];
@@ -438,24 +689,30 @@ connect_to_socks4_proxy (const gchar *proxy_host, gint proxy_port, struct addrin
 
 	g_assert (proxy_host != NULL);
 
+	d (g_print ("TcpStreamRaw %p: connecting to SOCKS4 proxy %s:%d {\n  resolving proxy host\n", ssl, proxy_host, proxy_port));
+
 	sprintf (serv, "%d", proxy_port);
 
 	memset (&hints, 0, sizeof (hints));
 	hints.ai_socktype = SOCK_STREAM;
 
-	ai = camel_getaddrinfo (proxy_host, serv, &hints, NULL); /* NULL-CamelException */
+	ai = camel_getaddrinfo (proxy_host, serv, &hints, NULL);  /* NULL-CamelException */
 	if (!ai) {
 		errno = EHOSTUNREACH; /* FIXME: this is not an accurate error; we should translate the CamelException to an errno */
-		return -1;
+		d (g_print ("  camel_getaddrinfo() for the proxy failed\n}\n"));
+		return NULL;
 	}
+
+	d (g_print ("  creating socket and connecting\n"));
 
 	fd = socket_connect (ai);
 	save_errno = errno;
 
 	camel_freeaddrinfo (ai);
 
-	if (fd == -1) {
+	if (!fd) {
 		errno = save_errno;
+		d (g_print ("  could not connect: %d\n", errno));
 		goto error;
 	}
 
@@ -468,29 +725,45 @@ connect_to_socks4_proxy (const gchar *proxy_host, gint proxy_port, struct addrin
 	memcpy (request + 4, &sin->sin_addr.s_addr, 4);	/* address in network byte order */
 	request[8] = 0x00;				/* terminator */
 
-	if (camel_write_socket (fd, request, sizeof (request)) != sizeof (request))
+	d (g_print ("  writing SOCKS4 request to connect to actual host\n"));
+	if (write_to_prfd (fd, request, sizeof (request)) != sizeof (request)) {
+		d (g_print ("  failed: %d\n", errno));
 		goto error;
+	}
 
-	if (camel_read_socket (fd, reply, sizeof (reply)) != sizeof (reply))
+	d (g_print ("  reading SOCKS4 reply\n"));
+	if (read_from_prfd (fd, reply, sizeof (reply)) != sizeof (reply)) {
+		d (g_print ("  failed: %d\n", errno));
 		goto error;
+	}
 
 	if (!(reply[0] == 0		/* first byte of reply is 0 */
 	      && reply[1] == 90)) {	/* 90 means "request granted" */
 		errno = ECONNREFUSED;
+		d (g_print ("  proxy replied with code %d\n", reply[1]));
 		goto error;
 	}
+
+	/* We are now proxied; we are ready to send "normal" data through the socket */
+
+	d (g_print ("  success\n"));
 
 	goto out;
 
 error:
-	if (fd != -1) {
+	if (fd) {
 		save_errno = errno;
-		SOCKET_CLOSE (fd);
+		PR_Shutdown (fd, PR_SHUTDOWN_BOTH);
+		PR_Close (fd);
 		errno = save_errno;
-		fd = -1;
+		fd = NULL;
 	}
 
+	d (g_print ("  returning errno %d\n", errno));
+
 out:
+
+	d (g_print ("}\n"));
 
 	return fd;
 }
@@ -536,7 +809,7 @@ stream_connect (CamelTcpStream *stream, const char *host, const char *service, g
 		else
 			priv->sockfd = socket_connect (ai);
 
-		if (priv->sockfd != -1) {
+		if (priv->sockfd) {
 			retval = 0;
 			goto out;
 		}
@@ -554,76 +827,21 @@ out:
 }
 
 static gint
-get_sockopt_level (const CamelSockOptData *data)
-{
-	switch (data->option) {
-	case CAMEL_SOCKOPT_MAXSEGMENT:
-	case CAMEL_SOCKOPT_NODELAY:
-		return IPPROTO_TCP;
-	default:
-		return SOL_SOCKET;
-	}
-}
-
-static gint
-get_sockopt_optname (const CamelSockOptData *data)
-{
-	switch (data->option) {
-#ifdef TCP_MAXSEG
-	case CAMEL_SOCKOPT_MAXSEGMENT:
-		return TCP_MAXSEG;
-#endif
-	case CAMEL_SOCKOPT_NODELAY:
-		return TCP_NODELAY;
-	case CAMEL_SOCKOPT_BROADCAST:
-		return SO_BROADCAST;
-	case CAMEL_SOCKOPT_KEEPALIVE:
-		return SO_KEEPALIVE;
-	case CAMEL_SOCKOPT_LINGER:
-		return SO_LINGER;
-	case CAMEL_SOCKOPT_RECVBUFFERSIZE:
-		return SO_RCVBUF;
-	case CAMEL_SOCKOPT_SENDBUFFERSIZE:
-		return SO_SNDBUF;
-	case CAMEL_SOCKOPT_REUSEADDR:
-		return SO_REUSEADDR;
-	case CAMEL_SOCKOPT_IPTYPEOFSERVICE:
-		return SO_TYPE;
-	default:
-		return -1;
-	}
-}
-
-static gint
 stream_getsockopt (CamelTcpStream *stream, CamelSockOptData *data)
 {
 	CamelTcpStreamRaw *raw = CAMEL_TCP_STREAM_RAW (stream);
 	CamelTcpStreamRawPrivate *priv = raw->priv;
-	gint optname, optlen;
+	PRSocketOptionData sodata;
 
-	if ((optname = get_sockopt_optname (data)) == -1)
+	memset ((gpointer) &sodata, 0, sizeof (sodata));
+	memcpy ((gpointer) &sodata, (gpointer) data, sizeof (CamelSockOptData));
+
+	if (PR_GetSocketOption (priv->sockfd, &sodata) == PR_FAILURE)
 		return -1;
 
-	if (data->option == CAMEL_SOCKOPT_NONBLOCKING) {
-#ifndef G_OS_WIN32
-		gint flags;
+	memcpy ((gpointer) data, (gpointer) &sodata, sizeof (CamelSockOptData));
 
-		flags = fcntl (priv->sockfd, F_GETFL);
-		if (flags == -1)
-			return -1;
-
-		data->value.non_blocking = flags & O_NONBLOCK ? TRUE : FALSE;
-#else
-		data->value.non_blocking = priv->is_nonblocking;
-#endif
-		return 0;
-	}
-
-	return getsockopt (priv->sockfd,
-			   get_sockopt_level (data),
-			   optname,
-			   (gpointer) &data->value,
-			   (socklen_t *) &optlen);
+	return 0;
 }
 
 static gint
@@ -631,60 +849,61 @@ stream_setsockopt (CamelTcpStream *stream, const CamelSockOptData *data)
 {
 	CamelTcpStreamRaw *raw = CAMEL_TCP_STREAM_RAW (stream);
 	CamelTcpStreamRawPrivate *priv = raw->priv;
-	gint optname;
+	PRSocketOptionData sodata;
 
-	if ((optname = get_sockopt_optname (data)) == -1)
+	memset ((gpointer) &sodata, 0, sizeof (sodata));
+	memcpy ((gpointer) &sodata, (gpointer) data, sizeof (CamelSockOptData));
+
+	if (PR_SetSocketOption (priv->sockfd, &sodata) == PR_FAILURE)
 		return -1;
 
-	if (data->option == CAMEL_SOCKOPT_NONBLOCKING) {
-#ifndef G_OS_WIN32
-		gint flags, set;
-
-		flags = fcntl (priv->sockfd, F_GETFL);
-		if (flags == -1)
-			return -1;
-
-		set = data->value.non_blocking ? O_NONBLOCK : 0;
-		flags = (flags & ~O_NONBLOCK) | set;
-
-		if (fcntl (priv->sockfd, F_SETFL, flags) == -1)
-			return -1;
-#else
-		u_long fionbio = data->value.non_blocking ? 1 : 0;
-		if (ioctlsocket (priv->sockfd, FIONBIO, &fionbio) == SOCKET_ERROR)
-			return -1;
-		priv->is_nonblocking = data->value.non_blocking ? 1 : 0;
-#endif
-		return 0;
-	}
-
-	return setsockopt (priv->sockfd,
-			   get_sockopt_level (data),
-			   optname,
-			   (gpointer) &data->value,
-			   sizeof (data->value));
+	return 0;
 }
 
 static struct sockaddr *
-stream_get_local_address (CamelTcpStream *stream, socklen_t *len)
+sockaddr_from_praddr(PRNetAddr *addr, socklen_t *len)
+{
+	/* We assume the ip addresses are the same size - they have to be anyway */
+
+	if (addr->raw.family == PR_AF_INET) {
+		struct sockaddr_in *sin = g_malloc0(sizeof(*sin));
+
+		sin->sin_family = AF_INET;
+		sin->sin_port = addr->inet.port;
+		memcpy(&sin->sin_addr, &addr->inet.ip, sizeof(sin->sin_addr));
+		*len = sizeof(*sin);
+
+		return (struct sockaddr *)sin;
+	}
+#ifdef ENABLE_IPv6
+	else if (addr->raw.family == PR_AF_INET6) {
+		struct sockaddr_in6 *sin = g_malloc0(sizeof(*sin));
+
+		sin->sin6_family = AF_INET6;
+		sin->sin6_port = addr->ipv6.port;
+		sin->sin6_flowinfo = addr->ipv6.flowinfo;
+		memcpy(&sin->sin6_addr, &addr->ipv6.ip, sizeof(sin->sin6_addr));
+		sin->sin6_scope_id = addr->ipv6.scope_id;
+		*len = sizeof(*sin);
+
+		return (struct sockaddr *)sin;
+	}
+#endif
+
+	return NULL;
+}
+
+static struct sockaddr *
+stream_get_local_address(CamelTcpStream *stream, socklen_t *len)
 {
 	CamelTcpStreamRaw *raw = CAMEL_TCP_STREAM_RAW (stream);
 	CamelTcpStreamRawPrivate *priv = raw->priv;
-#ifdef ENABLE_IPv6
-	struct sockaddr_in6 sin;
-#else
-	struct sockaddr_in sin;
-#endif
-	struct sockaddr *saddr = (struct sockaddr *)&sin;
+	PRNetAddr addr;
 
-	*len = sizeof(sin);
-	if (getsockname (priv->sockfd, saddr, len) == -1)
+	if (PR_GetSockName(priv->sockfd, &addr) != PR_SUCCESS)
 		return NULL;
 
-	saddr = g_malloc(*len);
-	memcpy(saddr, &sin, *len);
-
-	return saddr;
+	return sockaddr_from_praddr(&addr, len);
 }
 
 static struct sockaddr *
@@ -692,26 +911,18 @@ stream_get_remote_address (CamelTcpStream *stream, socklen_t *len)
 {
 	CamelTcpStreamRaw *raw = CAMEL_TCP_STREAM_RAW (stream);
 	CamelTcpStreamRawPrivate *priv = raw->priv;
-#ifdef ENABLE_IPv6
-	struct sockaddr_in6 sin;
-#else
-	struct sockaddr_in sin;
-#endif
-	struct sockaddr *saddr = (struct sockaddr *)&sin;
+	PRNetAddr addr;
 
-	*len = sizeof(sin);
-	if (getpeername (priv->sockfd, saddr, len) == -1)
+	if (PR_GetPeerName(priv->sockfd, &addr) != PR_SUCCESS)
 		return NULL;
 
-	saddr = g_malloc(*len);
-	memcpy(saddr, &sin, *len);
-
-	return saddr;
+	return sockaddr_from_praddr(&addr, len);
 }
 
-gint
-camel_tcp_stream_raw_get_fd (CamelTcpStreamRaw *raw)
+static PRFileDesc *
+stream_get_file_desc (CamelTcpStream *stream)
 {
+	CamelTcpStreamRaw *raw = CAMEL_TCP_STREAM_RAW (stream);
 	CamelTcpStreamRawPrivate *priv = raw->priv;
 
 	return priv->sockfd;
