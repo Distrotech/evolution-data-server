@@ -23,8 +23,7 @@
 #ifndef CAMEL_TCP_STREAM_SSL_H
 #define CAMEL_TCP_STREAM_SSL_H
 
-#include <camel/camel-tcp-stream.h>
-#include <prio.h>
+#include <camel/camel-tcp-stream-raw.h>
 
 #define CAMEL_TCP_STREAM_SSL_TYPE     (camel_tcp_stream_ssl_get_type ())
 #define CAMEL_TCP_STREAM_SSL(obj)     (CAMEL_CHECK_CAST((obj), CAMEL_TCP_STREAM_SSL_TYPE, CamelTcpStreamSSL))
@@ -40,13 +39,13 @@ G_BEGIN_DECLS
 struct _CamelSession;
 
 struct _CamelTcpStreamSSL {
-	CamelTcpStream parent_object;
+	CamelTcpStreamRaw parent_object;
 
 	struct _CamelTcpStreamSSLPrivate *priv;
 };
 
 typedef struct {
-	CamelTcpStreamClass parent_class;
+	CamelTcpStreamRawClass parent_class;
 
 	/* virtual functions */
 
