@@ -256,11 +256,11 @@ camel_tcp_stream_raw_new (void)
 	return CAMEL_STREAM (stream);
 }
 
-static void
-set_errno (gint code)
+void
+_set_errno_from_pr_error (gint pr_code)
 {
 	/* FIXME: this should handle more. */
-	switch (code) {
+	switch (pr_code) {
 	case PR_INVALID_ARGUMENT_ERROR:
 		errno = EINVAL;
 		break;
@@ -334,7 +334,7 @@ read_from_prfd (PRFileDesc *fd, gchar *buffer, gsize n)
 		do {
 			nread = PR_Read (fd, buffer, n);
 			if (nread == -1)
-				set_errno (PR_GetError ());
+				_set_errno_from_pr_error (PR_GetError ());
 		} while (nread == -1 && (PR_GetError () == PR_PENDING_INTERRUPT_ERROR ||
 					 PR_GetError () == PR_IO_PENDING_ERROR ||
 					 PR_GetError () == PR_WOULD_BLOCK_ERROR));
@@ -366,7 +366,7 @@ read_from_prfd (PRFileDesc *fd, gchar *buffer, gsize n)
 
 			res = PR_Poll(pollfds, 2, IO_TIMEOUT);
 			if (res == -1)
-				set_errno(PR_GetError());
+				_set_errno_from_pr_error (PR_GetError());
 			else if (res == 0) {
 #ifdef ETIMEDOUT
 				errno = ETIMEDOUT;
@@ -381,7 +381,7 @@ read_from_prfd (PRFileDesc *fd, gchar *buffer, gsize n)
 				do {
 					nread = PR_Read (fd, buffer, n);
 					if (nread == -1)
-						set_errno (PR_GetError ());
+						_set_errno_from_pr_error (PR_GetError ());
 				} while (nread == -1 && PR_GetError () == PR_PENDING_INTERRUPT_ERROR);
 			}
 		} while (nread == -1 && (PR_GetError () == PR_PENDING_INTERRUPT_ERROR ||
@@ -433,7 +433,7 @@ write_to_prfd (PRFileDesc *fd, const gchar *buffer, gsize n)
 			do {
 				w = PR_Write (fd, buffer + written, n - written);
 				if (w == -1)
-					set_errno (PR_GetError ());
+					_set_errno_from_pr_error (PR_GetError ());
 			} while (w == -1 && (PR_GetError () == PR_PENDING_INTERRUPT_ERROR ||
 					     PR_GetError () == PR_IO_PENDING_ERROR ||
 					     PR_GetError () == PR_WOULD_BLOCK_ERROR));
@@ -469,7 +469,7 @@ write_to_prfd (PRFileDesc *fd, const gchar *buffer, gsize n)
 
 			res = PR_Poll (pollfds, 2, IO_TIMEOUT);
 			if (res == -1) {
-				set_errno(PR_GetError());
+				_set_errno_from_pr_error (PR_GetError());
 				if (PR_GetError () == PR_PENDING_INTERRUPT_ERROR)
 					w = 0;
 			} else if (res == 0) {
@@ -484,7 +484,7 @@ write_to_prfd (PRFileDesc *fd, const gchar *buffer, gsize n)
 				do {
 					w = PR_Write (fd, buffer + written, n - written);
 					if (w == -1)
-						set_errno (PR_GetError ());
+						_set_errno_from_pr_error (PR_GetError ());
 				} while (w == -1 && PR_GetError () == PR_PENDING_INTERRUPT_ERROR);
 
 				if (w == -1) {
@@ -613,7 +613,7 @@ socket_connect(struct addrinfo *host)
 
 	fd = PR_OpenTCPSocket(netaddr.raw.family);
 	if (fd == NULL) {
-		set_errno (PR_GetError ());
+		_set_errno_from_pr_error (PR_GetError ());
 		return NULL;
 	}
 
@@ -622,7 +622,7 @@ socket_connect(struct addrinfo *host)
 	if (PR_Connect (fd, &netaddr, cancel_fd?0:CONNECT_TIMEOUT) == PR_FAILURE) {
 		gint errnosave;
 
-		set_errno (PR_GetError ());
+		_set_errno_from_pr_error (PR_GetError ());
 		if (PR_GetError () == PR_IN_PROGRESS_ERROR ||
 		    (cancel_fd && (PR_GetError () == PR_CONNECT_TIMEOUT_ERROR ||
 				   PR_GetError () == PR_IO_TIMEOUT_ERROR))) {
@@ -639,7 +639,7 @@ socket_connect(struct addrinfo *host)
 				poll[1].out_flags = 0;
 
 				if (PR_Poll (poll, cancel_fd?2:1, CONNECT_TIMEOUT) == PR_FAILURE) {
-					set_errno (PR_GetError ());
+					_set_errno_from_pr_error (PR_GetError ());
 					goto exception;
 				}
 
@@ -649,7 +649,7 @@ socket_connect(struct addrinfo *host)
 				}
 
 				if (PR_ConnectContinue(fd, poll[0].out_flags) == PR_FAILURE) {
-					set_errno (PR_GetError ());
+					_set_errno_from_pr_error (PR_GetError ());
 					if (PR_GetError () != PR_IN_PROGRESS_ERROR)
 						goto exception;
 				} else {
