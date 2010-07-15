@@ -927,3 +927,11 @@ stream_get_file_desc (CamelTcpStream *stream)
 
 	return priv->sockfd;
 }
+
+void
+_camel_tcp_stream_raw_replace_file_desc (CamelTcpStreamRaw *raw, PRFileDesc *new_file_desc)
+{
+	CamelTcpStreamRawPrivate *priv = raw->priv;
+
+	priv->sockfd = new_file_desc;
+}
