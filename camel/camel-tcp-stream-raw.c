@@ -672,33 +672,28 @@ socket_connect(struct addrinfo *host)
 	return fd;
 }
 
-/* Returns the FD of a socket, already connected to and validated by the SOCKS4
- * proxy that is configured in the stream.  Otherwise returns NULL.  Assumes that
- * a proxy *is* configured with camel_tcp_stream_set_socks_proxy().
+/* Just opens a TCP socket to a (presumed) SOCKS proxy.  Does not actually
+ * negotiate anything with the proxy; this is just to create the socket and connect.
  */
 static PRFileDesc *
-connect_to_socks4_proxy (const gchar *proxy_host, gint proxy_port, struct addrinfo *connect_addr)
+connect_to_proxy (CamelTcpStreamRaw *raw, const char *proxy_host, gint proxy_port, CamelException *ex)
 {
 	struct addrinfo *ai, hints;
 	gchar serv[16];
 	PRFileDesc *fd;
-	gchar request[9];
-	struct sockaddr_in *sin;
-	gchar reply[8];
 	gint save_errno;
 
 	g_assert (proxy_host != NULL);
 
-	d (g_print ("TcpStreamRaw %p: connecting to SOCKS4 proxy %s:%d {\n  resolving proxy host\n", ssl, proxy_host, proxy_port));
+	d (g_print ("TcpStreamRaw %p: connecting to proxy %s:%d {\n  resolving proxy host\n", raw, proxy_host, proxy_port));
 
 	sprintf (serv, "%d", proxy_port);
 
 	memset (&hints, 0, sizeof (hints));
 	hints.ai_socktype = SOCK_STREAM;
 
-	ai = camel_getaddrinfo (proxy_host, serv, &hints, NULL);  /* NULL-CamelException */
+	ai = camel_getaddrinfo (proxy_host, serv, &hints, ex);
 	if (!ai) {
-		errno = EHOSTUNREACH; /* FIXME: this is not an accurate error; we should translate the CamelException to an errno */
 		d (g_print ("  camel_getaddrinfo() for the proxy failed\n}\n"));
 		return NULL;
 	}
@@ -712,9 +707,28 @@ connect_to_socks4_proxy (const gchar *proxy_host, gint proxy_port, struct addrin
 
 	if (!fd) {
 		errno = save_errno;
-		d (g_print ("  could not connect: %d\n", errno));
-		goto error;
+		d (g_print ("  could not connect: errno %d\n", errno));
 	}
+
+	return fd;
+}
+
+/* Returns the FD of a socket, already connected to and validated by the SOCKS4
+ * proxy that is configured in the stream.  Otherwise returns NULL.  Assumes that
+ * a proxy *is* configured with camel_tcp_stream_set_socks_proxy().
+ */
+static PRFileDesc *
+connect_to_socks4_proxy (CamelTcpStreamRaw *raw, const gchar *proxy_host, gint proxy_port, struct addrinfo *connect_addr, CamelException *ex)
+{
+	PRFileDesc *fd;
+	gchar request[9];
+	struct sockaddr_in *sin;
+	gchar reply[8];
+	gint save_errno;
+
+	fd = connect_to_proxy (raw, proxy_host, proxy_port, ex);
+	if (!fd)
+		goto error;
 
 	g_assert (connect_addr->ai_addr->sa_family == AF_INET); /* FMQ: check for AF_INET in the caller */
 	sin = (struct sockaddr_in *) connect_addr->ai_addr;
@@ -805,7 +819,7 @@ stream_connect (CamelTcpStream *stream, const char *host, const char *service, g
 
 	while (ai) {
 		if (proxy_host)
-			priv->sockfd = connect_to_socks4_proxy (proxy_host, proxy_port, ai);
+			priv->sockfd = connect_to_socks4_proxy (raw, proxy_host, proxy_port, ai, ex);
 		else
 			priv->sockfd = socket_connect (ai);
 
