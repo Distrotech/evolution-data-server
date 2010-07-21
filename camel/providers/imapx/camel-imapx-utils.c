@@ -427,7 +427,7 @@ imapx_parse_capability(CamelIMAPXStream *stream, CamelException *ex)
 	gboolean free_token = FALSE;
 	struct _capability_info * cinfo;
 
-	cinfo = g_new0 (struct _capability_info, 1);
+	cinfo = g_malloc0(sizeof(*cinfo));
 	cinfo->auth_types = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify) g_free, NULL);
 
 	/* FIXME: handle auth types */
@@ -493,7 +493,7 @@ imapx_parse_namespace_list (CamelIMAPXStream *stream, CamelException *ex)
 	guchar *token;
 	gint n = 0;
 
-	nsl = g_new0 (CamelIMAPXNamespaceList, 1);
+	nsl = g_malloc0(sizeof(CamelIMAPXNamespaceList));
 	nsl->personal = NULL;
 	nsl->shared = NULL;
 	nsl->other = NULL;
@@ -783,7 +783,7 @@ imapx_parse_ext_optional(CamelIMAPXStream *is, CamelException *ex)
 	tok = camel_imapx_stream_token(is, &token, &len, ex);
 	switch (tok) {
 		case '(':
-			dinfo = g_new0 (struct _CamelContentDisposition, 1);
+			dinfo = g_malloc0(sizeof(*dinfo));
 			dinfo->refcount = 1;
 			/* should be string */
 			camel_imapx_stream_astring(is, &token, ex);
@@ -855,7 +855,7 @@ imapx_parse_body_fields(CamelIMAPXStream *is, CamelException *ex)
 
 	p(printf("body_fields\n"));
 
-	cinfo = g_new0 (struct _CamelMessageContentInfo, 1);
+	cinfo = g_malloc0(sizeof(*cinfo));
 
 	/* this should be string not astring */
 	camel_imapx_stream_astring(is, &token, ex);
@@ -1119,7 +1119,7 @@ imapx_parse_body(CamelIMAPXStream *is, CamelException *ex)
 		/* body_type_mpart ::= 1*body SPACE media_subtype
 		   [SPACE body_ext_mpart] */
 
-		cinfo = g_new0 (struct _CamelMessageContentInfo, 1);
+		cinfo = g_malloc0(sizeof(*cinfo));
 		last = (struct _CamelMessageContentInfo *)&cinfo->childs;
 		do {
 			subinfo = imapx_parse_body(is, ex);
@@ -1424,7 +1424,7 @@ imapx_parse_fetch(CamelIMAPXStream *is, CamelException *ex)
 	guchar *token, *p, c;
 	struct _fetch_info *finfo;
 
-	finfo = g_new0 (struct _fetch_info, 1);
+	finfo = g_malloc0(sizeof(*finfo));
 
 	tok = camel_imapx_stream_token(is, &token, &len, ex);
 	if (tok != '(') {
@@ -1530,7 +1530,7 @@ imapx_parse_status_info (struct _CamelIMAPXStream *is, CamelException *ex)
 	guint len;
 	guchar *token;
 
-	sinfo = g_new0 (struct _state_info, 1);
+	sinfo = g_malloc0 (sizeof(*sinfo));
 
 	/* skip the folder name */
 	camel_imapx_stream_astring (is, &token, ex);
@@ -1636,7 +1636,7 @@ imapx_parse_status(CamelIMAPXStream *is, CamelException *ex)
 	guchar *token;
 	struct _status_info *sinfo;
 
-	sinfo = g_new0 (struct _status_info, 1);
+	sinfo = g_malloc0(sizeof(*sinfo));
 
 	camel_imapx_stream_atom(is, &token, &len, ex);
 
@@ -1802,7 +1802,7 @@ imapx_parse_list(CamelIMAPXStream *is, CamelException *ex)
 	guchar *token, *p, c;
 	struct _list_info * linfo;
 
-	linfo = g_new0 (struct _list_info, 1);
+	linfo = g_malloc0(sizeof(*linfo));
 
 	/* mailbox_list    ::= "(" #("\Marked" / "\Noinferiors" /
 	   "\Noselect" / "\Unmarked" / flag_extension) ")"
