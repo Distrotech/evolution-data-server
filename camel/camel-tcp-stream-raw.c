@@ -738,11 +738,12 @@ connect_to_socks4_proxy (CamelTcpStreamRaw *raw, const gchar *proxy_host, gint p
 	gchar reply[8];
 	gint save_errno;
 
+	g_assert (connect_addr->ai_addr->sa_family == AF_INET); /* FMQ: check for AF_INET in the caller */
+
 	fd = connect_to_proxy (raw, proxy_host, proxy_port, ex);
 	if (!fd)
 		goto error;
 
-	g_assert (connect_addr->ai_addr->sa_family == AF_INET); /* FMQ: check for AF_INET in the caller */
 	sin = (struct sockaddr_in *) connect_addr->ai_addr;
 
 	request[0] = 0x04;				/* SOCKS4 */
@@ -1097,9 +1098,11 @@ stream_connect (CamelTcpStream *stream, const char *host, const char *service, g
 	ai = addr;
 
 	while (ai) {
-		if (proxy_host)
-			priv->sockfd = connect_to_socks4_proxy (raw, proxy_host, proxy_port, ai, ex);
-		else
+		if (proxy_host) {
+			/* SOCKS4 only does IPv4 */
+			if (connect_addr->ai_addr->sa_family == AF_INET)
+				priv->sockfd = connect_to_socks4_proxy (raw, proxy_host, proxy_port, ai, ex);
+		} else
 			priv->sockfd = socket_connect (ai);
 
 		if (priv->sockfd) {
