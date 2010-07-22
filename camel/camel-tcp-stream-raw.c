@@ -726,7 +726,8 @@ out:
 
 /* Returns the FD of a socket, already connected to and validated by the SOCKS4
  * proxy that is configured in the stream.  Otherwise returns NULL.  Assumes that
- * a proxy *is* configured with camel_tcp_stream_set_socks_proxy().
+ * a proxy *is* configured with camel_tcp_stream_set_socks_proxy().  Only tries the first
+ * connect_addr; if you want to traverse all the addrinfos, call this function for each of them.
  */
 static PRFileDesc *
 connect_to_socks4_proxy (CamelTcpStreamRaw *raw, const gchar *proxy_host, gint proxy_port, struct addrinfo *connect_addr, CamelException *ex)
@@ -1056,6 +1057,24 @@ stream_connect (CamelTcpStream *stream, const char *host, const char *service, g
 	const gchar *proxy_host;
 	gint proxy_port;
 
+	camel_tcp_stream_peek_socks_proxy (stream, &proxy_host, &proxy_port);
+
+	if (proxy_host) {
+		/* First, try SOCKS5, which does name resolution itself */
+
+		camel_exception_init (&my_ex);
+		priv->sockfd = connect_to_socks5_proxy (raw, proxy_host, proxy_port, host, service, fallback_port, &my_ex);
+		if (priv->sockfd)
+			return 0;
+		else if (camel_exception_get_id (&my_ex) == CAMEL_EXCEPTION_PROXY_CANT_AUTHENTICATE
+			 || camel_exception_get_id (&my_ex) != CAMEL_EXCEPTION_PROXY_NOT_SUPPORTED) {
+			camel_exception_xfer (ex, &my_ex);
+			return -1;
+		}
+	}
+
+	/* Second, do name resolution ourselves and try SOCKS4 or a normal connection */
+
 	memset (&hints, 0, sizeof (hints));
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_family = PF_UNSPEC;
@@ -1074,8 +1093,6 @@ stream_connect (CamelTcpStream *stream, const char *host, const char *service, g
 		camel_exception_xfer (ex, &my_ex);
 		return -1;
 	}
-
-	camel_tcp_stream_peek_socks_proxy (stream, &proxy_host, &proxy_port);
 
 	ai = addr;
 
