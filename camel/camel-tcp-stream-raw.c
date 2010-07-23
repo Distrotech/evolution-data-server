@@ -829,6 +829,8 @@ resolve_port (const char *service, gint fallback_port, CamelException *ex)
 		}
 
 		camel_freeaddrinfo (ai);
+
+		port = g_ntohs (port);
 	}
 
 	return port;
