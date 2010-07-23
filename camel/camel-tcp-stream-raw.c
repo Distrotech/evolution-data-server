@@ -1100,7 +1100,7 @@ stream_connect (CamelTcpStream *stream, const char *host, const char *service, g
 	while (ai) {
 		if (proxy_host) {
 			/* SOCKS4 only does IPv4 */
-			if (connect_addr->ai_addr->sa_family == AF_INET)
+			if (ai->ai_addr->sa_family == AF_INET)
 				priv->sockfd = connect_to_socks4_proxy (raw, proxy_host, proxy_port, ai, ex);
 		} else
 			priv->sockfd = socket_connect (ai);
