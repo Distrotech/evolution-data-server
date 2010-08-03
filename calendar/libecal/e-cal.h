@@ -216,6 +216,14 @@ const gchar * e_cal_get_local_attachment_store (ECal *ecal);
 gboolean e_cal_get_recurrences_no_master (ECal *ecal);
 gboolean e_cal_get_attachments_for_comp (ECal *ecal, const gchar *uid, const gchar *rid, GSList **list, GError **error);
 
+
+gboolean e_cal_modify_object_async (ECal              *ecal,
+				    icalcomponent     *icalcomp,
+				    CalObjModType      mod,
+				    ECalAsyncCallback  cb,
+				    gpointer           closure,
+				    GError           **error);
+
 G_END_DECLS
 
 #endif

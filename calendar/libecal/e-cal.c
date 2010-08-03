@@ -4186,3 +4186,68 @@ e_cal_get_sources (ESourceList **sources, ECalSourceType type, GError **error)
 	/* FIXME Fill in error */
 	return FALSE;
 }
+
+typedef struct {
+	ECal *ecal;
+	gpointer callback;
+	gpointer closure;
+	gpointer data;
+} AsyncData;
+
+static void
+modify_object_reply_cb (GObject      *gdbus_ecal,
+			GAsyncResult *res,
+			gpointer      user_data)
+{
+	GError *error = NULL;
+	AsyncData *data = user_data;
+	ECalAsyncCallback cb = data->callback;
+
+	e_gdbus_cal_call_modify_object_finish (E_GDBUS_CAL (gdbus_ecal), res, &error);
+
+	unwrap_gerror (&error);
+	if (cb)
+		cb (data->ecal, error, data->closure);
+
+	if (error)
+		g_error_free (error);
+
+	g_object_unref (data->ecal);
+	g_slice_free (AsyncData, data);
+}
+
+gboolean
+e_cal_modify_object_async (ECal              *ecal,
+			   icalcomponent     *icalcomp,
+			   CalObjModType      mod,
+			   ECalAsyncCallback  cb,
+			   gpointer           closure,
+			   GError           **error)
+{
+	ECalPrivate *priv;
+	gchar *obj;
+	AsyncData *data;
+
+	e_return_error_if_fail (E_IS_CAL (ecal), E_CALENDAR_STATUS_INVALID_ARG);
+	e_return_error_if_fail (icalcomp, E_CALENDAR_STATUS_INVALID_ARG);
+	e_return_error_if_fail (icalcomponent_is_valid (icalcomp), E_CALENDAR_STATUS_INVALID_ARG);
+	e_return_error_if_fail (mod & CALOBJ_MOD_ALL, E_CALENDAR_STATUS_INVALID_ARG);
+	priv = ecal->priv;
+	e_return_error_if_fail (priv->gdbus_cal, E_CALENDAR_STATUS_REPOSITORY_OFFLINE);
+
+	if (priv->load_state != E_CAL_LOAD_LOADED) {
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
+	}
+
+	obj = icalcomponent_as_ical_string_r (icalcomp);
+
+	data = g_slice_new0 (AsyncData);
+	data->ecal = g_object_ref (ecal);
+	data->callback = cb;
+	data->closure = closure;
+
+	e_gdbus_cal_call_modify_object (priv->gdbus_cal, obj, mod, NULL, modify_object_reply_cb, data);
+
+	g_free (obj);
+	return TRUE;
+}
