@@ -96,6 +96,9 @@ typedef gchar * (* ECalAuthFunc) (ECal *ecal,
 				 const gchar *key,
 				 gpointer user_data);
 
+typedef void (*ECalAsyncCallback) (ECal *ecal, const GError *error, gpointer closure);
+
+
 GType e_cal_get_type (void);
 
 GType e_cal_open_status_enum_get_type (void);
