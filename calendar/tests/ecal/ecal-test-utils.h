@@ -103,6 +103,12 @@ void
 ecal_test_utils_cal_remove_object (ECal       *cal,
 				   const gchar *uid);
 
+void
+ecal_test_utils_cal_remove_object_async (ECal              *cal,
+					 const gchar       *uid,
+					 ECalAsyncCallback  cb,
+					 gpointer           userdata);
+
 icalcomponent*
 ecal_test_utils_cal_get_default_object (ECal *cal);
 

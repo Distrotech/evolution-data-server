@@ -411,6 +411,23 @@ ecal_test_utils_cal_remove_object (ECal       *cal,
         test_print ("successfully remoed the icalcomponent object '%s'\n", uid);
 }
 
+
+void
+ecal_test_utils_cal_remove_object_async (ECal              *cal,
+					 const gchar       *uid,
+					 ECalAsyncCallback  cb,
+					 gpointer           userdata)
+{
+        GError *error = NULL;
+
+        if (!e_cal_remove_object_async (cal, uid, cb, userdata, &error)) {
+                g_warning ("failed to remove icalcomponent object '%s'; %s\n", uid, error->message);
+                exit(1);
+        }
+}
+
+
+
 icalcomponent*
 ecal_test_utils_cal_get_default_object (ECal *cal)
 {

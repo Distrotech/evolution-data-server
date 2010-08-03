@@ -48,6 +48,7 @@ TESTS = \
 	test-ecal-create-object--2		\
 	test-ecal-get-objects-for-uid		\
 	test-ecal-remove-object			\
+	test-ecal-remove-object-async		\
 	test-ecal-get-object-list		\
 	test-ecal-modify-object			\
 	test-ecal-modify-object-async		\
@@ -106,6 +107,8 @@ test_ecal_remove_LDADD=$(TEST_ECAL_LIBS)
 test_ecal_remove_CPPFLAGS=$(TEST_ECAL_CPPFLAGS)
 test_ecal_remove_object_LDADD=$(TEST_ECAL_LIBS)
 test_ecal_remove_object_CPPFLAGS=$(TEST_ECAL_CPPFLAGS)
+test_ecal_remove_object_async_LDADD=$(TEST_ECAL_LIBS)
+test_ecal_remove_object_async_CPPFLAGS=$(TEST_ECAL_CPPFLAGS)
 test_ecal_send_objects_LDADD=$(TEST_ECAL_LIBS)
 test_ecal_send_objects_CPPFLAGS=$(TEST_ECAL_CPPFLAGS)
 test_ecal_set_default_timezone_LDADD=$(TEST_ECAL_LIBS)
