@@ -378,6 +378,26 @@ ecal_test_utils_cal_modify_object (ECal          *cal,
         test_print ("successfully modified the icalcomponent object\n");
 }
 
+
+void
+ecal_test_utils_cal_modify_object_async (ECal              *cal,
+					 icalcomponent     *component,
+					 CalObjModType      mod_type,
+					 ECalAsyncCallback  cb,
+					 gpointer           closure)
+{
+        GError *error = NULL;
+
+        if (!icalcomponent_is_valid (component)) {
+                g_warning (G_STRLOC ": icalcomponent argument is invalid\n");
+                exit(1);
+        }
+        if (!e_cal_modify_object_async (cal, component, mod_type, cb, closure, &error)) {
+                g_warning ("failed to modify icalcomponent object (async); %s\n", error->message);
+                exit(1);
+        }
+}
+
 void
 ecal_test_utils_cal_remove_object (ECal       *cal,
 				   const gchar *uid)

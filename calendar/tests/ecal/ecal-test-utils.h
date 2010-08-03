@@ -93,6 +93,13 @@ ecal_test_utils_cal_modify_object (ECal          *cal,
                                    CalObjModType  mod_type);
 
 void
+ecal_test_utils_cal_modify_object_async (ECal              *cal,
+					 icalcomponent     *component,
+					 CalObjModType      mod_type,
+					 ECalAsyncCallback  cb,
+					 gpointer           closure);
+
+void
 ecal_test_utils_cal_remove_object (ECal       *cal,
 				   const gchar *uid);
 
