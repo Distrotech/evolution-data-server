@@ -224,6 +224,21 @@ gboolean e_cal_modify_object_async (ECal              *ecal,
 				    gpointer           closure,
 				    GError           **error);
 
+gboolean e_cal_remove_object_async (ECal               *ecal,
+				    const gchar        *uid,
+				    ECalAsyncCallback   cb,
+				    gpointer            closure,
+				    GError            **error);
+gboolean e_cal_remove_object_with_mod_async (ECal               *ecal,
+					     const gchar        *uid,
+					     const gchar        *rid,
+					     CalObjModType       mod,
+					     ECalAsyncCallback   cb,
+					     gpointer            closure,
+					     GError            **error);
+
+
+
 G_END_DECLS
 
 #endif

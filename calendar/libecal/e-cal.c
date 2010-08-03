@@ -4251,3 +4251,76 @@ e_cal_modify_object_async (ECal              *ecal,
 	g_free (obj);
 	return TRUE;
 }
+
+
+gboolean e_cal_remove_object_async (ECal               *ecal,
+				    const gchar        *uid,
+				    ECalAsyncCallback   cb,
+				    gpointer            closure,
+				    GError            **error)
+{
+	e_return_error_if_fail (ecal && E_IS_CAL (ecal), E_CALENDAR_STATUS_INVALID_ARG);
+	e_return_error_if_fail (uid, E_CALENDAR_STATUS_INVALID_ARG);
+
+	return e_cal_remove_object_with_mod_async (ecal, uid, NULL, CALOBJ_MOD_THIS, cb, closure, error);
+}
+
+static void
+remove_object_reply_cb (GObject      *gdbus_ecal,
+			GAsyncResult *res,
+			gpointer      user_data)
+{
+	GError *error = NULL;
+	AsyncData *data = user_data;
+	ECalAsyncCallback cb = data->callback;
+
+	e_gdbus_cal_call_remove_object_finish (E_GDBUS_CAL (gdbus_ecal), res, &error);
+
+	unwrap_gerror (&error);
+	if (cb)
+		cb (data->ecal, error, data->closure);
+
+	if (error)
+		g_error_free (error);
+
+	g_object_unref (data->ecal);
+	g_slice_free (AsyncData, data);
+}
+
+gboolean e_cal_remove_object_with_mod_async (ECal               *ecal,
+					     const gchar        *uid,
+					     const gchar        *rid,
+					     CalObjModType       mod,
+					     ECalAsyncCallback   cb,
+					     gpointer            closure,
+					     GError            **error)
+{
+	ECalPrivate *priv;
+	AsyncData *data;
+
+	e_return_error_if_fail (E_IS_CAL (ecal), E_CALENDAR_STATUS_INVALID_ARG);
+	e_return_error_if_fail (uid, E_CALENDAR_STATUS_INVALID_ARG);
+	e_return_error_if_fail (mod & CALOBJ_MOD_ALL, E_CALENDAR_STATUS_INVALID_ARG);
+	priv = ecal->priv;
+	e_return_error_if_fail (priv->gdbus_cal, E_CALENDAR_STATUS_REPOSITORY_OFFLINE);
+
+	if (priv->load_state != E_CAL_LOAD_LOADED) {
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
+	}
+
+	data = g_slice_new0 (AsyncData);
+	data->ecal = g_object_ref (ecal);
+	data->callback = cb;
+	data->closure = closure;
+
+	e_gdbus_cal_call_remove_object (priv->gdbus_cal,
+					uid,
+					rid ? rid : "",
+					mod,
+					NULL,
+					remove_object_reply_cb, 
+					data);
+	return TRUE;
+}
+
+
