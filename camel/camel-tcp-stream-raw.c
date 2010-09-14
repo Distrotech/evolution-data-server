@@ -855,6 +855,7 @@ socks5_initiate_and_request_authentication (CamelTcpStreamRaw *raw, PRFileDesc *
 	d (g_print ("  reading SOCKS5 reply\n"));
 	if (read_from_prfd (fd, reply, sizeof (reply)) != sizeof (reply)) {
 		d (g_print ("  failed: %d\n", errno));
+		camel_exception_set (ex, CAMEL_EXCEPTION_PROXY_NOT_SUPPORTED, _("The proxy host does not support SOCKS5"));
 		return FALSE;
 	}
 
