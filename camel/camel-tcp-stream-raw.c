@@ -1125,7 +1125,7 @@ stream_connect (CamelTcpStream *stream, const char *host, const char *service, g
 			goto out;
 		}
 
-		if (ai->next != NULL)
+		if (ai->ai_next != NULL)
 			camel_exception_clear (ex); /* Only preserve the error from the last try, in case no tries are successful */
 
 		ai = ai->ai_next;
