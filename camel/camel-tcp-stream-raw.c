@@ -735,10 +735,10 @@ connect_to_socks4_proxy (CamelTcpStreamRaw *raw, const gchar *proxy_host, gint p
 	PRFileDesc *fd;
 	gchar request[9];
 	struct sockaddr_in *sin;
-	gchar reply[8];
+	gchar reply[8]; /* note that replies are 8 bytes, even if only the first 2 are used */
 	gint save_errno;
 
-	g_assert (connect_addr->ai_addr->sa_family == AF_INET); /* FMQ: check for AF_INET in the caller */
+	g_assert (connect_addr->ai_addr->sa_family == AF_INET);
 
 	fd = connect_to_proxy (raw, proxy_host, proxy_port, ex);
 	if (!fd)
@@ -761,15 +761,23 @@ connect_to_socks4_proxy (CamelTcpStreamRaw *raw, const gchar *proxy_host, gint p
 	d (g_print ("  reading SOCKS4 reply\n"));
 	if (read_from_prfd (fd, reply, sizeof (reply)) != sizeof (reply)) {
 		d (g_print ("  failed: %d\n", errno));
+		camel_exception_set (ex, CAMEL_EXCEPTION_PROXY_NOT_SUPPORTED, _("The proxy host does not support SOCKS4"));
 		goto error;
 	}
 
-	if (!(reply[0] == 0		/* first byte of reply is 0 */
-	      && reply[1] == 90)) {	/* 90 means "request granted" */
+	if (reply[0] != 0) { /* version of reply code is 0 */
 		errno = ECONNREFUSED;
-		d (g_print ("  proxy replied with code %d\n", reply[1]));
+		camel_exception_set (ex, CAMEL_EXCEPTION_PROXY_NOT_SUPPORTED, _("The proxy host does not support SOCKS4"));
 		goto error;
 	}
+
+	if (reply[1] != 90) {   /* 90 means "request granted" */
+               errno = ECONNREFUSED;
+	       camel_exception_set (ex, CAMEL_EXCEPTION_PROXY_CANT_AUTHENTICATE,
+				    _("The proxy host denied our request: code %d"),
+				    reply[1]);
+               goto error;
+        }
 
 	/* We are now proxied; we are ready to send "normal" data through the socket */
 
@@ -1116,6 +1124,9 @@ stream_connect (CamelTcpStream *stream, const char *host, const char *service, g
 			retval = 0;
 			goto out;
 		}
+
+		if (ai->next != NULL)
+			camel_exception_clear (ex); /* Only preserve the error from the last try, in case no tries are successful */
 
 		ai = ai->ai_next;
 	}
