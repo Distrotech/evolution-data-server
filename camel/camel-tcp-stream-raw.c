@@ -773,9 +773,9 @@ connect_to_socks4_proxy (CamelTcpStreamRaw *raw, const gchar *proxy_host, gint p
 
 	if (reply[1] != 90) {   /* 90 means "request granted" */
                errno = ECONNREFUSED;
-	       camel_exception_set (ex, CAMEL_EXCEPTION_PROXY_CANT_AUTHENTICATE,
-				    _("The proxy host denied our request: code %d"),
-				    reply[1]);
+	       camel_exception_setv (ex, CAMEL_EXCEPTION_PROXY_CANT_AUTHENTICATE,
+				     _("The proxy host denied our request: code %d"),
+				     reply[1]);
                goto error;
         }
 
