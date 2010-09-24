@@ -1,3 +1,21 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
+/*
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of version 2 of the GNU Lesser General Public
+ * License as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include <ctype.h>
 #include <errno.h>
@@ -75,6 +93,8 @@ static struct {
 	{ "\\FLAGGED", CAMEL_MESSAGE_FLAGGED },
 	{ "\\SEEN", CAMEL_MESSAGE_SEEN },
 	{ "\\RECENT", CAMEL_IMAPX_MESSAGE_RECENT },
+	{ "JUNK", CAMEL_MESSAGE_JUNK },
+	{ "NOTJUNK", CAMEL_MESSAGE_NOTJUNK },
 	{ "\\*", CAMEL_MESSAGE_USER }
 };
 
@@ -87,7 +107,7 @@ imapx_parse_flags(CamelIMAPXStream *stream, guint32 *flagsp, CamelFlag **user_fl
 {
 	gint tok, i;
 	guint len;
-	guchar *token, *p, c;
+	guchar *token;
 	guint32 flags = 0;
 
 	*flagsp = flags;
@@ -96,13 +116,11 @@ imapx_parse_flags(CamelIMAPXStream *stream, guint32 *flagsp, CamelFlag **user_fl
 	if (tok == '(') {
 		do {
 			tok = camel_imapx_stream_token(stream, &token, &len, ex);
-			if (tok == IMAPX_TOK_TOKEN) {
-				p = token;
-				// FIXME: ascii_toupper
-				while ((c=*p))
-					*p++ = toupper(c);
+			if (tok == IMAPX_TOK_TOKEN || tok == IMAPX_TOK_INT) {
+				gchar *upper = g_ascii_strup ((gchar *) token, len);
+
 				for (i = 0; i < G_N_ELEMENTS (flag_table); i++)
-					if (!strcmp((gchar *)token, flag_table[i].name)) {
+					if (!strcmp(upper, flag_table[i].name)) {
 						flags |= flag_table[i].flag;
 						goto found;
 					}
@@ -114,6 +132,7 @@ imapx_parse_flags(CamelIMAPXStream *stream, guint32 *flagsp, CamelFlag **user_fl
 				}
 			found:
 				tok = tok; /* fixes stupid warning */
+				g_free (upper);
 			} else if (tok != ')') {
 				camel_exception_set (ex, 1, "expecting flag");
 				return;
@@ -219,12 +238,14 @@ imapx_update_user_flags (CamelMessageInfo *info, CamelFlag *server_user_flags)
 {
 	gboolean changed = FALSE;
 	CamelMessageInfoBase *binfo = (CamelMessageInfoBase *) info;
+	CamelIMAPXMessageInfo *xinfo = (CamelIMAPXMessageInfo *) info;
 	gboolean set_cal = FALSE;
 
 	if (camel_flag_get (&binfo->user_flags, "$has_cal"))
 		set_cal = TRUE;
 
 	changed = camel_flag_list_copy(&binfo->user_flags, &server_user_flags);
+	camel_flag_list_copy (&xinfo->server_user_flags, &server_user_flags);
 
 	/* reset the calendar flag if it was set in messageinfo before */
 	if (set_cal)
@@ -234,9 +255,10 @@ imapx_update_user_flags (CamelMessageInfo *info, CamelFlag *server_user_flags)
 }
 
 gboolean
-imapx_update_message_info_flags (CamelMessageInfo *info, guint32 server_flags, CamelFlag *server_user_flags, CamelFolder *folder)
+imapx_update_message_info_flags (CamelMessageInfo *info, guint32 server_flags, CamelFlag *server_user_flags, CamelFolder *folder, gboolean unsolicited)
 {
 	gboolean changed = FALSE;
+	CamelIMAPXFolder *ifolder = (CamelIMAPXFolder *)folder;
 	CamelIMAPXMessageInfo *xinfo = (CamelIMAPXMessageInfo *) info;
 
 	if (server_flags != xinfo->server_flags)
@@ -266,8 +288,11 @@ imapx_update_message_info_flags (CamelMessageInfo *info, guint32 server_flags, C
 					deleted == 1 ? "deleted" : ( deleted == -1 ? "undeleted" : ""),
 					junk == 1 ? "junk" : ( junk == -1 ? "unjunked" : "")));
 
-		if (read)
+		if (read) {
 			folder->summary->unread_count -= read;
+			if (unsolicited)
+				ifolder->unread_on_server -= read;
+		}
 		if (deleted)
 			folder->summary->deleted_count += deleted;
 		if (junk)
@@ -339,9 +364,10 @@ imapx_set_message_info_flags_for_new_message (CamelMessageInfo *info, guint32 se
 }
 
 void
-imapx_update_summary_for_removed_message (CamelMessageInfo *info, CamelFolder *folder)
+imapx_update_summary_for_removed_message (CamelMessageInfo *info, CamelFolder *folder, gboolean unsolicited)
 {
 	CamelMessageInfoBase *dinfo = (CamelMessageInfoBase *) info;
+	CamelIMAPXFolder *ifolder = (CamelIMAPXFolder *)folder;
 	gint unread=0, deleted=0, junk=0;
 	guint32 flags;
 
@@ -355,9 +381,11 @@ imapx_update_summary_for_removed_message (CamelMessageInfo *info, CamelFolder *f
 	if (flags & CAMEL_MESSAGE_JUNK)
 		junk = 1;
 
-	if (unread)
+	if (unread) {
 		folder->summary->unread_count--;
-
+		if (unsolicited)
+			ifolder->unread_on_server--;
+	}
 	if (deleted)
 		folder->summary->deleted_count--;
 	if (junk)
@@ -1721,7 +1749,7 @@ imapx_parse_status(CamelIMAPXStream *is, CamelException *ex)
 		/* ignore anything we dont know about */
 		do {
 			tok = camel_imapx_stream_token(is, &token, &len, ex);
-			if (tok == '\n') {
+			if (tok == '\n' || tok < 0) {
 				camel_exception_set (ex, 1, "server response truncated");
 				imapx_free_status(sinfo);
 				return NULL;

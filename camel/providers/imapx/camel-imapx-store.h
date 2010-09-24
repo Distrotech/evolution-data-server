@@ -4,21 +4,21 @@
 /*
  * Authors: Michael Zucchi <notzed@ximian.com>
  *
- * Copyright (C) 2002 Ximian, Inc. (www.ximian.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of version 2 of the GNU Lesser General Public
  * License as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef CAMEL_IMAPX_STORE_H
@@ -47,6 +47,7 @@ extern "C" {
 #define IMAPX_SUBSCRIPTIONS		(1 << 5)
 #define IMAPX_CHECK_LSUB		(1 << 6)
 #define IMAPX_USE_IDLE			(1 << 7)
+#define IMAPX_USE_QRESYNC		(1 << 8)
 
 typedef struct {
 	CamelOfflineStore parent_object;
@@ -79,6 +80,7 @@ typedef struct {
 
 /* Standard Camel function */
 CamelType camel_imapx_store_get_type (void);
+struct _CamelIMAPXServer *camel_imapx_store_get_server(CamelIMAPXStore *store, CamelException *ex);
 
 #ifdef __cplusplus
 }

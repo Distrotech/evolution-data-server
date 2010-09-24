@@ -1,3 +1,21 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
+/*
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of version 2 of the GNU Lesser General Public
+ * License as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #ifndef _CAMEL_IMAPX_UTILS_H
 #define _CAMEL_IMAPX_UTILS_H
@@ -69,10 +87,10 @@ enum {
 GPtrArray *imapx_parse_uids (struct _CamelIMAPXStream *is, CamelException *ex);
 void imapx_parse_flags(struct _CamelIMAPXStream *stream, guint32 *flagsp, struct _CamelFlag **user_flagsp, CamelException *ex);
 void imapx_write_flags(CamelStream *stream, guint32 flags, struct _CamelFlag *user_flags, CamelException *ex);
-gboolean imapx_update_message_info_flags (CamelMessageInfo *info, guint32 server_flags, CamelFlag *server_user_flags, CamelFolder *folder);
+gboolean imapx_update_message_info_flags (CamelMessageInfo *info, guint32 server_flags, CamelFlag *server_user_flags, CamelFolder *folder, gboolean unsolicited);
 void imapx_set_message_info_flags_for_new_message (CamelMessageInfo *info, guint32 server_flags, CamelFlag *server_user_flags,
 							CamelFolder *folder);
-void imapx_update_summary_for_removed_message (CamelMessageInfo *info, CamelFolder *folder);
+void imapx_update_summary_for_removed_message (CamelMessageInfo *info, CamelFolder *folder, gboolean unsolicited);
 void imapx_update_store_summary (CamelFolder *folder);
 
 /* ********************************************************************** */

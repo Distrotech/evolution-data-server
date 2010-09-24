@@ -1,7 +1,7 @@
 dnl Evolution-Data-Server version
 m4_define([eds_major_version], [2])
 m4_define([eds_minor_version], [30])
-m4_define([eds_micro_version], [3])
+m4_define([eds_micro_version], [4])
 
 m4_define([eds_version],
 	[eds_major_version.eds_minor_version.eds_micro_version])
@@ -932,6 +932,9 @@ else
 fi
 
 AM_CONDITIONAL(ENABLE_IPv6, [test "x$enable_ipv6" = "xyes"])
+
+AC_CHECK_HEADER([wspiapi.h],
+	[AC_DEFINE([HAVE_WSPIAPI_H], 1, [Have <wspiapi.h>])],,)
 
 dnl ******************************
 dnl Calendar support
