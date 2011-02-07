@@ -474,8 +474,9 @@ e_cal_tzlookup_ecal (const gchar *tzid,
 		return zone;
 	}
 
-	if (g_error_matches (local_error, E_CALENDAR_ERROR,
-		E_CALENDAR_STATUS_OBJECT_NOT_FOUND)) {
+ 	if ((*error)->domain == E_CALENDAR_ERROR &&
+	    ((*error)->code == E_CALENDAR_STATUS_OBJECT_NOT_FOUND /* EDS < 2.30 */ ||
+	     (*error)->code == E_CALENDAR_STATUS_INVALID_OBJECT /* EDS >= 2.30 */ )) {
 		/* We had to trigger this error to check for the
 		 * timezone existance, clear it and return NULL. */
 		g_clear_error (&local_error);
