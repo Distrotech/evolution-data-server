@@ -77,11 +77,7 @@ struct _EBookBackendFilePrivate {
 	DB       *file_db;
 	DB_ENV   *env;
 	EBookBackendSummary *summary;
-	/* for future use */
-	gpointer reserved1;
-	gpointer reserved2;
-	gpointer reserved3;
-	gpointer reserved4;
+	guint     id;
 };
 
 G_LOCK_DEFINE_STATIC (global_env);
@@ -169,13 +165,13 @@ build_summary (EBookBackendFilePrivate *bfpriv)
 }
 
 static gchar *
-e_book_backend_file_create_unique_id (void)
+e_book_backend_file_create_next_id (EBookBackendFile *bf)
 {
-	/* use a 32 counter and the 32 bit timestamp to make an id.
-	   it's doubtful 2^32 id's will be created in a second, so we
-	   should be okay. */
-	static guint c = 0;
-	return g_strdup_printf (PAS_ID_PREFIX "%08lX%08X", time(NULL), c++);
+	/* use a 32 counter, avoid 0; collision checks must be done by caller */
+	++bf->priv->id;
+	if (!bf->priv->id)
+		bf->priv->id = 1;
+	return g_strdup_printf (PAS_ID_PREFIX "%04X", bf->priv->id);
 }
 
 static void
@@ -210,7 +206,8 @@ do_create(EBookBackendFile  *bf,
 	g_assert (vcard_req);
 	g_assert (contact);
 
-	id = e_book_backend_file_create_unique_id ();
+ retry:
+	id = e_book_backend_file_create_next_id (bf);
 
 	string_to_dbt (id, &id_dbt);
 
@@ -224,9 +221,10 @@ do_create(EBookBackendFile  *bf,
 
 	string_to_dbt (vcard, &vcard_dbt);
 
-	db_error = db->put (db, NULL, &id_dbt, &vcard_dbt, 0);
+	db_error = db->put (db, NULL, &id_dbt, &vcard_dbt, DB_NOOVERWRITE);
 
 	g_free (vcard);
+	g_free (id);
 
 	if (0 == db_error) {
 		db_error = db->sync (db, 0);
@@ -234,12 +232,16 @@ do_create(EBookBackendFile  *bf,
 			g_warning ("db->sync failed with %s", db_strerror (db_error));
 		}
 	} else {
-		g_warning (G_STRLOC ": db->put failed with %s", db_strerror (db_error));
 		g_object_unref (*contact);
 		*contact = NULL;
+		if (DB_KEYEXIST == db_error) {
+			/* did not guess a new ID, try again */
+			goto retry;
+		} else {
+			g_warning (G_STRLOC ": db->put failed with %s", db_strerror (db_error));
+		}
 	}
 
-	g_free (id);
 	db_error_to_gerror (db_error, perror);
 
 	return db_error == 0;
@@ -1108,6 +1110,7 @@ e_book_backend_file_load_source (EBookBackend           *backend,
 	DB_ENV *env;
 	time_t db_mtime;
 	struct stat sb;
+	DB_HASH_STAT *hashstat;
 
 	dirname = e_book_backend_file_extract_path_from_source (source);
 	filename = g_build_filename (dirname, "addressbook.db", NULL);
@@ -1300,6 +1303,21 @@ e_book_backend_file_load_source (EBookBackend           *backend,
 		return;
 	}
 	db_mtime = sb.st_mtime;
+
+	/*
+	 * Picking the number of records as base for the next ID avoids trying out
+	 * lots of already used IDs in a database with few deleted contacts.
+	 * Optional optimization, if this fails or returns no information, we simply
+	 * start with zero.
+	 *
+	 * Note that DB_FAST_STAT is not used, because without it we won't get
+	 * hash_nkeys. This makes the stat call slower, but should be worth it
+	 * because we need to access the content sooner or later.
+	 */
+	if (!bf->priv->file_db->stat(bf->priv->file_db, NULL, &hashstat, 0)) {
+		bf->priv->id = hashstat->hash_nkeys;
+		g_free(hashstat);
+	}
 
 	g_free (bf->priv->summary_filename);
 	bf->priv->summary_filename = g_strconcat (bf->priv->filename, ".summary", NULL);
