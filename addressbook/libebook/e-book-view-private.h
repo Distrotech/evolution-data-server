@@ -23,11 +23,14 @@
 #define __E_BOOK_VIEW_PRIVATE_H__
 
 #include "e-book.h"
+#include "e-book-client.h"
 #include "e-book-view.h"
 
 struct _EGdbusBookView;
 
-EBookView *_e_book_view_new (EBook *book, struct _EGdbusBookView *gdbus_bookview);
+EBookView *_e_book_view_new (EBookClient *book_client, struct _EGdbusBookView *gdbus_bookview);
+
+EBookView *_e_book_view_new_with_book (EBook *book, struct _EGdbusBookView *gdbus_bookview);
 
 G_END_DECLS
 

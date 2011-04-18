@@ -25,7 +25,10 @@
 
 #include <glib-object.h>
 #include <gio/gio.h>
+
+#include <libedataserver/e-credentials.h>
 #include <libedataserver/e-source.h>
+
 #include "e-book-backend.h"
 #include "e-data-book-types.h"
 
@@ -101,68 +104,30 @@ const gchar *e_data_book_status_to_string (EDataBookStatus status);
 		}								\
 	} G_STMT_END
 
-EDataBook		*e_data_book_new                    (EBookBackend *backend, ESource *source);
+GType		e_data_book_get_type				(void);
+EDataBook *	e_data_book_new					(EBookBackend *backend, ESource *source);
+EBookBackend *	e_data_book_get_backend				(EDataBook *book);
+ESource *	e_data_book_get_source				(EDataBook *book);
 
-guint			e_data_book_register_gdbus_object (EDataBook *cal, GDBusConnection *connection, const gchar *object_path, GError **error);
+guint		e_data_book_register_gdbus_object		(EDataBook *cal, GDBusConnection *connection, const gchar *object_path, GError **error);
 
-EBookBackend		*e_data_book_get_backend            (EDataBook *book);
-ESource			*e_data_book_get_source             (EDataBook *book);
+void		e_data_book_respond_open			(EDataBook *book, guint32 opid, GError *error);
+void		e_data_book_respond_remove			(EDataBook *book, guint32 opid, GError *error);
+void		e_data_book_respond_get_capabilities		(EDataBook *book, guint32 opid, GError *error, const gchar *capabilities);
+void		e_data_book_respond_create			(EDataBook *book, guint32 opid, GError *error, const EContact *contact);
+void		e_data_book_respond_remove_contacts		(EDataBook *book, guint32 opid, GError *error, const GSList *ids);
+void		e_data_book_respond_modify			(EDataBook *book, guint32 opid, GError *error, const EContact *contact);
+void		e_data_book_respond_authenticate_user		(EDataBook *book, guint32 opid, GError *error);
+void		e_data_book_respond_get_supported_fields	(EDataBook *book, guint32 opid, GError *error, const GSList *fields);
+void		e_data_book_respond_get_required_fields		(EDataBook *book, guint32 opid, GError *error, const GSList *fields);
+void		e_data_book_respond_get_supported_auth_methods	(EDataBook *book, guint32 opid, GError *error, const GSList *fields);
+void		e_data_book_respond_get_contact			(EDataBook *book, guint32 opid, GError *error, const gchar *vcard);
+void		e_data_book_respond_get_contact_list		(EDataBook *book, guint32 opid, GError *error, const GSList *cards);
 
-void                    e_data_book_respond_open           (EDataBook *book,
-							    guint32 opid,
-							    GError *error);
-void                    e_data_book_respond_remove         (EDataBook *book,
-							    guint32 opid,
-							    GError *error);
-void                    e_data_book_respond_create         (EDataBook *book,
-							    guint32 opid,
-							    GError *error,
-							    EContact *contact);
-void                    e_data_book_respond_remove_contacts (EDataBook *book,
-							     guint32 opid,
-							     GError *error,
-							     GList *ids);
-void                    e_data_book_respond_modify         (EDataBook *book,
-							    guint32 opid,
-							    GError *error,
-							    EContact *contact);
-void                    e_data_book_respond_authenticate_user (EDataBook *book,
-							       guint32 opid,
-							       GError *error);
-void                    e_data_book_respond_get_supported_fields (EDataBook *book,
-								  guint32 opid,
-								  GError *error,
-								  GList *fields);
-void                    e_data_book_respond_get_required_fields (EDataBook *book,
-								  guint32 opid,
-								  GError *error,
-								  GList *fields);
-void                    e_data_book_respond_get_supported_auth_methods (EDataBook *book,
-									guint32 opid,
-									GError *error,
-									GList *fields);
-
-void                    e_data_book_respond_get_contact (EDataBook *book,
-							    guint32 opid,
-							    GError *error,
-							    const gchar *vcard);
-void                    e_data_book_respond_get_contact_list (EDataBook *book,
-							      guint32 opid,
-							      GError *error,
-							      GList *cards);
-void                    e_data_book_respond_get_changes    (EDataBook *book,
-							    guint32 opid,
-							    GError *error,
-							    GList *changes);
-
-void                    e_data_book_report_writable        (EDataBook                         *book,
-							    gboolean                           writable);
-void                    e_data_book_report_connection_status (EDataBook                        *book,
-							      gboolean                         is_online);
-
-void                    e_data_book_report_auth_required     (EDataBook                       *book);
-
-GType                   e_data_book_get_type               (void);
+void		e_data_book_report_error			(EDataBook *book, const gchar *message);
+void		e_data_book_report_readonly			(EDataBook *book, gboolean readonly);
+void		e_data_book_report_online			(EDataBook *book, gboolean is_online);
+void		e_data_book_report_auth_required		(EDataBook *book, const ECredentials *credentials);
 
 G_END_DECLS
 

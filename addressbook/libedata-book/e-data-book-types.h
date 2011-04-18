@@ -70,23 +70,6 @@ typedef enum {
 	E_DATA_BOOK_STATUS_NOT_SUPPORTED
 } EDataBookStatus;
 
-typedef enum {
-	E_DATA_BOOK_MODE_LOCAL,
-	E_DATA_BOOK_MODE_REMOTE,
-	E_DATA_BOOK_MODE_ANY,
-} EDataBookMode;
-
-typedef enum {
-	E_DATA_BOOK_BACKEND_CHANGE_ADDED,
-	E_DATA_BOOK_BACKEND_CHANGE_DELETED,
-	E_DATA_BOOK_BACKEND_CHANGE_MODIFIED
-} EDataBookChangeType;
-
-typedef struct {
-	EDataBookChangeType change_type;
-	gchar *vcard;
-} EDataBookChange;
-
 G_END_DECLS
 
 #endif /* __E_DATA_BOOK_TYPES_H__ */

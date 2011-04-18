@@ -27,24 +27,33 @@
 
 #include <string.h>
 #include "e-cal-marshal.h"
+#ifndef E_CAL_DISABLE_DEPRECATED
 #include "e-cal.h"
+#endif
+#include "e-cal-client.h"
 #include "e-cal-view.h"
 #include "e-cal-view-private.h"
-#include "e-gdbus-egdbuscalview.h"
+#include "e-gdbus-cal-view.h"
 
 G_DEFINE_TYPE (ECalView, e_cal_view, G_TYPE_OBJECT);
 
 /* Private part of the ECalView structure */
 struct _ECalViewPrivate {
-	EGdbusCalView *gdbus_calview;
+	GDBusProxy *gdbus_calview;
+	#ifndef E_CAL_DISABLE_DEPRECATED
 	ECal *client;
+	#endif
+	ECalClient *cal_client;
 };
 
 /* Property IDs */
 enum props {
 	PROP_0,
 	PROP_VIEW,
-	PROP_CLIENT
+	#ifndef E_CAL_DISABLE_DEPRECATED
+	PROP_CLIENT,
+	#endif
+	PROP_CAL_CLIENT
 };
 
 /* Signal IDs */
@@ -119,7 +128,7 @@ objects_added_cb (EGdbusCalView *gdbus_calview, const gchar * const *objects, EC
 }
 
 static void
-objects_modified_cb (EGdbusCalView *gdbus_calview, const gchar * const *objects, ECalView *view)
+objects_changed_cb (EGdbusCalView *gdbus_calview, const gchar * const *objects, ECalView *view)
 {
 	GList *list;
 
@@ -155,7 +164,7 @@ objects_removed_cb (EGdbusCalView *gdbus_calview, const gchar * const *uids, ECa
 }
 
 static void
-progress_cb (EGdbusCalView *gdbus_calview, const gchar *message, guint percent, ECalView *view)
+progress_cb (EGdbusCalView *gdbus_calview, guint percent, const gchar *message, ECalView *view)
 {
 	g_return_if_fail (E_IS_CAL_VIEW (view));
 
@@ -163,7 +172,7 @@ progress_cb (EGdbusCalView *gdbus_calview, const gchar *message, guint percent, 
 }
 
 static void
-done_cb (EGdbusCalView *gdbus_calview, /* ECalendarStatus */ guint status, const gchar *message, ECalView *view)
+complete_cb (EGdbusCalView *gdbus_calview, /* ECalendarStatus */ guint status, const gchar *message, ECalView *view)
 {
 	g_return_if_fail (E_IS_CAL_VIEW (view));
 
@@ -198,14 +207,19 @@ e_cal_view_set_property (GObject *object, guint property_id, const GValue *value
 
 		priv->gdbus_calview = g_object_ref (g_value_get_pointer (value));
 		g_signal_connect (priv->gdbus_calview, "objects-added", G_CALLBACK (objects_added_cb), view);
-		g_signal_connect (priv->gdbus_calview, "objects-modified", G_CALLBACK (objects_modified_cb), view);
+		g_signal_connect (priv->gdbus_calview, "objects-changed", G_CALLBACK (objects_changed_cb), view);
 		g_signal_connect (priv->gdbus_calview, "objects-removed", G_CALLBACK (objects_removed_cb), view);
 		g_signal_connect (priv->gdbus_calview, "progress", G_CALLBACK (progress_cb), view);
-		g_signal_connect (priv->gdbus_calview, "done", G_CALLBACK (done_cb), view);
+		g_signal_connect (priv->gdbus_calview, "complete", G_CALLBACK (complete_cb), view);
 		break;
+	case PROP_CAL_CLIENT:
+		priv->cal_client = E_CAL_CLIENT (g_value_dup_object (value));
+		break;
+	#ifndef E_CAL_DISABLE_DEPRECATED
 	case PROP_CLIENT:
 		priv->client = E_CAL (g_value_dup_object (value));
 		break;
+	#endif
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
 		break;
@@ -225,9 +239,14 @@ e_cal_view_get_property (GObject *object, guint property_id, GValue *value, GPar
 	case PROP_VIEW:
 		g_value_set_pointer (value, priv->gdbus_calview);
 		break;
+	case PROP_CAL_CLIENT:
+		g_value_set_object (value, priv->cal_client);
+		break;
+	#ifndef E_CAL_DISABLE_DEPRECATED
 	case PROP_CLIENT:
 		g_value_set_object (value, priv->client);
 		break;
+	#endif
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
 		break;
@@ -261,7 +280,17 @@ e_cal_view_finalize (GObject *object)
 		}
 	}
 
-	g_object_unref (priv->client);
+	#ifndef E_CAL_DISABLE_DEPRECATED
+	if (priv->client) {
+		g_object_unref (priv->client);
+		priv->client = NULL;
+	}
+	#endif
+
+	if (priv->cal_client) {
+		g_object_unref (priv->cal_client);
+		priv->cal_client = NULL;
+	}
 
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (e_cal_view_parent_class)->finalize (object);
@@ -285,8 +314,14 @@ e_cal_view_class_init (ECalViewClass *klass)
 		g_param_spec_pointer ("view", "The GDBus view proxy", NULL,
 				      G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
 
+	#ifndef E_CAL_DISABLE_DEPRECATED
 	g_object_class_install_property (object_class, PROP_CLIENT,
 		g_param_spec_object ("client", "The e-cal for the view", NULL, E_TYPE_CAL,
+				      G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+	#endif
+
+	g_object_class_install_property (object_class, PROP_CAL_CLIENT,
+		g_param_spec_object ("cal-client", "The e-cal-client for the view", NULL, E_TYPE_CAL_CLIENT,
 				      G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
         /**
          * ECalView::objects-added:
@@ -359,6 +394,48 @@ e_cal_view_class_init (ECalViewClass *klass)
 
 /**
  * _e_cal_view_new:
+ * @client: An #ECalClient object.
+ * @gdbuc_calview: The GDBus object for the view.
+ *
+ * Creates a new view object by issuing the view creation request to the
+ * calendar server.
+ *
+ * Returns: A newly-created view object, or NULL if the request failed.
+ **/
+ECalView *
+_e_cal_view_new (ECalClient *client, EGdbusCalView *gdbus_calview)
+{
+	ECalView *view;
+
+	view = g_object_new (E_TYPE_CAL_VIEW,
+		"cal-client", client,
+		"view", gdbus_calview,
+		NULL);
+
+	return view;
+}
+
+/**
+ * e_cal_view_get_cal_client
+ * @view: A #ECalView object.
+ *
+ * Get the #ECalClient associated with this view.
+ *
+ * Returns: the associated client.
+ *
+ * Since: 3.2
+ */
+ECalClient *
+e_cal_view_get_cal_client (ECalView *view)
+{
+	g_return_val_if_fail (E_IS_CAL_VIEW (view), NULL);
+
+	return view->priv->cal_client;
+}
+
+#ifndef E_CAL_DISABLE_DEPRECATED
+/**
+ * _e_cal_view_new_for_ecal:
  * @client: An #ECal object.
  * @gdbuc_calview: The GDBus object for the view.
  *
@@ -368,12 +445,12 @@ e_cal_view_class_init (ECalViewClass *klass)
  * Returns: A newly-created view object, or NULL if the request failed.
  **/
 ECalView *
-_e_cal_view_new (ECal *client, EGdbusCalView *gdbus_calview)
+_e_cal_view_new_for_ecal (ECal *ecal, EGdbusCalView *gdbus_calview)
 {
 	ECalView *view;
 
 	view = g_object_new (E_TYPE_CAL_VIEW,
-		"client", client,
+		"client", ecal,
 		"view", gdbus_calview,
 		NULL);
 
@@ -381,7 +458,7 @@ _e_cal_view_new (ECal *client, EGdbusCalView *gdbus_calview)
 }
 
 /**
- * e_cal_view_get_client
+ * e_cal_view_get_client_ecal
  * @view: A #ECalView object.
  *
  * Get the #ECal associated with this view.
@@ -389,6 +466,8 @@ _e_cal_view_new (ECal *client, EGdbusCalView *gdbus_calview)
  * Returns: the associated client.
  *
  * Since: 2.22
+ *
+ * Deprecated: 3.2: Use #ECalClient and e_cal_view_get_cal_client() instead
  */
 ECal *
 e_cal_view_get_client (ECalView *view)
@@ -397,6 +476,7 @@ e_cal_view_get_client (ECalView *view)
 
 	return view->priv->client;
 }
+#endif
 
 /**
  * e_cal_view_start:

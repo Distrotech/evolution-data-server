@@ -28,7 +28,11 @@ typedef struct _EBookView        EBookView;
 typedef struct _EBookViewClass   EBookViewClass;
 typedef struct _EBookViewPrivate EBookViewPrivate;
 
+#ifndef E_BOOK_DISABLE_DEPRECATED
 struct _EBook;  /* Forward reference */
+#endif /* E_BOOK_DISABLE_DEPRECATED */
+
+struct _EBookClient;  /* Forward reference */
 
 struct _EBookView {
 	GObject     parent;
@@ -59,12 +63,16 @@ struct _EBookViewClass {
 	void (*_ebook_reserved4) (void);
 };
 
-GType              e_book_view_get_type               (void);
+GType			e_book_view_get_type		(void);
 
-void               e_book_view_start                  (EBookView *book_view);
-void               e_book_view_stop                   (EBookView *book_view);
+void			e_book_view_start		(EBookView *book_view);
+void			e_book_view_stop		(EBookView *book_view);
 
-struct _EBook     *e_book_view_get_book               (EBookView *book_view);
+#ifndef E_BOOK_DISABLE_DEPRECATED
+struct _EBook *		e_book_view_get_book		(EBookView *book_view);
+#endif
+
+struct _EBookClient *	e_book_view_get_book_client	(EBookView *book_view);
 
 G_END_DECLS
 

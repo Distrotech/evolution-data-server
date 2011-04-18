@@ -490,7 +490,7 @@ get_actual_count (ECalComponent *comp, ECalBackendGroupwise *cbgw)
 	gint count = 0;
 	icaltimezone *dzone, *utc;
 
-	dzone = e_cal_backend_groupwise_get_default_zone (cbgw);
+	dzone = NULL;
 	utc = icaltimezone_get_utc_timezone ();
 
 	if (dzone)
@@ -565,8 +565,8 @@ set_rrule_from_comp (ECalComponent *comp, EGwItem *item, ECalBackendGroupwise *c
 			struct icaltimetype itt_utc;
 
 			e_cal_component_get_exdate_list (comp, &exdate_list);
-			default_zone = e_cal_backend_groupwise_get_default_zone (cbgw);
 			utc = icaltimezone_get_utc_timezone ();
+			default_zone = utc;
 			for (l = exdate_list; l; l = l->next) {
 				ECalComponentDateTime *dt = (ECalComponentDateTime *) l->data;
 				if (dt->value) {
@@ -598,8 +598,8 @@ set_properties_from_cal_component (EGwItem *item, ECalComponent *comp, ECalBacke
 	struct icaltimetype itt_utc;
 	gboolean dtstart_has_timezone;
 
-	default_zone = e_cal_backend_groupwise_get_default_zone (cbgw);
 	utc = icaltimezone_get_utc_timezone ();
+	default_zone = utc;
 
 	/* first set specific properties */
 	switch (e_cal_component_get_vtype (comp)) {
@@ -845,7 +845,7 @@ e_gw_item_new_for_delegate_from_cal (ECalBackendGroupwise *cbgw, ECalComponent *
 	const gchar *user_email;
 
 	g_return_val_if_fail (E_IS_CAL_COMPONENT (comp), NULL);
-	default_zone = e_cal_backend_groupwise_get_default_zone (cbgw);
+	default_zone = icaltimezone_get_utc_timezone ();
 	item = e_gw_item_new_empty ();
 	e_gw_item_set_id (item, e_cal_component_get_gw_id (comp));
 	user_email = e_gw_connection_get_user_email (e_cal_backend_groupwise_get_connection (cbgw));
@@ -1087,7 +1087,7 @@ e_gw_item_to_cal_component (EGwItem *item, ECalBackendGroupwise *cbgw)
 
 	e_cal_backend_groupwise_priv_lock (cbgw);
 
-	default_zone = e_cal_backend_groupwise_get_default_zone (cbgw);
+	default_zone = icaltimezone_get_utc_timezone ();
 	categories_by_id = e_cal_backend_groupwise_get_categories_by_id (cbgw);
 
 	comp = e_cal_component_new ();
@@ -1674,14 +1674,14 @@ e_gw_connection_create_appointment (EGwConnection *cnc, const gchar *container, 
 }
 
 static EGwConnectionStatus
-start_freebusy_session (EGwConnection *cnc, GList *users,
+start_freebusy_session (EGwConnection *cnc, const GSList *users,
                time_t start, time_t end, gchar **session)
 {
 	SoupSoapMessage *msg;
 	SoupSoapResponse *response;
 	EGwConnectionStatus status;
 	SoupSoapParameter *param;
-	GList *l;
+	const GSList *l;
 	icaltimetype icaltime;
 	icaltimezone *utc;
 	gchar *start_date, *end_date;
@@ -1697,7 +1697,7 @@ start_freebusy_session (EGwConnection *cnc, GList *users,
          * email id apart from the name*/
 
         soup_soap_message_start_element (msg, "users", NULL, NULL);
-	for ( l = users; l != NULL; l = g_list_next (l)) {
+	for ( l = users; l != NULL; l = g_slist_next (l)) {
 		soup_soap_message_start_element (msg, "user", NULL, NULL);
                 e_gw_message_write_string_parameter (msg, "email", NULL, l->data);
 		soup_soap_message_end_element (msg);
@@ -1779,7 +1779,7 @@ close_freebusy_session (EGwConnection *cnc, const gchar *session)
 }
 
 EGwConnectionStatus
-e_gw_connection_get_freebusy_info (ECalBackendGroupwise *cbgw, GList *users, time_t start, time_t end, GList **freebusy)
+e_gw_connection_get_freebusy_info (ECalBackendGroupwise *cbgw, const GSList *users, time_t start, time_t end, GSList **freebusy)
 {
 	SoupSoapMessage *msg;
 	SoupSoapResponse *response;
@@ -1792,7 +1792,7 @@ e_gw_connection_get_freebusy_info (ECalBackendGroupwise *cbgw, GList *users, tim
 	gint request_iteration = 0;
 	icaltimezone *default_zone;
 
-	default_zone = e_cal_backend_groupwise_get_default_zone (cbgw);
+	default_zone = icaltimezone_get_utc_timezone ();
 	cnc = e_cal_backend_groupwise_get_connection (cbgw);
 
 	g_return_val_if_fail (E_IS_GW_CONNECTION (cnc), E_GW_CONNECTION_STATUS_INVALID_CONNECTION);
@@ -1991,7 +1991,7 @@ e_gw_connection_get_freebusy_info (ECalBackendGroupwise *cbgw, GList *users, tim
 		}
 
 		e_cal_component_commit_sequence (comp);
-		*freebusy = g_list_append (*freebusy, e_cal_component_get_as_string (comp));
+		*freebusy = g_slist_append (*freebusy, e_cal_component_get_as_string (comp));
 		g_object_unref (comp);
 		e_cal_backend_groupwise_priv_unlock (cbgw);
 	}

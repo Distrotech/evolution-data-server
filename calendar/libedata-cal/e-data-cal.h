@@ -103,70 +103,36 @@ struct _EDataCalClass {
 
 GType e_data_cal_get_type (void);
 
-EDataCal *e_data_cal_new (ECalBackend *backend, ESource *source);
+EDataCal *	e_data_cal_new					(ECalBackend *backend, ESource *source);
+ECalBackend *	e_data_cal_get_backend				(EDataCal *cal);
+ESource *	e_data_cal_get_source				(EDataCal *cal);
+guint		e_data_cal_register_gdbus_object		(EDataCal *cal, GDBusConnection *connection, const gchar *object_path, GError **error);
 
-guint e_data_cal_register_gdbus_object (EDataCal *cal, GDBusConnection *connection, const gchar *object_path, GError **error);
+void		e_data_cal_respond_open				(EDataCal *cal, guint32 opid, GError *error);
+void		e_data_cal_respond_authenticate_user		(EDataCal *cal, guint32 opid, GError *error);
+void		e_data_cal_respond_remove			(EDataCal *cal, guint32 opid, GError *error);
+void		e_data_cal_respond_refresh			(EDataCal *cal, guint32 opid, GError *error);
+void		e_data_cal_respond_get_capabilities		(EDataCal *cal, guint32 opid, GError *error, const gchar *capabilities);
+void		e_data_cal_respond_get_cal_email_address	(EDataCal *cal, guint32 opid, GError *error, const gchar *address);
+void		e_data_cal_respond_get_alarm_email_address	(EDataCal *cal, guint32 opid, GError *error, const gchar *address);
+void		e_data_cal_respond_get_default_object		(EDataCal *cal, guint32 opid, GError *error, const gchar *object);
+void		e_data_cal_respond_get_object			(EDataCal *cal, guint32 opid, GError *error, const gchar *object);
+void		e_data_cal_respond_get_object_list		(EDataCal *cal, guint32 opid, GError *error, const GSList *objects);
+void		e_data_cal_respond_get_free_busy		(EDataCal *cal, guint32 opid, GError *error, const GSList *freebusy);
+void		e_data_cal_respond_create_object		(EDataCal *cal, guint32 opid, GError *error, const gchar *uid, const gchar *object);
+void		e_data_cal_respond_modify_object		(EDataCal *cal, guint32 opid, GError *error, const gchar *old_object, const gchar *object);
+void		e_data_cal_respond_remove_object		(EDataCal *cal, guint32 opid, GError *error, const ECalComponentId *id, const gchar *old_object, const gchar *object);
+void		e_data_cal_respond_receive_objects		(EDataCal *cal, guint32 opid, GError *error);
+void		e_data_cal_respond_send_objects			(EDataCal *cal, guint32 opid, GError *error, const GSList *users, const gchar *calobj);
+void		e_data_cal_respond_get_attachment_uris		(EDataCal *cal, guint32 opid, GError *error, const GSList *attachments);
+void		e_data_cal_respond_get_view			(EDataCal *cal, guint32 opid, GError *error, const gchar *view_path);
+void		e_data_cal_respond_get_timezone			(EDataCal *cal, guint32 opid, GError *error, const gchar *tzobject);
+void		e_data_cal_respond_add_timezone			(EDataCal *cal, guint32 opid, GError *error);
 
-ECalBackend *e_data_cal_get_backend (EDataCal *cal);
-ESource* e_data_cal_get_source (EDataCal *cal);
-
-void e_data_cal_notify_read_only           (EDataCal *cal, GError *error,
-					    gboolean read_only);
-void e_data_cal_notify_cal_address         (EDataCal *cal, EServerMethodContext context, GError *error,
-					    const gchar *address);
-void e_data_cal_notify_alarm_email_address (EDataCal *cal, EServerMethodContext context, GError *error,
-					    const gchar *address);
-void e_data_cal_notify_ldap_attribute      (EDataCal *cal, EServerMethodContext context, GError *error,
-					    const gchar *attribute);
-void e_data_cal_notify_static_capabilities (EDataCal *cal, EServerMethodContext context, GError *error,
-					    const gchar *capabilities);
-
-void e_data_cal_notify_open   (EDataCal *cal, EServerMethodContext context, GError *error);
-void e_data_cal_notify_refresh (EDataCal *cal, EServerMethodContext context, GError *error);
-void e_data_cal_notify_remove (EDataCal *cal, EServerMethodContext context, GError *error);
-
-void e_data_cal_notify_object_created  (EDataCal *cal, EServerMethodContext context, GError *error,
-					const gchar *uid, const gchar *object);
-void e_data_cal_notify_object_modified (EDataCal *cal, EServerMethodContext context, GError *error,
-					const gchar *old_object, const gchar *object);
-void e_data_cal_notify_object_removed  (EDataCal *cal, EServerMethodContext context, GError *error,
-					const ECalComponentId *id, const gchar *old_object, const gchar *object);
-void e_data_cal_notify_alarm_discarded (EDataCal *cal, EServerMethodContext context, GError *error);
-
-void e_data_cal_notify_objects_received (EDataCal *cal, EServerMethodContext context, GError *error);
-void e_data_cal_notify_objects_sent     (EDataCal *cal, EServerMethodContext context, GError *error, GList *users,
-					 const gchar *calobj);
-
-void e_data_cal_notify_default_object (EDataCal *cal, EServerMethodContext context, GError *error,
-				       const gchar *object);
-void e_data_cal_notify_object         (EDataCal *cal, EServerMethodContext context, GError *error,
-				       const gchar *object);
-void e_data_cal_notify_object_list    (EDataCal *cal, EServerMethodContext context, GError *error,
-				       GList *objects);
-
-void e_data_cal_notify_query (EDataCal *cal, EServerMethodContext context, GError *error,
-			      const gchar *query_path);
-
-void e_data_cal_notify_timezone_requested   (EDataCal *cal, EServerMethodContext context, GError *error,
-					     const gchar *object);
-void e_data_cal_notify_timezone_added       (EDataCal *cal, EServerMethodContext context, GError *error,
-					     const gchar *tzid);
-void e_data_cal_notify_default_timezone_set (EDataCal *cal, EServerMethodContext context, GError *error);
-
-void e_data_cal_notify_changes   (EDataCal *cal, EServerMethodContext context, GError *error,
-				  GList *adds, GList *modifies, GList *deletes);
-void e_data_cal_notify_free_busy (EDataCal *cal, EServerMethodContext context, GError *error,
-				  GList *freebusy);
-
-void e_data_cal_notify_mode  (EDataCal *cal,
-			      EDataCalViewListenerSetModeStatus status,
-			      EDataCalMode mode);
-
-void e_data_cal_notify_auth_required (EDataCal *cal);
-
-void e_data_cal_notify_error (EDataCal *cal, const gchar *message);
-
-void e_data_cal_notify_attachment_list (EDataCal *cal, EServerMethodContext context, GError *error, GSList *objects);
+void		e_data_cal_report_error				(EDataCal *cal, const gchar *message);
+void		e_data_cal_report_readonly			(EDataCal *cal, gboolean is_readonly);
+void		e_data_cal_report_online			(EDataCal *cal, gboolean is_online);
+void		e_data_cal_report_auth_required			(EDataCal *cal, const ECredentials *credentials);
 
 G_END_DECLS
 

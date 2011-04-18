@@ -43,7 +43,7 @@
 #include "e-data-cal-factory.h"
 #include "e-cal-backend-loader-factory.h"
 
-#include "e-gdbus-egdbuscalfactory.h"
+#include "e-gdbus-cal-factory.h"
 
 #ifdef HAVE_ICAL_UNKNOWN_TOKEN_HANDLING
 #include <libical/ical.h>
@@ -92,7 +92,7 @@ struct _EDataCalFactoryPrivate {
 
 	GHashTable *connections;
 
-	gint mode;
+	gboolean is_online;
 
 	/* this is for notifications of source changes */
 	ESourceList *lists[E_CAL_SOURCE_TYPE_LAST];
@@ -292,6 +292,18 @@ calendar_freed_cb (EDataCalFactory *factory, GObject *dead)
 			10, (GSourceFunc) g_main_loop_quit, loop);
 }
 
+static void
+last_client_gone_cb (ECalBackend *backend, EDataCalFactory *factory)
+{
+	EDataCalFactoryPrivate *priv = factory->priv;
+
+	if (e_cal_backend_is_removed (backend)) {
+		g_mutex_lock (priv->backends_mutex);
+		g_hash_table_foreach_remove (priv->backends, remove_dead_calendar_cb, backend);
+		g_mutex_unlock (priv->backends_mutex);
+	}
+}
+
 struct find_backend_data {
 	const gchar *str_uri;
 	ECalBackend *backend;
@@ -324,7 +336,7 @@ find_backend_cb (gpointer key, gpointer value, gpointer data)
 }
 
 static gboolean
-impl_CalFactory_getCal (EGdbusCalFactory *object, GDBusMethodInvocation *invocation, const gchar *source_xml, guint type, EDataCalFactory *factory)
+impl_CalFactory_getCal (EGdbusCalFactory *object, GDBusMethodInvocation *invocation, const gchar * const *in_source_type, EDataCalFactory *factory)
 {
 	EDataCal *calendar;
 	EDataCalFactoryPrivate *priv = factory->priv;
@@ -338,6 +350,8 @@ impl_CalFactory_getCal (EGdbusCalFactory *object, GDBusMethodInvocation *invocat
 	const gchar *sender;
 	GList *list;
 	GError *error = NULL;
+	gchar *source_xml = NULL;
+	guint type = 0;
 
 	/* Remove a pending exit */
 	if (priv->exit_timeout) {
@@ -345,14 +359,26 @@ impl_CalFactory_getCal (EGdbusCalFactory *object, GDBusMethodInvocation *invocat
 		priv->exit_timeout = 0;
 	}
 
+	if (!e_gdbus_cal_factory_decode_get_cal (in_source_type, &source_xml, &type)) {
+		error = g_error_new (E_DATA_CAL_ERROR, NoSuchCal, _("Invalid call"));
+		g_dbus_method_invocation_return_gerror (invocation, error);
+		g_error_free (error);
+
+		return TRUE;
+	}
+
 	source = e_source_new_from_standalone_xml (source_xml);
 	if (!source) {
+		g_free (source_xml);
+
 		error = g_error_new (E_DATA_CAL_ERROR, NoSuchCal, _("Invalid source"));
 		g_dbus_method_invocation_return_gerror (invocation, error);
 		g_error_free (error);
 
 		return TRUE;
 	}
+
+	g_free (source_xml);
 
 	/* Get the URI so we can extract the protocol */
 	str_uri = e_source_get_uri (source);
@@ -464,7 +490,8 @@ impl_CalFactory_getCal (EGdbusCalFactory *object, GDBusMethodInvocation *invocat
 		g_hash_table_insert (
 			priv->backends, g_strdup (uid_type_string), backend);
 
-		e_cal_backend_set_mode (backend, priv->mode);
+		g_signal_connect (backend, "last-client-gone", G_CALLBACK (last_client_gone_cb), factory);
+		e_cal_backend_set_online (backend, priv->is_online);
 	} else if (!e_source_equal (source, e_cal_backend_get_source (backend))) {
 		/* source changed, update it in a backend */
 		update_source_in_backend (backend, source);
@@ -498,11 +525,10 @@ cleanup2:
 	g_free (uid_type_string);
 	g_object_unref (source);
 
-	if (error) {
-		g_dbus_method_invocation_return_gerror (invocation, error);
+	e_gdbus_cal_factory_complete_get_cal (object, invocation, path, error);
+
+	if (error)
 		g_error_free (error);
-	} else
-		e_gdbus_cal_factory_complete_get_cal (object, invocation, path);
 
 	g_free (path);
 
@@ -578,6 +604,7 @@ static void
 e_data_cal_factory_finalize (GObject *object)
 {
 	EDataCalFactory *factory = E_DATA_CAL_FACTORY (object);
+	gint ii;
 
 	g_return_if_fail (factory != NULL);
 
@@ -591,6 +618,16 @@ e_data_cal_factory_finalize (GObject *object)
 	g_hash_table_destroy (factory->priv->connections);
 
 	g_mutex_free (factory->priv->backends_mutex);
+
+	for (ii = 0; ii < E_CAL_SOURCE_TYPE_LAST; ii++) {
+		if (factory->priv->lists[ii]) {
+			g_object_unref (factory->priv->lists[ii]);
+			factory->priv->lists[ii] = NULL;
+		}
+
+		g_slist_free (factory->priv->backends_by_type[ii]);
+		factory->priv->backends_by_type[ii] = NULL;
+	}
 
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (e_data_cal_factory_parent_class)->finalize (object);
@@ -624,27 +661,27 @@ set_backend_online_status (gpointer key, gpointer value, gpointer data)
 {
 	ECalBackend *backend = E_CAL_BACKEND (value);
 
-	e_cal_backend_set_mode (backend,  GPOINTER_TO_INT (data));
+	e_cal_backend_set_online (backend,  GPOINTER_TO_INT (data) != 0);
 }
 
 /**
- * e_data_cal_factory_set_backend_mode:
+ * e_data_cal_factory_set_backend_online:
  * @factory: A calendar factory.
- * @mode: Online mode to set.
+ * @is_online: Online mode to set.
  *
  * Sets the online mode for all backends created by the given factory.
  */
 void
-e_data_cal_factory_set_backend_mode (EDataCalFactory *factory, gint mode)
+e_data_cal_factory_set_backend_online (EDataCalFactory *factory, gboolean is_online)
 {
 	g_return_if_fail (E_IS_DATA_CAL_FACTORY (factory));
 
-	factory->priv->mode = mode;
+	factory->priv->is_online = is_online;
 	g_mutex_lock (factory->priv->backends_mutex);
 	g_hash_table_foreach (
 		factory->priv->backends,
 		set_backend_online_status,
-		GINT_TO_POINTER (factory->priv->mode));
+		GINT_TO_POINTER (factory->priv->is_online ? 1 : 0));
 	g_mutex_unlock (factory->priv->backends_mutex);
 }
 
@@ -826,8 +863,7 @@ offline_state_changed_cb (EOfflineListener *eol,
 
 	g_return_if_fail (state == EOL_STATE_ONLINE || state == EOL_STATE_OFFLINE);
 
-	e_data_cal_factory_set_backend_mode (
-		factory, state == EOL_STATE_ONLINE ? Remote : Local);
+	e_data_cal_factory_set_backend_online (factory, state == EOL_STATE_ONLINE);
 }
 
 static void

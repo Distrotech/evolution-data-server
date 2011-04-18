@@ -29,7 +29,7 @@
 #include "libedataserver/e-data-server-util.h"
 #include "e-data-book-view.h"
 
-#include "e-gdbus-egdbusbookview.h"
+#include "e-gdbus-book-view.h"
 
 static void reset_array (GArray *array);
 static void ensure_pending_flush_timeout (EDataBookView *view);
@@ -47,7 +47,6 @@ struct _EDataBookViewPrivate {
 
 	gchar * card_query;
 	EBookBackendSExp *card_sexp;
-	gint max_results;
 
 	gboolean running;
 	GMutex *pending_mutex;
@@ -117,7 +116,7 @@ send_pending_adds (EDataBookView *view)
 	if (priv->adds->len == 0)
 		return;
 
-	e_gdbus_book_view_emit_contacts_added (view->priv->gdbus_object, (const gchar * const *) priv->adds->data);
+	e_gdbus_book_view_emit_objects_added (view->priv->gdbus_object, (const gchar * const *) priv->adds->data);
 	reset_array (priv->adds);
 }
 
@@ -129,7 +128,7 @@ send_pending_changes (EDataBookView *view)
 	if (priv->changes->len == 0)
 		return;
 
-	e_gdbus_book_view_emit_contacts_changed (view->priv->gdbus_object, (const gchar * const *) priv->changes->data);
+	e_gdbus_book_view_emit_objects_changed (view->priv->gdbus_object, (const gchar * const *) priv->changes->data);
 	reset_array (priv->changes);
 }
 
@@ -141,7 +140,7 @@ send_pending_removes (EDataBookView *view)
 	if (priv->removes->len == 0)
 		return;
 
-	e_gdbus_book_view_emit_contacts_removed (view->priv->gdbus_object, (const gchar * const *) priv->removes->data);
+	e_gdbus_book_view_emit_objects_removed (view->priv->gdbus_object, (const gchar * const *) priv->removes->data);
 	reset_array (priv->removes);
 }
 
@@ -288,8 +287,7 @@ id_is_in_view (EDataBookView *book_view, const gchar *id)
  * by @book_view.
  **/
 void
-e_data_book_view_notify_update (EDataBookView *book_view,
-                                EContact      *contact)
+e_data_book_view_notify_update (EDataBookView *book_view, const EContact *contact)
 {
 	EDataBookViewPrivate *priv = book_view->priv;
 	gboolean currently_in_view, want_in_view;
@@ -301,11 +299,11 @@ e_data_book_view_notify_update (EDataBookView *book_view,
 
 	g_mutex_lock (priv->pending_mutex);
 
-	id = e_contact_get_const (contact, E_CONTACT_UID);
+	id = e_contact_get_const ((EContact *) contact, E_CONTACT_UID);
 
 	currently_in_view = id_is_in_view (book_view, id);
 	want_in_view =
-		e_book_backend_sexp_match_contact (priv->card_sexp, contact);
+		e_book_backend_sexp_match_contact (priv->card_sexp, (EContact *) contact);
 
 	if (want_in_view) {
 		vcard = e_vcard_to_string (E_VCARD (contact),
@@ -481,8 +479,9 @@ e_data_book_view_notify_complete (EDataBookView *book_view, const GError *error)
 }
 
 /**
- * e_data_book_view_notify_status_message:
+ * e_data_book_view_notify_progress:
  * @book_view: an #EDataBookView
+ * @percent: percent done; use -1 when not available
  * @message: a text message
  *
  * Provides listeners with a human-readable text describing the
@@ -490,7 +489,7 @@ e_data_book_view_notify_complete (EDataBookView *book_view, const GError *error)
  * reporting.
  **/
 void
-e_data_book_view_notify_status_message (EDataBookView *book_view, const gchar *message)
+e_data_book_view_notify_progress (EDataBookView *book_view, guint percent, const gchar *message)
 {
 	EDataBookViewPrivate *priv = book_view->priv;
 	gchar *gdbus_message = NULL;
@@ -498,7 +497,7 @@ e_data_book_view_notify_status_message (EDataBookView *book_view, const gchar *m
 	if (!priv->running)
 		return;
 
-	e_gdbus_book_view_emit_status_message (priv->gdbus_object, e_util_ensure_gdbus_string (message, &gdbus_message));
+	e_gdbus_book_view_emit_progress (priv->gdbus_object, percent, e_util_ensure_gdbus_string (message, &gdbus_message));
 
 	g_free (gdbus_message);
 }
@@ -508,13 +507,12 @@ e_data_book_view_notify_status_message (EDataBookView *book_view, const gchar *m
  * @book: The #EDataBook to search
  * @card_query: The query as a string
  * @card_sexp: The query as an #EBookBackendSExp
- * @max_results: The maximum number of results to return
  *
  * Create a new #EDataBookView for the given #EBook, filtering on #card_sexp,
  * and place it on DBus at the object path #path.
  */
 EDataBookView *
-e_data_book_view_new (EDataBook *book, const gchar *card_query, EBookBackendSExp *card_sexp, gint max_results)
+e_data_book_view_new (EDataBook *book, const gchar *card_query, EBookBackendSExp *card_sexp)
 {
 	EDataBookView *view;
 	EDataBookViewPrivate *priv;
@@ -528,7 +526,6 @@ e_data_book_view_new (EDataBook *book, const gchar *card_query, EBookBackendSExp
 	priv->backend = g_object_ref (e_data_book_get_backend (book));
 	priv->card_query = e_util_utf8_make_valid (card_query);
 	priv->card_sexp = card_sexp;
-	priv->max_results = max_results;
 
 	return view;
 }
@@ -551,7 +548,7 @@ impl_DataBookView_start (EGdbusBookView *object, GDBusMethodInvocation *invocati
 {
 	book_view->priv->idle_id = g_idle_add (bookview_idle_start, book_view);
 
-	e_gdbus_book_view_complete_start (object, invocation);
+	e_gdbus_book_view_complete_start (object, invocation, NULL);
 
 	return TRUE;
 }
@@ -577,7 +574,7 @@ impl_DataBookView_stop (EGdbusBookView *object, GDBusMethodInvocation *invocatio
 
 	book_view->priv->idle_id = g_idle_add (bookview_idle_stop, book_view);
 
-	e_gdbus_book_view_complete_stop (object, invocation);
+	e_gdbus_book_view_complete_stop (object, invocation, NULL);
 
 	return TRUE;
 }
@@ -585,7 +582,7 @@ impl_DataBookView_stop (EGdbusBookView *object, GDBusMethodInvocation *invocatio
 static gboolean
 impl_DataBookView_dispose (EGdbusBookView *object, GDBusMethodInvocation *invocation, EDataBookView *book_view)
 {
-	e_gdbus_book_view_complete_dispose (object, invocation);
+	e_gdbus_book_view_complete_dispose (object, invocation, NULL);
 
 	g_object_unref (book_view);
 
@@ -669,7 +666,6 @@ e_data_book_view_finalize (GObject *object)
 	g_array_free (priv->adds, TRUE);
 	g_array_free (priv->changes, TRUE);
 	g_array_free (priv->removes, TRUE);
-
 	g_free (priv->card_query);
 
 	g_mutex_free (priv->pending_mutex);
@@ -677,16 +673,6 @@ e_data_book_view_finalize (GObject *object)
 	g_hash_table_destroy (priv->ids);
 
 	G_OBJECT_CLASS (e_data_book_view_parent_class)->finalize (object);
-}
-
-void
-e_data_book_view_set_thresholds (EDataBookView *book_view,
-                                 gint minimum_grouping_threshold,
-                                 gint maximum_grouping_threshold)
-{
-	g_return_if_fail (E_IS_DATA_BOOK_VIEW (book_view));
-
-	g_debug ("e_data_book_view_set_thresholds does nothing in eds-dbus");
 }
 
 /**
@@ -721,23 +707,6 @@ e_data_book_view_get_card_sexp (EDataBookView *book_view)
 	g_return_val_if_fail (E_IS_DATA_BOOK_VIEW (book_view), NULL);
 
 	return book_view->priv->card_sexp;
-}
-
-/**
- * e_data_book_view_get_max_results:
- * @book_view: an #EDataBookView
- *
- * Gets the maximum number of results returned by
- * @book_view's query.
- *
- * Returns: The maximum number of results returned.
- **/
-gint
-e_data_book_view_get_max_results (EDataBookView *book_view)
-{
-	g_return_val_if_fail (E_IS_DATA_BOOK_VIEW (book_view), 0);
-
-	return book_view->priv->max_results;
 }
 
 /**

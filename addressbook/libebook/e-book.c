@@ -20,6 +20,9 @@
  * Author: Ross Burton <ross@linux.intel.com>
  */
 
+/* e-book deprecated since 3.2, use e-book-client instead */
+#ifndef E_BOOK_DISABLE_DEPRECATED
+
 /**
  * SECTION:e-book
  *
@@ -28,6 +31,8 @@
  * structure in the asynchronous callback, instead of a status code only.
  *
  * As an example, e_book_async_open() is replaced by e_book_open_async().
+ *
+ * Deprecated: 3.2: Use #EBookClient instead.
  */
 
 #include <config.h>
@@ -43,9 +48,9 @@
 #include "e-book-view-private.h"
 #include "e-book-marshal.h"
 
-#include "e-gdbus-egdbusbookfactory.h"
-#include "e-gdbus-egdbusbook.h"
-#include "e-gdbus-egdbusbookview.h"
+#include "e-gdbus-book.h"
+#include "e-gdbus-book-factory.h"
+#include "e-gdbus-book-view.h"
 
 static gchar ** flatten_stringlist (GList *list);
 static GList *array_to_stringlist (gchar **list);
@@ -65,7 +70,7 @@ enum {
 static guint e_book_signals[LAST_SIGNAL];
 
 struct _EBookPrivate {
-	EGdbusBook *gdbus_book;
+	GDBusProxy *gdbus_book;
 	guint gone_signal_id;
 
 	ESource *source;
@@ -347,27 +352,27 @@ e_book_activate (GError **error)
 }
 
 static void
-writable_cb (EGdbusBook *object, gboolean writable, EBook *book)
+readonly_cb (EGdbusBook *object, gboolean readonly, EBook *book)
 {
 	g_return_if_fail (E_IS_BOOK (book));
 
-	book->priv->writable = writable;
+	book->priv->writable = !readonly;
 
-	g_signal_emit (G_OBJECT (book), e_book_signals[WRITABLE_STATUS], 0, writable);
+	g_signal_emit (G_OBJECT (book), e_book_signals[WRITABLE_STATUS], 0, book->priv->writable);
 }
 
 static void
-connection_cb (EGdbusBook *object, gboolean connected, EBook *book)
+online_cb (EGdbusBook *object, gboolean is_online, EBook *book)
 {
 	g_return_if_fail (E_IS_BOOK (book));
 
-	book->priv->connected = connected;
+	book->priv->connected = is_online;
 
-	g_signal_emit (G_OBJECT (book), e_book_signals[CONNECTION_STATUS], 0, connected);
+	g_signal_emit (G_OBJECT (book), e_book_signals[CONNECTION_STATUS], 0, is_online);
 }
 
 static void
-auth_required_cb (EGdbusBook *object, EBook *book)
+auth_required_cb (EGdbusBook *object, const ECredentials *credentials, EBook *book)
 {
 	g_return_if_fail (E_IS_BOOK (book));
 
@@ -383,6 +388,8 @@ auth_required_cb (EGdbusBook *object, EBook *book)
  * Adds @contact to @book.
  *
  * Returns: %TRUE if successful, %FALSE otherwise.
+ *
+ * Deprecated: 3.2: Use e_book_client_add_contact_sync() instead.
  **/
 gboolean
 e_book_add_contact (EBook *book,
@@ -422,7 +429,7 @@ add_contact_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 	EBookIdCallback cb = data->callback;
 	#endif
 
-	e_gdbus_book_call_add_contact_finish (E_GDBUS_BOOK (gdbus_book), &uid, res, &error);
+	e_gdbus_book_call_add_contact_finish (G_DBUS_PROXY (gdbus_book), res, &uid, &error);
 
 	unwrap_gerror (error, &err);
 
@@ -505,6 +512,8 @@ e_book_async_add_contact (EBook *book,
  * Returns: %TRUE if the operation was started, %FALSE otherwise.
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_book_client_add_contact() and e_book_client_add_contact_finish() instead.
  **/
 gboolean
 e_book_add_contact_async (EBook *book,
@@ -546,6 +555,8 @@ e_book_add_contact_async (EBook *book,
  * @book.
  *
  * Returns: %TRUE if successful, %FALSE otherwise
+ *
+ * Deprecated: 3.2: Use e_book_client_modify_contact_sync() instead.
  **/
 gboolean
 e_book_commit_contact (EBook *book,
@@ -579,7 +590,7 @@ modify_contact_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data
 	EBookCallback cb = data->callback;
 	#endif
 
-	e_gdbus_book_call_modify_contact_finish (E_GDBUS_BOOK (gdbus_book), res, &error);
+	e_gdbus_book_call_modify_contact_finish (G_DBUS_PROXY (gdbus_book), res, &error);
 
 	unwrap_gerror (error, &err);
 
@@ -657,6 +668,8 @@ e_book_async_commit_contact (EBook *book,
  * Returns: %TRUE if the operation was started, %FALSE otherwise.
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_book_client_modify_contact() and e_book_client_modify_contact_finish() instead.
  **/
 gboolean
 e_book_commit_contact_async (EBook *book,
@@ -700,6 +713,8 @@ e_book_commit_contact_async (EBook *book,
  * must be freed by the caller.
  *
  * Returns: %TRUE if successful, %FALSE otherwise.
+ *
+ * Deprecated: 3.2: Use e_book_client_get_required_fields_sync() instead.
  **/
 gboolean
 e_book_get_required_fields (EBook *book,
@@ -737,7 +752,7 @@ get_required_fields_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user
 	#endif
 	EList *efields = NULL;
 
-	e_gdbus_book_call_get_required_fields_finish (E_GDBUS_BOOK (gdbus_book), &fields, res, &error);
+	e_gdbus_book_call_get_required_fields_finish (G_DBUS_PROXY (gdbus_book), res, &fields, &error);
 
 	efields = array_to_elist (fields);
 
@@ -808,6 +823,8 @@ e_book_async_get_required_fields (EBook *book,
  * Returns: %TRUE if the operation was started, %FALSE otherwise.
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_book_client_get_required_fields() and e_book_client_get_required_fields_finish() instead.
  **/
 gboolean
 e_book_get_required_fields_async (EBook *book,
@@ -843,6 +860,8 @@ e_book_get_required_fields_async (EBook *book,
  * #GList and the strings must be freed by the caller.
  *
  * Returns: %TRUE if successful, %FALSE otherwise
+ *
+ * Deprecated: 3.2: Use e_book_client_get_supported_fields_sync() instead.
  **/
 gboolean
 e_book_get_supported_fields  (EBook *book,
@@ -880,7 +899,7 @@ get_supported_fields_reply (GObject *gdbus_book, GAsyncResult *res, gpointer use
 	#endif
 	EList *efields;
 
-	e_gdbus_book_call_get_supported_fields_finish (E_GDBUS_BOOK (gdbus_book), &fields, res, &error);
+	e_gdbus_book_call_get_supported_fields_finish (G_DBUS_PROXY (gdbus_book), res, &fields, &error);
 
 	efields = array_to_elist (fields);
 
@@ -953,6 +972,8 @@ e_book_async_get_supported_fields (EBook *book,
  * Returns: %TRUE if successful, %FALSE otherwise.
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_book_client_get_supported_fields() and e_book_client_get_supported_fields_finish() instead.
  **/
 gboolean
 e_book_get_supported_fields_async (EBook *book,
@@ -987,6 +1008,8 @@ e_book_get_supported_fields_async (EBook *book,
  * #GList and the strings must be freed by the caller.
  *
  * Returns: %TRUE if successful, %FALSE otherwise
+ *
+ * Deprecated: 3.2: Use e_book_client_get_supported_auth_methods_sync() instead.
  **/
 gboolean
 e_book_get_supported_auth_methods (EBook *book,
@@ -1024,7 +1047,7 @@ get_supported_auth_methods_reply (GObject *gdbus_book, GAsyncResult *res, gpoint
 	#endif
 	EList *emethods;
 
-	e_gdbus_book_call_get_supported_auth_methods_finish (E_GDBUS_BOOK (gdbus_book), &methods, res, &error);
+	e_gdbus_book_call_get_supported_auth_methods_finish (G_DBUS_PROXY (gdbus_book), res, &methods, &error);
 
 	emethods = array_to_elist (methods);
 
@@ -1095,6 +1118,8 @@ e_book_async_get_supported_auth_methods (EBook *book,
  * Returns: %TRUE if successful, %FALSE otherwise.
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_book_client_get_supported_auth_methods() and e_book_client_get_supported_auth_methods_finish() instead.
  **/
 gboolean
 e_book_get_supported_auth_methods_async (EBook *book,
@@ -1131,6 +1156,8 @@ e_book_get_supported_auth_methods_async (EBook *book,
  * methods returned using e_book_get_supported_auth_methods.
  *
  * Returns: %TRUE if successful, %FALSE otherwise
+ *
+ * Deprecated: 3.2: Connect to EClient::authenticate signal instead.
  **/
 gboolean
 e_book_authenticate_user (EBook *book,
@@ -1140,21 +1167,26 @@ e_book_authenticate_user (EBook *book,
                           GError **error)
 {
 	GError *err = NULL;
-	gchar *gdbus_user = NULL, *gdbus_passwd = NULL, *gdbus_auth_method = NULL;
+	ECredentials *credentials;
+	gchar **credentials_strv;
 
 	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
 
 	e_return_error_if_fail (
 		book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
 
-	e_gdbus_book_call_authenticate_user_sync (book->priv->gdbus_book,
-		e_util_ensure_gdbus_string (user, &gdbus_user),
-		e_util_ensure_gdbus_string (passwd, &gdbus_passwd),
-		e_util_ensure_gdbus_string (auth_method, &gdbus_auth_method), NULL, &err);
+	credentials = e_credentials_new_args (
+		E_CREDENTIALS_KEY_USERNAME, user,
+		E_CREDENTIALS_KEY_PASSWORD, passwd,
+		E_CREDENTIALS_KEY_AUTH_METHOD, auth_method,
+		NULL);
 
-	g_free (gdbus_user);
-	g_free (gdbus_passwd);
-	g_free (gdbus_auth_method);
+	credentials_strv = e_credentials_to_strv (credentials);
+
+	e_gdbus_book_call_authenticate_user_sync (book->priv->gdbus_book, (const gchar * const *) credentials_strv, NULL, &err);
+
+	g_strfreev (credentials_strv);
+	e_credentials_free (credentials);
 
 	return unwrap_gerror (err, error);
 }
@@ -1169,7 +1201,7 @@ authenticate_user_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_d
 	EBookCallback cb = data->callback;
 	#endif
 
-	e_gdbus_book_call_authenticate_user_finish (E_GDBUS_BOOK (gdbus_book), res, &error);
+	e_gdbus_book_call_authenticate_user_finish (G_DBUS_PROXY (gdbus_book), res, &error);
 
 	unwrap_gerror (error, &err);
 
@@ -1215,7 +1247,8 @@ e_book_async_authenticate_user (EBook *book,
                                 gpointer closure)
 {
 	AsyncData *data;
-	gchar *gdbus_user = NULL, *gdbus_passwd = NULL, *gdbus_auth_method = NULL;
+	ECredentials *credentials;
+	gchar **credentials_strv;
 
 	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
 	g_return_val_if_fail (user != NULL, FALSE);
@@ -1230,14 +1263,18 @@ e_book_async_authenticate_user (EBook *book,
 	data->callback = cb;
 	data->closure = closure;
 
-	e_gdbus_book_call_authenticate_user (book->priv->gdbus_book,
-		e_util_ensure_gdbus_string (user, &gdbus_user),
-		e_util_ensure_gdbus_string (passwd, &gdbus_passwd),
-		e_util_ensure_gdbus_string (auth_method, &gdbus_auth_method), NULL, authenticate_user_reply, data);
+	credentials = e_credentials_new_args (
+		E_CREDENTIALS_KEY_USERNAME, user,
+		E_CREDENTIALS_KEY_PASSWORD, passwd,
+		E_CREDENTIALS_KEY_AUTH_METHOD, auth_method,
+		NULL);
 
-	g_free (gdbus_user);
-	g_free (gdbus_passwd);
-	g_free (gdbus_auth_method);
+	credentials_strv = e_credentials_to_strv (credentials);
+
+	e_gdbus_book_call_authenticate_user (book->priv->gdbus_book, (const gchar * const *) credentials_strv, NULL, authenticate_user_reply, data);
+
+	g_strfreev (credentials_strv);
+	e_credentials_free (credentials);
 
 	return TRUE;
 }
@@ -1260,6 +1297,8 @@ e_book_async_authenticate_user (EBook *book,
  * Returns: %FALSE if successful, %TRUE otherwise.
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Connect to EClient::authenticate signal instead.
  **/
 gboolean
 e_book_authenticate_user_async (EBook *book,
@@ -1270,7 +1309,8 @@ e_book_authenticate_user_async (EBook *book,
                                 gpointer closure)
 {
 	AsyncData *data;
-	gchar *gdbus_user = NULL, *gdbus_passwd = NULL, *gdbus_auth_method = NULL;
+	ECredentials *credentials;
+	gchar **credentials_strv;
 
 	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
 	g_return_val_if_fail (user != NULL, FALSE);
@@ -1285,14 +1325,18 @@ e_book_authenticate_user_async (EBook *book,
 	data->excallback = cb;
 	data->closure = closure;
 
-	e_gdbus_book_call_authenticate_user (book->priv->gdbus_book,
-		e_util_ensure_gdbus_string (user, &gdbus_user),
-		e_util_ensure_gdbus_string (passwd, &gdbus_passwd),
-		e_util_ensure_gdbus_string (auth_method, &gdbus_auth_method), NULL, authenticate_user_reply, data);
+	credentials = e_credentials_new_args (
+		E_CREDENTIALS_KEY_USERNAME, user,
+		E_CREDENTIALS_KEY_PASSWORD, passwd,
+		E_CREDENTIALS_KEY_AUTH_METHOD, auth_method,
+		NULL);
 
-	g_free (gdbus_user);
-	g_free (gdbus_passwd);
-	g_free (gdbus_auth_method);
+	credentials_strv = e_credentials_to_strv (credentials);
+
+	e_gdbus_book_call_authenticate_user (book->priv->gdbus_book, (const gchar * const *) credentials_strv, NULL, authenticate_user_reply, data);
+
+	g_strfreev (credentials_strv);
+	e_credentials_free (credentials);
 
 	return TRUE;
 }
@@ -1308,6 +1352,8 @@ e_book_authenticate_user_async (EBook *book,
  * corresponding to @id.
  *
  * Returns: %TRUE if successful, %FALSE otherwise
+ *
+ * Deprecated: 3.2: Use e_book_client_get_contact_sync() instead.
  **/
 gboolean
 e_book_get_contact (EBook *book,
@@ -1346,7 +1392,7 @@ get_contact_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 	EBookContactCallback cb = data->callback;
 	#endif
 
-	e_gdbus_book_call_get_contact_finish (E_GDBUS_BOOK (gdbus_book), &vcard, res, &error);
+	e_gdbus_book_call_get_contact_finish (G_DBUS_PROXY (gdbus_book), res, &vcard, &error);
 
 	unwrap_gerror (error, &err);
 
@@ -1423,6 +1469,8 @@ e_book_async_get_contact (EBook *book,
  * Returns: %FALSE if successful, %TRUE otherwise
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_book_client_get_contact() and e_book_client_get_contact_finish() instead.
  **/
 gboolean
 e_book_get_contact_async (EBook *book,
@@ -1460,6 +1508,8 @@ e_book_get_contact_async (EBook *book,
  * Removes the contact with id @id from @book.
  *
  * Returns: %TRUE if successful, %FALSE otherwise
+ *
+ * Deprecated: 3.2: Use e_book_client_remove_contact_by_uid_sync() or e_book_client_remove_contact_sync() instead.
  **/
 gboolean
 e_book_remove_contact (EBook *book,
@@ -1495,7 +1545,7 @@ remove_contact_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data
 	EBookCallback cb = data->callback;
 	#endif
 
-	e_gdbus_book_call_remove_contacts_finish (E_GDBUS_BOOK (gdbus_book), res, &error);
+	e_gdbus_book_call_remove_contacts_finish (G_DBUS_PROXY (gdbus_book), res, &error);
 
 	unwrap_gerror (error, &err);
 
@@ -1525,6 +1575,8 @@ remove_contact_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data
  * as a batch request.
  *
  * Returns: %TRUE if successful, %FALSE otherwise
+ *
+ * Deprecated: 3.2: Use e_book_client_remove_contacts_sync() instead.
  **/
 gboolean
 e_book_remove_contacts (EBook *book,
@@ -1606,6 +1658,8 @@ e_book_async_remove_contact (EBook *book,
  * Returns: %TRUE if successful, %FALSE otherwise
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_book_client_remove_contact() and e_book_client_remove_contact_finish() instead.
  **/
 gboolean
 e_book_remove_contact_async (EBook *book,
@@ -1647,7 +1701,7 @@ remove_contact_by_id_reply (GObject *gdbus_book, GAsyncResult *res, gpointer use
 	EBookCallback cb = data->callback;
 	#endif
 
-	e_gdbus_book_call_remove_contacts_finish (E_GDBUS_BOOK (gdbus_book), res, &error);
+	e_gdbus_book_call_remove_contacts_finish (G_DBUS_PROXY (gdbus_book), res, &error);
 
 	unwrap_gerror (error, &err);
 
@@ -1722,6 +1776,8 @@ e_book_async_remove_contact_by_id (EBook *book,
  * Returns: %TRUE if successful, %FALSE otherwise
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_book_client_remove_contact_by_uid() and e_book_client_remove_contact_by_uid_finish() instead.
  **/
 gboolean
 e_book_remove_contact_by_id_async (EBook *book,
@@ -1763,7 +1819,7 @@ remove_contacts_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_dat
 	EBookCallback cb = data->callback;
 	#endif
 
-	e_gdbus_book_call_remove_contacts_finish (E_GDBUS_BOOK (gdbus_book), res, &error);
+	e_gdbus_book_call_remove_contacts_finish (G_DBUS_PROXY (gdbus_book), res, &error);
 
 	unwrap_gerror (error, &err);
 
@@ -1848,6 +1904,8 @@ e_book_async_remove_contacts (EBook *book,
  * Returns: %TRUE if successful, %FALSE otherwise
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_book_client_remove_contacts() and e_book_client_remove_contacts_finish() instead.
  **/
 gboolean
 e_book_remove_contacts_async (EBook *book,
@@ -1897,6 +1955,8 @@ e_book_remove_contacts_async (EBook *book,
  * error, @error is set and %FALSE returned.
  *
  * Returns: %TRUE if successful, %FALSE otherwise
+ *
+ * Deprecated: 3.2: Use e_book_client_get_view_sync() instead.
  **/
 gboolean
 e_book_get_book_view (EBook       *book,
@@ -1918,7 +1978,7 @@ e_book_get_book_view (EBook       *book,
 
 	sexp = e_book_query_to_string (query);
 
-	if (!e_gdbus_book_call_get_book_view_sync (book->priv->gdbus_book, e_util_ensure_gdbus_string (sexp, &gdbus_sexp), max_results, &view_path, NULL, &err)) {
+	if (!e_gdbus_book_call_get_view_sync (book->priv->gdbus_book, e_util_ensure_gdbus_string (sexp, &gdbus_sexp), &view_path, NULL, &err)) {
 		*book_view = NULL;
 		g_free (sexp);
 		g_free (gdbus_sexp);
@@ -1934,7 +1994,7 @@ e_book_get_book_view (EBook       *book,
 							error);
 
 	if (gdbus_bookview) {
-		*book_view = _e_book_view_new (book, gdbus_bookview);
+		*book_view = _e_book_view_new_with_book (book, gdbus_bookview);
 	} else {
 		*book_view = NULL;
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_DBUS_EXCEPTION,
@@ -1962,7 +2022,7 @@ get_book_view_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 	#endif
 	EGdbusBookView *gdbus_bookview;
 
-	e_gdbus_book_call_get_book_view_finish (E_GDBUS_BOOK (gdbus_book), &view_path, res, &error);
+	e_gdbus_book_call_get_view_finish (G_DBUS_PROXY (gdbus_book), res, &view_path, &error);
 
 	if (view_path) {
 		gdbus_bookview = e_gdbus_book_view_proxy_new_sync (g_dbus_proxy_get_connection (G_DBUS_PROXY (book_factory_proxy)),
@@ -1972,7 +2032,7 @@ get_book_view_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 							NULL,
 							&error);
 		if (gdbus_bookview) {
-			view = _e_book_view_new (data->book, gdbus_bookview);
+			view = _e_book_view_new_with_book (data->book, gdbus_bookview);
 		}
 	}
 
@@ -2033,7 +2093,7 @@ e_book_async_get_book_view (EBook *book,
 
 	sexp = e_book_query_to_string (query);
 
-	e_gdbus_book_call_get_book_view (book->priv->gdbus_book, e_util_ensure_gdbus_string (sexp, &gdbus_sexp), max_results, NULL, get_book_view_reply, data);
+	e_gdbus_book_call_get_view (book->priv->gdbus_book, e_util_ensure_gdbus_string (sexp, &gdbus_sexp), NULL, get_book_view_reply, data);
 
 	g_free (sexp);
 	g_free (gdbus_sexp);
@@ -2057,6 +2117,8 @@ e_book_async_get_book_view (EBook *book,
  * Returns: %FALSE if successful, %TRUE otherwise
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_book_client_get_view() and e_book_client_get_view_finish() instead.
  **/
 gboolean
 e_book_get_book_view_async (EBook *book,
@@ -2082,7 +2144,7 @@ e_book_get_book_view_async (EBook *book,
 
 	sexp = e_book_query_to_string (query);
 
-	e_gdbus_book_call_get_book_view (book->priv->gdbus_book, e_util_ensure_gdbus_string (sexp, &gdbus_sexp), max_results, NULL, get_book_view_reply, data);
+	e_gdbus_book_call_get_view (book->priv->gdbus_book, e_util_ensure_gdbus_string (sexp, &gdbus_sexp), NULL, get_book_view_reply, data);
 
 	g_free (sexp);
 	g_free (gdbus_sexp);
@@ -2101,6 +2163,8 @@ e_book_get_book_view_async (EBook *book,
  * matched. On failed, @error will be set and %FALSE returned.
  *
  * Returns: %TRUE on success, %FALSE otherwise
+ *
+ * Deprecated: 3.2: Use e_book_client_get_contacts_sync() instead.
  **/
 gboolean
 e_book_get_contacts (EBook       *book,
@@ -2150,7 +2214,7 @@ get_contacts_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 	EBookListCallback cb = data->callback;
 	#endif
 
-	e_gdbus_book_call_get_contact_list_finish (E_GDBUS_BOOK (gdbus_book), &vcards, res, &error);
+	e_gdbus_book_call_get_contact_list_finish (G_DBUS_PROXY (gdbus_book), res, &vcards, &error);
 
 	unwrap_gerror (error, &err);
 
@@ -2238,6 +2302,8 @@ e_book_async_get_contacts (EBook *book,
  * Returns: %FALSE on success, %TRUE otherwise
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_book_client_get_contacts() and e_book_client_get_contacts_finish() instead.
  **/
 gboolean
 e_book_get_contacts_async (EBook *book,
@@ -2311,6 +2377,8 @@ parse_changes_array (GVariant *var_changes)
  * for a given change ID.
  *
  * Returns: %TRUE on success, %FALSE otherwise
+ *
+ * Deprecated: 3.2: This function has been dropped completely.
  */
 gboolean
 e_book_get_changes (EBook       *book,
@@ -2327,7 +2395,7 @@ e_book_get_changes (EBook       *book,
 	e_return_error_if_fail (
 		book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
 
-	e_gdbus_book_call_get_changes_sync (book->priv->gdbus_book, e_util_ensure_gdbus_string (changeid, &gdbus_changeid), &var_changes, NULL, &err);
+	/*e_gdbus_book_call_get_changes_sync (book->priv->gdbus_book, e_util_ensure_gdbus_string (changeid, &gdbus_changeid), &var_changes, NULL, &err);*/
 
 	g_free (gdbus_changeid);
 
@@ -2340,42 +2408,6 @@ e_book_get_changes (EBook       *book,
 	} else {
 		return unwrap_gerror (err, error);
 	}
-}
-
-static void
-get_changes_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
-{
-	GVariant *var_changes = NULL;
-	GError *err = NULL, *error = NULL;
-	AsyncData *data = user_data;
-	EBookListAsyncCallback excb = data->excallback;
-	#ifndef E_BOOK_DISABLE_DEPRECATED
-	EBookListCallback cb = data->callback;
-	#endif
-	GList *list = NULL;
-
-	e_gdbus_book_call_get_changes_finish (E_GDBUS_BOOK (gdbus_book), &var_changes, res, &error);
-
-	unwrap_gerror (error, &err);
-
-	if (var_changes) {
-		list = parse_changes_array (var_changes);
-		g_variant_unref (var_changes);
-	}
-
-	#ifndef E_BOOK_DISABLE_DEPRECATED
-	if (cb)
-		cb (data->book, err ? err->code : E_BOOK_ERROR_OK, list, data->closure);
-	#endif
-
-	if (excb)
-		excb (data->book, err, list, data->closure);
-
-	if (err)
-		g_error_free (err);
-
-	g_object_unref (data->book);
-	g_slice_free (AsyncData, data);
 }
 
 #ifndef E_BOOK_DISABLE_DEPRECATED
@@ -2399,22 +2431,12 @@ e_book_async_get_changes (EBook *book,
                           EBookListCallback cb,
                           gpointer closure)
 {
-	AsyncData *data;
-	gchar *gdbus_changeid = NULL;
-
 	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
 
 	e_return_async_error_val_if_fail (
 		book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
 
-	data = g_slice_new0 (AsyncData);
-	data->book = g_object_ref (book);
-	data->callback = cb;
-	data->closure = closure;
-
-	e_gdbus_book_call_get_changes (book->priv->gdbus_book, e_util_ensure_gdbus_string (changeid, &gdbus_changeid), NULL, get_changes_reply, data);
-
-	g_free (gdbus_changeid);
+	cb (book, E_BOOK_ERROR_NOT_SUPPORTED, NULL, closure);
 
 	return TRUE;
 }
@@ -2433,6 +2455,8 @@ e_book_async_get_changes (EBook *book,
  * Returns: %TRUE on success, %FALSE otherwise
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: This function has been dropped completely.
  */
 gboolean
 e_book_get_changes_async (EBook *book,
@@ -2440,22 +2464,16 @@ e_book_get_changes_async (EBook *book,
                           EBookListAsyncCallback cb,
                           gpointer closure)
 {
-	AsyncData *data;
-	gchar *gdbus_changeid = NULL;
+	GError *error;
 
 	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
 
 	e_return_ex_async_error_val_if_fail (
 		book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
 
-	data = g_slice_new0 (AsyncData);
-	data->book = g_object_ref (book);
-	data->excallback = cb;
-	data->closure = closure;
-
-	e_gdbus_book_call_get_changes (book->priv->gdbus_book, e_util_ensure_gdbus_string (changeid, &gdbus_changeid), NULL, get_changes_reply, data);
-
-	g_free (gdbus_changeid);
+	error = g_error_new (E_BOOK_ERROR, E_BOOK_ERROR_NOT_SUPPORTED, "Not supported");
+	cb (book, error, NULL, closure);
+	g_error_free (error);
 
 	return TRUE;
 }
@@ -2465,6 +2483,8 @@ e_book_get_changes_async (EBook *book,
  * @change_list: a #GList of #EBookChange items
  *
  * Free the contents of #change_list, and the list itself.
+ *
+ * Deprecated: 3.2: Related function has been dropped completely.
  */
 void
 e_book_free_change_list (GList *change_list)
@@ -2496,6 +2516,8 @@ e_book_free_change_list (GList *change_list)
  * return with a status of E_BOOK_STATUS_CANCELLED.
  *
  * Returns: %TRUE on success, %FALSE otherwise
+ *
+ * Deprecated: 3.2: Use e_client_cancel_all() or e_client_cancel_op() on an #EBookClient object instead.
  **/
 gboolean
 e_book_cancel (EBook   *book,
@@ -2506,7 +2528,7 @@ e_book_cancel (EBook   *book,
 	e_return_error_if_fail (
 		book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
 
-	return e_gdbus_book_call_cancel_operation_sync (book->priv->gdbus_book, NULL, error);
+	return e_gdbus_book_call_cancel_all_sync (book->priv->gdbus_book, NULL, error);
 }
 
 /**
@@ -2516,6 +2538,8 @@ e_book_cancel (EBook   *book,
  * asynchronous operation.
  *
  * Since: 2.24
+ *
+ * Deprecated: 3.2: Use e_client_cancel_all() or e_client_cancel_op() on an #EBookClient object instead.
  **/
 gboolean
 e_book_cancel_async_op (EBook *book, GError **error)
@@ -2525,7 +2549,7 @@ e_book_cancel_async_op (EBook *book, GError **error)
 	e_return_error_if_fail (
 		book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
 
-	return e_gdbus_book_call_cancel_operation_sync (book->priv->gdbus_book, NULL, error);
+	return e_gdbus_book_call_cancel_all_sync (book->priv->gdbus_book, NULL, error);
 }
 
 /**
@@ -2537,6 +2561,8 @@ e_book_cancel_async_op (EBook *book, GError **error)
  * Opens the addressbook, making it ready for queries and other operations.
  *
  * Returns: %TRUE if the book was successfully opened, %FALSE otherwise.
+ *
+ * Deprecated: 3.2: Use e_client_open_sync() on an #EBookClient object instead.
  */
 gboolean
 e_book_open (EBook     *book,
@@ -2573,7 +2599,7 @@ open_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 	EBookCallback cb = data->callback;
 	#endif
 
-	e_gdbus_book_call_open_finish (E_GDBUS_BOOK (gdbus_book), res, &error);
+	e_gdbus_book_call_open_finish (G_DBUS_PROXY (gdbus_book), res, &error);
 
 	unwrap_gerror (error, &err);
 
@@ -2645,6 +2671,8 @@ e_book_async_open (EBook *book,
  * Returns: %FALSE if successful, %TRUE otherwise.
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_client_open() and e_client_open_finish() on an #EBookClient object instead.
  **/
 gboolean
 e_book_open_async (EBook *book,
@@ -2678,6 +2706,8 @@ e_book_open_async (EBook *book,
  * deletes the database file. You cannot get it back!
  *
  * Returns: %TRUE on success, %FALSE on failure.
+ *
+ * Deprecated: 3.2: Use e_client_remove_sync() on an #EBookClient object instead.
  */
 gboolean
 e_book_remove (EBook   *book,
@@ -2705,7 +2735,7 @@ remove_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 	EBookCallback cb = data->callback;
 	#endif
 
-	e_gdbus_book_call_remove_finish (E_GDBUS_BOOK (gdbus_book), res, &error);
+	e_gdbus_book_call_remove_finish (G_DBUS_PROXY (gdbus_book), res, &error);
 
 	unwrap_gerror (error, &err);
 
@@ -2772,6 +2802,8 @@ e_book_async_remove (EBook *book,
  * Returns: %FALSE if successful, %TRUE otherwise.
  *
  * Since: 2.32
+ *
+ * Deprecated: 3.2: Use e_client_remove() and e_client_remove_finish() on an #EBookClient object instead.
  **/
 gboolean
 e_book_remove_async (EBook *book,
@@ -2802,6 +2834,8 @@ e_book_remove_async (EBook *book,
  * Get the URI that this book has loaded. This string should not be freed.
  *
  * Returns: The URI.
+ *
+ * Deprecated: 3.2: Use e_client_get_uri() on an #EBookClient object instead.
  */
 const gchar *
 e_book_get_uri (EBook *book)
@@ -2818,6 +2852,8 @@ e_book_get_uri (EBook *book)
  * Get the #ESource that this book has loaded.
  *
  * Returns: The source.
+ *
+ * Deprecated: 3.2: Use e_client_get_source() on an #EBookClient object instead.
  */
 ESource *
 e_book_get_source (EBook *book)
@@ -2836,6 +2872,8 @@ e_book_get_source (EBook *book)
  * supports. This string should not be freed.
  *
  * Returns: The capabilities list
+ *
+ * Deprecated: 3.2: Use e_client_get_capabilities() or e_book_client_get_capabilities_sync() on an #EBookClient object instead.
  */
 const gchar *
 e_book_get_static_capabilities (EBook *book,
@@ -2849,7 +2887,7 @@ e_book_get_static_capabilities (EBook *book,
 	if (!book->priv->cap_queried) {
 		gchar *cap = NULL;
 
-		if (!e_gdbus_book_call_get_static_capabilities_sync (book->priv->gdbus_book, &cap, NULL, error)) {
+		if (!e_gdbus_book_call_get_capabilities_sync (book->priv->gdbus_book, &cap, NULL, error)) {
 			return NULL;
 		}
 
@@ -2869,6 +2907,8 @@ e_book_get_static_capabilities (EBook *book,
  * @cap.
  *
  * Returns: %TRUE if the backend supports @cap, %FALSE otherwise.
+ *
+ * Deprecated: 3.2: Use e_client_check_capability() on an #EBookClient object instead.
  */
 gboolean
 e_book_check_static_capability (EBook *book,
@@ -2894,6 +2934,8 @@ e_book_check_static_capability (EBook *book,
  * Check if this book has been opened.
  *
  * Returns: %TRUE if this book has been opened, otherwise %FALSE.
+ *
+ * Deprecated: 3.2: Use e_client_is_opened() on an #EBookClient object instead.
  */
 gboolean
 e_book_is_opened (EBook *book)
@@ -2910,6 +2952,8 @@ e_book_is_opened (EBook *book)
  * Check if this book is writable.
  *
  * Returns: %TRUE if this book is writable, otherwise %FALSE.
+ *
+ * Deprecated: 3.2: Use e_client_is_readonly() on an #EBookClient object instead.
  */
 gboolean
 e_book_is_writable (EBook *book)
@@ -2926,6 +2970,8 @@ e_book_is_writable (EBook *book)
  * Check if this book is connected.
  *
  * Returns: %TRUE if this book is connected, otherwise %FALSE.
+ *
+ * Deprecated: 3.2: Use e_client_is_online() on an #EBookClient object instead.
  **/
 gboolean
 e_book_is_online (EBook *book)
@@ -2984,6 +3030,8 @@ make_me_card (void)
  * and set it in @contact and @book.
  *
  * Returns: %TRUE if successful, otherwise %FALSE.
+ *
+ * Deprecated: 3.2: Use e_book_client_get_self() instead.
  **/
 gboolean
 e_book_get_self (EContact **contact, EBook **book, GError **error)
@@ -3051,6 +3099,8 @@ e_book_get_self (EContact **contact, EBook **book, GError **error)
  * refers to the user of the address book.
  *
  * Returns: %TRUE if successful, %FALSE otherwise.
+ *
+ * Deprecated: 3.2: Use e_book_client_set_self() instead.
  **/
 gboolean
 e_book_set_self (EBook *book, EContact *contact, GError **error)
@@ -3074,6 +3124,8 @@ e_book_set_self (EBook *book, EContact *contact, GError **error)
  * Check if @contact is the user of the address book.
  *
  * Returns: %TRUE if @contact is the user, %FALSE otherwise.
+ *
+ * Deprecated: 3.2: Use e_book_client_is_self() instead.
  **/
 gboolean
 e_book_is_self (EContact *contact)
@@ -3106,6 +3158,8 @@ e_book_is_self (EContact *contact)
  * that will be loaded in the e_book_get_default_addressbook call.
  *
  * Returns: %TRUE if the setting was stored in libebook's ESourceList, otherwise %FALSE.
+ *
+ * Deprecated: 3.2: Use e_book_client_set_default_addressbook() instead.
  */
 gboolean
 e_book_set_default_addressbook (EBook *book, GError **error)
@@ -3132,6 +3186,8 @@ e_book_set_default_addressbook (EBook *book, GError **error)
  * will be loaded in the e_book_get_default_addressbook call.
  *
  * Returns: %TRUE if the setting was stored in libebook's ESourceList, otherwise %FALSE.
+ *
+ * Deprecated: 3.2: Use e_book_client_set_default_source() instead.
  */
 gboolean
 e_book_set_default_source (ESource *source, GError **error)
@@ -3197,6 +3253,8 @@ e_book_set_default_source (ESource *source, GError **error)
  * added to Evolution.
  *
  * Returns: %TRUE if @addressbook_sources was set, otherwise %FALSE.
+ *
+ * Deprecated: 3.2: Use e_book_client_get_sources() instead.
  */
 gboolean
 e_book_get_addressbooks (ESourceList **addressbook_sources, GError **error)
@@ -3222,6 +3280,8 @@ e_book_get_addressbooks (ESourceList **addressbook_sources, GError **error)
  * e_book_open(), and e_book_remove().
  *
  * Returns: a new but unopened #EBook.
+ *
+ * Deprecated: 3.2: Use e_book_client_new() instead.
  */
 EBook *
 e_book_new (ESource *source, GError **error)
@@ -3248,7 +3308,7 @@ e_book_new (ESource *source, GError **error)
 
 	xml = e_source_to_standalone_xml (source);
 
-	if (!e_gdbus_book_factory_call_get_book_sync (book_factory_proxy, e_util_ensure_gdbus_string (xml, &gdbus_xml), &path, NULL, &err)) {
+	if (!e_gdbus_book_factory_call_get_book_sync (G_DBUS_PROXY (book_factory_proxy), e_util_ensure_gdbus_string (xml, &gdbus_xml), &path, NULL, &err)) {
 		unwrap_gerror (err, &err);
 		g_free (xml);
 		g_free (gdbus_xml);
@@ -3262,12 +3322,12 @@ e_book_new (ESource *source, GError **error)
 	g_free (xml);
 	g_free (gdbus_xml);
 
-	book->priv->gdbus_book = e_gdbus_book_proxy_new_sync (g_dbus_proxy_get_connection (G_DBUS_PROXY (book_factory_proxy)),
+	book->priv->gdbus_book = G_DBUS_PROXY (e_gdbus_book_proxy_new_sync (g_dbus_proxy_get_connection (G_DBUS_PROXY (book_factory_proxy)),
 						      G_DBUS_PROXY_FLAGS_NONE,
 						      ADDRESS_BOOK_DBUS_SERVICE_NAME,
 						      path,
 						      NULL,
-						      &err);
+						      &err));
 
 	if (!book->priv->gdbus_book) {
 		g_free (path);
@@ -3292,8 +3352,8 @@ e_book_new (ESource *source, GError **error)
 		gdbus_book_connection_gone_cb, book, NULL);
 	g_signal_connect (connection, "closed", G_CALLBACK (gdbus_book_closed_cb), book);
 
-	g_signal_connect (book->priv->gdbus_book, "writable", G_CALLBACK (writable_cb), book);
-	g_signal_connect (book->priv->gdbus_book, "connection", G_CALLBACK (connection_cb), book);
+	g_signal_connect (book->priv->gdbus_book, "readonly", G_CALLBACK (readonly_cb), book);
+	g_signal_connect (book->priv->gdbus_book, "online", G_CALLBACK (online_cb), book);
 	g_signal_connect (book->priv->gdbus_book, "auth-required", G_CALLBACK (auth_required_cb), book);
 
 	return book;
@@ -3376,6 +3436,8 @@ check_uri (ESource *source, gpointer uri)
  * documentation for e_book_new for further information.
  *
  * Returns: a new but unopened #EBook.
+ *
+ * Deprecated: 3.2: Use e_book_client_new_from_uri() instead.
  */
 EBook *
 e_book_new_from_uri (const gchar *uri, GError **error)
@@ -3445,6 +3507,8 @@ check_system (ESource *source, gpointer data)
  * information.
  *
  * Returns: a new but unopened #EBook.
+ *
+ * Deprecated: 3.2: Use e_book_client_new_system_addressbook() instead.
  */
 EBook *
 e_book_new_system_addressbook (GError **error)
@@ -3498,6 +3562,8 @@ e_book_new_system_addressbook (GError **error)
  * further information.
  *
  * Returns: a new but unopened #EBook
+ *
+ * Deprecated: 3.2: Use e_book_client_new_default_addressbook() instead.
  */
 EBook *
 e_book_new_default_addressbook (GError **error)
@@ -3668,3 +3734,5 @@ array_to_elist (gchar **list)
 
 	return elst;
 }
+
+#endif /* E_BOOK_DISABLE_DEPRECATED */

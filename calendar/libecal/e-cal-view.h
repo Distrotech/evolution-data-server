@@ -35,7 +35,13 @@ G_BEGIN_DECLS
 typedef struct _ECalView ECalView;
 typedef struct _ECalViewClass ECalViewClass;
 typedef struct _ECalViewPrivate ECalViewPrivate;
+
+#ifndef E_CAL_DISABLE_DEPRECATED
 struct _ECal;
+#endif
+struct _ECalClient;
+
+struct _ECalClient;
 
 struct _ECalView {
 	GObject object;
@@ -60,7 +66,12 @@ struct _ECalViewClass {
 
 GType      e_cal_view_get_type (void);
 
+#ifndef E_CAL_DISABLE_DEPRECATED
 struct _ECal *e_cal_view_get_client (ECalView *view);
+#endif
+
+struct _ECalClient *e_cal_view_get_cal_client (ECalView *view);
+
 void e_cal_view_start (ECalView *view);
 void e_cal_view_stop (ECalView *view);
 
