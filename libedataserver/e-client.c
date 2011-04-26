@@ -24,6 +24,7 @@
 #endif
 
 #include <glib.h>
+#include <glib/gi18n-lib.h>
 #include <gio/gio.h>
 
 #include "e-gdbus-marshallers.h"
@@ -68,6 +69,52 @@ static guint signals[LAST_SIGNAL];
 static EOperationPool *ops_pool = NULL;
 
 G_DEFINE_ABSTRACT_TYPE (EClient, e_client, G_TYPE_OBJECT)
+
+GQuark
+e_client_error_quark (void)
+{
+	static GQuark q = 0;
+
+	if (q == 0)
+		q = g_quark_from_static_string ("e-client-error-quark");
+
+	return q;
+}
+
+const gchar *
+e_client_error_to_string (EClientError code)
+{
+	switch (code) {
+	case E_CLIENT_ERROR_INVALID_ARG:
+		return C_("ClientError", "Invalid argument");
+	case E_CLIENT_ERROR_BUSY:
+		return C_("ClientError", "Backend is busy");
+	case E_CLIENT_ERROR_SOURCE_NOT_LOADED:
+		return C_("ClientError", "Source not loaded");
+	case E_CLIENT_ERROR_SOURCE_ALREADY_LOADED:
+		return C_("ClientError", "Source already loaded");
+	case E_CLIENT_ERROR_AUTHENTICATION_FAILED:
+		return C_("ClientError", "Authentication failed");
+	case E_CLIENT_ERROR_AUTHENTICATION_REQUIRED:
+		return C_("ClientError", "Authentication required");
+	case E_CLIENT_ERROR_REPOSITORY_OFFLINE:
+		return C_("ClientError", "Repository offline");
+	case E_CLIENT_ERROR_PERMISSION_DENIED:
+		return C_("ClientError", "Permission denied");
+	case E_CLIENT_ERROR_CANCELLED:
+		return C_("ClientError", "Cancelled");
+	case E_CLIENT_ERROR_COULD_NOT_CANCEL:
+		return C_("ClientError", "Could not cancel");
+	case E_CLIENT_ERROR_NOT_SUPPORTED:
+		return C_("ClientError", "Not supported");
+	case E_CLIENT_ERROR_DBUS_ERROR:
+		return C_("ClientError", "D-Bus error");
+	case E_CLIENT_ERROR_OTHER_ERROR:
+		return C_("ClientError", "Other error");
+	}
+
+	return C_("ClientError", "Unknown error");
+}
 
 static void client_set_source (EClient *client, ESource *source);
 static void client_operation_thread (gpointer data, gpointer user_data);

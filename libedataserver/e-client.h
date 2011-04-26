@@ -36,6 +36,28 @@
 #define E_IS_CLIENT_CLASS(k)	(G_TYPE_CHECK_CLASS_TYPE ((k), E_TYPE_CLIENT))
 #define E_CLIENT_GET_CLASS(obj)	(G_TYPE_INSTANCE_GET_CLASS ((obj), E_TYPE_CLIENT, EClientClass))
 
+#define E_CLIENT_ERROR		e_client_error_quark ()
+
+GQuark e_client_error_quark (void) G_GNUC_CONST;
+
+typedef enum {
+	E_CLIENT_ERROR_INVALID_ARG,
+	E_CLIENT_ERROR_BUSY,
+	E_CLIENT_ERROR_SOURCE_NOT_LOADED,
+	E_CLIENT_ERROR_SOURCE_ALREADY_LOADED,
+	E_CLIENT_ERROR_AUTHENTICATION_FAILED,
+	E_CLIENT_ERROR_AUTHENTICATION_REQUIRED,
+	E_CLIENT_ERROR_REPOSITORY_OFFLINE,
+	E_CLIENT_ERROR_PERMISSION_DENIED,
+	E_CLIENT_ERROR_CANCELLED,
+	E_CLIENT_ERROR_COULD_NOT_CANCEL,
+	E_CLIENT_ERROR_NOT_SUPPORTED,
+	E_CLIENT_ERROR_DBUS_ERROR,
+	E_CLIENT_ERROR_OTHER_ERROR
+} EClientError;
+
+const gchar *e_client_error_to_string (EClientError code);
+
 typedef struct _EClient        EClient;
 typedef struct _EClientClass   EClientClass;
 typedef struct _EClientPrivate EClientPrivate;

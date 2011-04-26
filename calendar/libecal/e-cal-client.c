@@ -107,48 +107,16 @@ const gchar *
 e_cal_client_error_to_string (ECalClientError code)
 {
 	switch (code) {
-	case E_CAL_CLIENT_ERROR_SUCCESS:
-		return C_("CalClientError", "Success");
-	case E_CAL_CLIENT_ERROR_INVALID_ARG:
-		return C_("CalClientError", "Invalid argument");
-	case E_CAL_CLIENT_ERROR_BUSY:
-		return C_("CalClientError", "Backend is busy");
-	case E_CAL_CLIENT_ERROR_REPOSITORY_OFFLINE:
-		return C_("CalClientError", "Repository offline");
 	case E_CAL_CLIENT_ERROR_NO_SUCH_CALENDAR:
 		return C_("CalClientError", "No such calendar");
 	case E_CAL_CLIENT_ERROR_OBJECT_NOT_FOUND:
 		return C_("CalClientError", "Object not found");
 	case E_CAL_CLIENT_ERROR_INVALID_OBJECT:
 		return C_("CalClientError", "Invalid object");
-	case E_CAL_CLIENT_ERROR_SOURCE_NOT_LOADED:
-		return C_("CalClientError", "Source not loaded");
-	case E_CAL_CLIENT_ERROR_SOURCE_ALREADY_LOADED:
-		return C_("CalClientError", "Source already loaded");
-	case E_CAL_CLIENT_ERROR_PERMISSION_DENIED:
-		return C_("CalClientError", "Permission denied");
 	case E_CAL_CLIENT_ERROR_UNKNOWN_USER:
 		return C_("CalClientError", "Unknown user");
 	case E_CAL_CLIENT_ERROR_OBJECT_ID_ALREADY_EXISTS:
 		return C_("CalClientError", "Object ID already exists");
-	case E_CAL_CLIENT_ERROR_PROTOCOL_NOT_SUPPORTED:
-		return C_("CalClientError", "Protocol not supported");
-	case E_CAL_CLIENT_ERROR_CANCELLED:
-		return C_("CalClientError", "Cancelled");
-	case E_CAL_CLIENT_ERROR_COULD_NOT_CANCEL:
-		return C_("CalClientError", "Could not cancel");
-	case E_CAL_CLIENT_ERROR_AUTHENTICATION_FAILED:
-		return C_("CalClientError", "Authentication failed");
-	case E_CAL_CLIENT_ERROR_AUTHENTICATION_REQUIRED:
-		return C_("CalClientError", "Authentication required");
-	case E_CAL_CLIENT_ERROR_INVALID_SERVER_VERSION:
-		return C_("CalClientError", "Invalid server version");
-	case E_CAL_CLIENT_ERROR_DBUS_ERROR:
-		return C_("CalClientError", "D-Bus error");
-	case E_CAL_CLIENT_ERROR_OTHER_ERROR:
-		return C_("CalClientError", "Other error");
-	case E_CAL_CLIENT_ERROR_NOT_SUPPORTED:
-		return C_("CalClientError", "Not supported");
 	}
 
 	return C_("CalClientError", "Unknown error");
@@ -158,44 +126,48 @@ e_cal_client_error_to_string (ECalClientError code)
  * If the GError is a remote error, extract the ECalClientError embedded inside.
  * Otherwise return DBUS_ERROR.
  */
-static ECalClientError
-get_client_error_from_gerror (GError *error)
+static void
+get_client_error_from_gerror (GError *error, GError **client_error)
 {
 	#define err(a,b) "org.gnome.evolution.dataserver.Calendar." a, b
 	static struct {
 		const gchar *name;
 		ECalClientError err_code;
-	} errors[] = {
-		{ err ("Success",				E_CAL_CLIENT_ERROR_SUCCESS) },
-		{ err ("RepositoryOffline",			E_CAL_CLIENT_ERROR_REPOSITORY_OFFLINE) },
-		{ err ("PermissionDenied",			E_CAL_CLIENT_ERROR_PERMISSION_DENIED) },
-		{ err ("InvalidRange",				E_CAL_CLIENT_ERROR_OTHER_ERROR) },
+	} cal_errors[] = {
+		{ err ("Success",				-1) },
 		{ err ("ObjectNotFound",			E_CAL_CLIENT_ERROR_OBJECT_NOT_FOUND) },
 		{ err ("InvalidObject",				E_CAL_CLIENT_ERROR_INVALID_OBJECT) },
 		{ err ("ObjectIdAlreadyExists",			E_CAL_CLIENT_ERROR_OBJECT_ID_ALREADY_EXISTS) },
-		{ err ("AuthenticationFailed",			E_CAL_CLIENT_ERROR_AUTHENTICATION_FAILED) },
-		{ err ("AuthenticationRequired",		E_CAL_CLIENT_ERROR_AUTHENTICATION_REQUIRED) },
-		{ err ("UnsupportedField",			E_CAL_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("UnsupportedMethod",			E_CAL_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("UnsupportedAuthenticationMethod",	E_CAL_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("TLSNotAvailable",			E_CAL_CLIENT_ERROR_OTHER_ERROR) },
 		{ err ("NoSuchCal",				E_CAL_CLIENT_ERROR_NO_SUCH_CALENDAR) },
 		{ err ("UnknownUser",				E_CAL_CLIENT_ERROR_UNKNOWN_USER) },
-		{ err ("OfflineUnavailable",			E_CAL_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("SearchSizeLimitExceeded",		E_CAL_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("SearchTimeLimitExceeded",		E_CAL_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("InvalidQuery",				E_CAL_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("QueryRefused",				E_CAL_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("CouldNotCancel",			E_CAL_CLIENT_ERROR_COULD_NOT_CANCEL) },
-		{ err ("OtherError",				E_CAL_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("InvalidServerVersion",			E_CAL_CLIENT_ERROR_INVALID_SERVER_VERSION) },
-		{ err ("InvalidArg",				E_CAL_CLIENT_ERROR_INVALID_ARG) },
-		{ err ("NotSupported",				E_CAL_CLIENT_ERROR_NOT_SUPPORTED) }
+	}, cl_errors[] = {
+		{ err ("InvalidArg",				E_CLIENT_ERROR_INVALID_ARG) },
+		{ err ("RepositoryOffline",			E_CLIENT_ERROR_REPOSITORY_OFFLINE) },
+		{ err ("PermissionDenied",			E_CLIENT_ERROR_PERMISSION_DENIED) },
+		{ err ("AuthenticationFailed",			E_CLIENT_ERROR_AUTHENTICATION_FAILED) },
+		{ err ("AuthenticationRequired",		E_CLIENT_ERROR_AUTHENTICATION_REQUIRED) },
+		{ err ("CouldNotCancel",			E_CLIENT_ERROR_COULD_NOT_CANCEL) },
+		{ err ("NotSupported",				E_CLIENT_ERROR_NOT_SUPPORTED) },
+		{ err ("InvalidRange",				E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("UnsupportedField",			E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("UnsupportedMethod",			E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("UnsupportedAuthenticationMethod",	E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("TLSNotAvailable",			E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("OfflineUnavailable",			E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("SearchSizeLimitExceeded",		E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("SearchTimeLimitExceeded",		E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("InvalidQuery",				E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("QueryRefused",				E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("InvalidServerVersion",			E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("OtherError",				E_CLIENT_ERROR_OTHER_ERROR) }
 	};
 	#undef err
 
+	g_return_if_fail (client_error != NULL);
+	g_return_if_fail (*client_error == NULL);
+
 	if G_LIKELY (error == NULL)
-		return E_CAL_CLIENT_ERROR_SUCCESS;
+		return;
 
 	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR)) {
 		gchar *name;
@@ -203,24 +175,40 @@ get_client_error_from_gerror (GError *error)
 
 		name = g_dbus_error_get_remote_error (error);
 
-		for (i = 0; i < G_N_ELEMENTS (errors); i++) {
-			if (g_ascii_strcasecmp (errors[i].name, name) == 0) {
+		for (i = 0; i < G_N_ELEMENTS (cal_errors); i++) {
+			if (g_ascii_strcasecmp (cal_errors[i].name, name) == 0) {
 				g_free (name);
-				return errors[i].err_code;
+				g_dbus_error_strip_remote_error (error);
+
+				*client_error = g_error_new_literal (E_CAL_CLIENT_ERROR, cal_errors[i].err_code, error->message);
+				return;
+			}
+		}
+
+		for (i = 0; i < G_N_ELEMENTS (cl_errors); i++) {
+			if (g_ascii_strcasecmp (cl_errors[i].name, name) == 0) {
+				g_free (name);
+				g_dbus_error_strip_remote_error (error);
+
+				*client_error = g_error_new_literal (E_CLIENT_ERROR, cl_errors[i].err_code, error->message);
+				return;
 			}
 		}
 
 		g_warning (G_STRLOC ": Unmatched error name %s", name);
 		g_free (name);
 
-		return E_CAL_CLIENT_ERROR_OTHER_ERROR;
-	} else if (error->domain == E_CAL_CLIENT_ERROR) {
-		return error->code;
+		g_dbus_error_strip_remote_error (error);
+		*client_error = g_error_new_literal (E_CLIENT_ERROR, E_CLIENT_ERROR_OTHER_ERROR, error->message);
+	} else if (error->domain == E_CAL_CLIENT_ERROR || error->domain == E_CLIENT_ERROR) {
+		*client_error = g_error_copy (error);
 	} else {
 		/* In this case the error was caused by DBus. Dump the message to the
 		   console as otherwise we have no idea what the problem is. */
 		g_debug ("DBus error: %s", error->message);
-		return E_CAL_CLIENT_ERROR_DBUS_ERROR;
+		g_dbus_error_strip_remote_error (error);
+
+		*client_error = g_error_new_literal (E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, error->message);
 	}
 }
 
@@ -236,14 +224,8 @@ unwrap_dbus_error (GError *error, GError **client_error)
 		return TRUE;
 
 	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR)) {
-		if (client_error) {
-			gint code;
-
-			code = get_client_error_from_gerror (error);
-			g_dbus_error_strip_remote_error (error);
-
-			*client_error = g_error_new_literal (E_CAL_CLIENT_ERROR, code, error->message);
-		}
+		if (client_error)
+			get_client_error_from_gerror (error, client_error);
 
 		g_error_free (error);
 	} else {
@@ -257,6 +239,12 @@ unwrap_dbus_error (GError *error, GError **client_error)
 	}
 
 	return FALSE;
+}
+
+static void
+set_proxy_gone_error (GError **error)
+{
+	g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
 }
 
 static guint active_cal_clients = 0, cal_connection_closed_id = 0;
@@ -560,7 +548,7 @@ e_cal_client_new (ESource *source, ECalClientSourceType source_type, GError **er
 			g_propagate_error (error, err);
 		} else {
 			g_warning ("%s: Failed to run calendar factory: Unknown error", G_STRFUNC);
-			g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("Failed to run calendar factory"));
+			g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, _("Failed to run calendar factory"));
 		}
 
 		return NULL;
@@ -569,14 +557,14 @@ e_cal_client_new (ESource *source, ECalClientSourceType source_type, GError **er
 	xml = e_source_to_standalone_xml (source);
 	if (!xml || !*xml) {
 		g_free (xml);
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_INVALID_ARG, _("Invalid source"));
+		g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_INVALID_ARG, _("Invalid source"));
 		return NULL;
 	}
 
 	strv = e_gdbus_cal_factory_encode_get_cal (xml, convert_type (source_type));
 	if (!strv) {
 		g_free (xml);
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_OTHER_ERROR, _("Other error"));
+		g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_OTHER_ERROR, _("Other error"));
 		return NULL;
 	}
 
@@ -677,7 +665,7 @@ e_cal_client_new_from_uri (const gchar *uri, ECalClientSourceType source_type, G
 
 	if (!source) {
 		g_object_unref (source_list);
-		g_set_error (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_INVALID_ARG, _("Incorrect uri '%s'"), uri);
+		g_set_error (error, E_CLIENT_ERROR, E_CLIENT_ERROR_INVALID_ARG, _("Incorrect uri '%s'"), uri);
 
 		return NULL;
 	}
@@ -824,7 +812,7 @@ e_cal_client_set_default_source (ESource *source, ECalClientSourceType source_ty
 	if (res)
 		res = e_source_list_sync (source_list, error);
 	else
-		g_set_error (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_INVALID_ARG,
+		g_set_error (error, E_CLIENT_ERROR, E_CLIENT_ERROR_INVALID_ARG,
 			_("There was no source for UID '%s' stored in a source list."), e_source_peek_uid (source));
 
 	g_object_unref (source_list);
@@ -864,7 +852,7 @@ e_cal_client_get_sources (ESourceList **sources, ECalClientSourceType source_typ
 		key = "/apps/evolution/memos/sources";
 		break;
 	default:
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_INVALID_ARG, _("Invalid source type"));
+		g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_INVALID_ARG, _("Invalid source type"));
 		return FALSE;
 	}
 
@@ -1820,7 +1808,7 @@ cal_client_open_sync (EClient *client, gboolean only_if_exists, GCancellable *ca
 	g_return_val_if_fail (cal_client->priv != NULL, FALSE);
 
 	if (!cal_client->priv->gdbus_cal) {
-		g_set_error (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1854,7 +1842,7 @@ cal_client_remove_sync (EClient *client, GCancellable *cancellable, GError **err
 	g_return_val_if_fail (cal_client->priv != NULL, FALSE);
 
 	if (!cal_client->priv->gdbus_cal) {
-		g_set_error (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1954,7 +1942,7 @@ e_cal_client_get_capabilities_sync (ECalClient *client, GSList **capabilities, G
 	g_return_val_if_fail (capabilities != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1989,7 +1977,7 @@ complete_string_exchange (gboolean res, gchar *out_string, gchar **result, GErro
 		res = FALSE;
 
 		if (error && !*error)
-			g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_INVALID_ARG, e_cal_client_error_to_string (E_CAL_CLIENT_ERROR_INVALID_ARG));
+			g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_INVALID_ARG, e_client_error_to_string (E_CLIENT_ERROR_INVALID_ARG));
 	}
 
 	return res;
@@ -2073,7 +2061,7 @@ e_cal_client_get_cal_email_address_sync (ECalClient *client, gchar **address, GC
 	g_return_val_if_fail (address != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -2160,7 +2148,7 @@ e_cal_client_get_alarm_email_address_sync (ECalClient *client, gchar **address, 
 	g_return_val_if_fail (address != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -2270,7 +2258,7 @@ e_cal_client_get_default_object_sync (ECalClient *client, icalcomponent **icalco
 	g_return_val_if_fail (icalcomp != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -2341,7 +2329,7 @@ e_cal_client_refresh_sync (ECalClient *client, GCancellable *cancellable, GError
 	g_return_val_if_fail (client->priv != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -2443,7 +2431,7 @@ e_cal_client_get_object_sync (ECalClient *client, const gchar *uid, const gchar 
 	g_return_val_if_fail (icalcomp != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -2603,7 +2591,7 @@ e_cal_client_get_objects_for_uid_sync (ECalClient *client, const gchar *uid, GSL
 	g_return_val_if_fail (ecalcomps != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -2737,7 +2725,7 @@ e_cal_client_get_object_list_sync (ECalClient *client, const gchar *sexp, GSList
 	g_return_val_if_fail (icalcomps != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -2875,7 +2863,7 @@ e_cal_client_get_object_list_as_comps_sync (ECalClient *client, const gchar *sex
 	g_return_val_if_fail (ecalcomps != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -2974,7 +2962,7 @@ e_cal_client_get_free_busy_sync (ECalClient *client, time_t start, time_t end, c
 	g_return_val_if_fail (users != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -3084,7 +3072,7 @@ e_cal_client_create_object_sync (ECalClient *client, const icalcomponent *icalco
 	g_return_val_if_fail (uid != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -3194,7 +3182,7 @@ e_cal_client_modify_object_sync (ECalClient *client, const icalcomponent *icalco
 	g_return_val_if_fail (icalcomp != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -3301,7 +3289,7 @@ e_cal_client_remove_object_sync (ECalClient *client, const gchar *uid, const gch
 	g_return_val_if_fail (uid != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -3398,7 +3386,7 @@ e_cal_client_receive_objects_sync (ECalClient *client, const icalcomponent *ical
 	g_return_val_if_fail (client->priv != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -3471,7 +3459,7 @@ complete_send_objects (gboolean res, gchar **out_strv, GSList **users, icalcompo
 				res = FALSE;
 			}
 		} else {
-			g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_INVALID_ARG, e_cal_client_error_to_string (E_CAL_CLIENT_ERROR_INVALID_ARG));
+			g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_INVALID_ARG, e_client_error_to_string (E_CLIENT_ERROR_INVALID_ARG));
 			e_client_util_free_string_slist (*users);
 			*users = NULL;
 			res = FALSE;
@@ -3550,7 +3538,7 @@ e_cal_client_send_objects_sync (ECalClient *client, const icalcomponent *icalcom
 	g_return_val_if_fail (modified_icalcomp != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -3666,7 +3654,7 @@ e_cal_client_get_attachment_uris_sync (ECalClient *client, const gchar *uid, con
 	g_return_val_if_fail (attachment_uris != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -3752,7 +3740,7 @@ complete_get_view (ECalClient *client, gboolean res, gchar *view_path, ECalView 
 	}
 
 	if (!*cal_view && error && !*error)
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("Cannot get connection to view"));
+		g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, _("Cannot get connection to view"));
 
 	g_free (view_path);
 
@@ -3817,7 +3805,7 @@ e_cal_client_get_view_sync (ECalClient *client, const gchar *sexp, ECalView **ca
 	g_return_val_if_fail (cal_view != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -4082,7 +4070,7 @@ e_cal_client_get_timezone_sync (ECalClient *client, const gchar *tzid, icaltimez
 	g_return_val_if_fail (zone != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -4189,12 +4177,12 @@ e_cal_client_add_timezone_sync (ECalClient *client, const icaltimezone *zone, GC
 
 	icalcomp = icaltimezone_get_component ((icaltimezone *) zone);
 	if (!icalcomp) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_INVALID_ARG, e_cal_client_error_to_string (E_CAL_CLIENT_ERROR_INVALID_ARG));
+		g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_INVALID_ARG, e_client_error_to_string (E_CLIENT_ERROR_INVALID_ARG));
 		return FALSE;
 	}
 
 	if (!client->priv->gdbus_cal) {
-		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 

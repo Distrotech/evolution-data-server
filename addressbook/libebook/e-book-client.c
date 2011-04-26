@@ -61,56 +61,22 @@ const gchar *
 e_book_client_error_to_string (EBookClientError code)
 {
 	switch (code) {
-	case E_BOOK_CLIENT_ERROR_SUCCESS:
-		return C_("BookClientError", "Success");
-	case E_BOOK_CLIENT_ERROR_INVALID_ARG:
-		return C_("BookClientError", "Invalid argument");
-	case E_BOOK_CLIENT_ERROR_BUSY:
-		return C_("BookClientError", "Backend is busy");
-	case E_BOOK_CLIENT_ERROR_REPOSITORY_OFFLINE:
-		return C_("BookClientError", "Repository offline");
 	case E_BOOK_CLIENT_ERROR_NO_SUCH_BOOK:
 		return C_("BookClientError", "No such book");
-	case E_BOOK_CLIENT_ERROR_NO_SELF_CONTACT:
-		return C_("BookClientError", "No self contact");
-	case E_BOOK_CLIENT_ERROR_SOURCE_NOT_LOADED:
-		return C_("BookClientError", "Source not loaded");
-	case E_BOOK_CLIENT_ERROR_SOURCE_ALREADY_LOADED:
-		return C_("BookClientError", "Source already loaded");
-	case E_BOOK_CLIENT_ERROR_PERMISSION_DENIED:
-		return C_("BookClientError", "Permission denied");
 	case E_BOOK_CLIENT_ERROR_CONTACT_NOT_FOUND:
 		return C_("BookClientError", "Contact not found");
 	case E_BOOK_CLIENT_ERROR_CONTACT_ID_ALREADY_EXISTS:
 		return C_("BookClientError", "Contact ID already exists");
-	case E_BOOK_CLIENT_ERROR_PROTOCOL_NOT_SUPPORTED:
-		return C_("BookClientError", "Protocol not supported");
-	case E_BOOK_CLIENT_ERROR_CANCELLED:
-		return C_("BookClientError", "Cancelled");
-	case E_BOOK_CLIENT_ERROR_COULD_NOT_CANCEL:
-		return C_("BookClientError", "Could not cancel");
-	case E_BOOK_CLIENT_ERROR_AUTHENTICATION_FAILED:
-		return C_("BookClientError", "Authentication failed");
-	case E_BOOK_CLIENT_ERROR_AUTHENTICATION_REQUIRED:
-		return C_("BookClientError", "Authentication required");
 	case E_BOOK_CLIENT_ERROR_TLS_NOT_AVAILABLE:
 		return C_("BookClientError", "TLS not available");
-	case E_BOOK_CLIENT_ERROR_DBUS_ERROR:
-		return C_("BookClientError", "D-Bus error");
 	case E_BOOK_CLIENT_ERROR_NO_SUCH_SOURCE:
 		return C_("BookClientError", "No such source");
 	case E_BOOK_CLIENT_ERROR_OFFLINE_UNAVAILABLE:
 		return C_("BookClientError", "Offline unavailable");
-	case E_BOOK_CLIENT_ERROR_OTHER_ERROR:
-		return C_("BookClientError", "Other error");
-	case E_BOOK_CLIENT_ERROR_INVALID_SERVER_VERSION:
-		return C_("BookClientError", "Invalid server version");
 	case E_BOOK_CLIENT_ERROR_UNSUPPORTED_AUTHENTICATION_METHOD:
 		return C_("BookClientError", "Unsupported authentication method");
 	case E_BOOK_CLIENT_ERROR_NO_SPACE:
 		return C_("BookClientError", "No space");
-	case E_BOOK_CLIENT_ERROR_NOT_SUPPORTED:
-		return C_("BookClientError", "Not supported");
 	}
 
 	return C_("BookClientError", "Unknown error");
@@ -120,42 +86,46 @@ e_book_client_error_to_string (EBookClientError code)
  * If the GError is a remote error, extract the EBookClientError embedded inside.
  * Otherwise return DBUS_ERROR.
  */
-static EBookClientError
-get_client_error_from_gerror (GError *error)
+static void
+get_client_error_from_gerror (GError *error, GError **client_error)
 {
 	#define err(a,b) "org.gnome.evolution.dataserver.AddressBook." a, b
 	static struct {
 		const gchar *name;
-		EBookClientError err_code;
-	} errors[] = {
-		{ err ("Success",				E_BOOK_CLIENT_ERROR_SUCCESS) },
-		{ err ("RepositoryOffline",			E_BOOK_CLIENT_ERROR_REPOSITORY_OFFLINE) },
-		{ err ("PermissionDenied",			E_BOOK_CLIENT_ERROR_PERMISSION_DENIED) },
+		gint err_code;
+	} book_errors[] = {
+		{ err ("Success",				-1) },
 		{ err ("ContactNotFound",			E_BOOK_CLIENT_ERROR_CONTACT_NOT_FOUND) },
 		{ err ("ContactIDAlreadyExists",		E_BOOK_CLIENT_ERROR_CONTACT_ID_ALREADY_EXISTS) },
-		{ err ("AuthenticationFailed",			E_BOOK_CLIENT_ERROR_AUTHENTICATION_FAILED) },
-		{ err ("AuthenticationRequired",		E_BOOK_CLIENT_ERROR_AUTHENTICATION_REQUIRED) },
-		{ err ("UnsupportedField",			E_BOOK_CLIENT_ERROR_OTHER_ERROR) },
 		{ err ("UnsupportedAuthenticationMethod",	E_BOOK_CLIENT_ERROR_UNSUPPORTED_AUTHENTICATION_METHOD) },
 		{ err ("TLSNotAvailable",			E_BOOK_CLIENT_ERROR_TLS_NOT_AVAILABLE) },
 		{ err ("NoSuchBook",				E_BOOK_CLIENT_ERROR_NO_SUCH_BOOK) },
 		{ err ("BookRemoved",				E_BOOK_CLIENT_ERROR_NO_SUCH_SOURCE) },
 		{ err ("OfflineUnavailable",			E_BOOK_CLIENT_ERROR_OFFLINE_UNAVAILABLE) },
-		{ err ("SearchSizeLimitExceeded",		E_BOOK_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("SearchTimeLimitExceeded",		E_BOOK_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("InvalidQuery",				E_BOOK_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("QueryRefused",				E_BOOK_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("CouldNotCancel",			E_BOOK_CLIENT_ERROR_COULD_NOT_CANCEL) },
-		{ err ("OtherError",				E_BOOK_CLIENT_ERROR_OTHER_ERROR) },
-		{ err ("InvalidServerVersion",			E_BOOK_CLIENT_ERROR_INVALID_SERVER_VERSION) },
-		{ err ("NoSpace",				E_BOOK_CLIENT_ERROR_NO_SPACE) },
-		{ err ("InvalidArg",				E_BOOK_CLIENT_ERROR_INVALID_ARG) },
-		{ err ("NotSupported",				E_BOOK_CLIENT_ERROR_NOT_SUPPORTED) }
+		{ err ("NoSpace",				E_BOOK_CLIENT_ERROR_NO_SPACE) }
+	}, cl_errors[] = {
+		{ err ("RepositoryOffline",			E_CLIENT_ERROR_REPOSITORY_OFFLINE) },
+		{ err ("PermissionDenied",			E_CLIENT_ERROR_PERMISSION_DENIED) },
+		{ err ("AuthenticationFailed",			E_CLIENT_ERROR_AUTHENTICATION_FAILED) },
+		{ err ("AuthenticationRequired",		E_CLIENT_ERROR_AUTHENTICATION_REQUIRED) },
+		{ err ("CouldNotCancel",			E_CLIENT_ERROR_COULD_NOT_CANCEL) },
+		{ err ("InvalidArg",				E_CLIENT_ERROR_INVALID_ARG) },
+		{ err ("NotSupported",				E_CLIENT_ERROR_NOT_SUPPORTED) },
+		{ err ("UnsupportedField",			E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("SearchSizeLimitExceeded",		E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("SearchTimeLimitExceeded",		E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("InvalidQuery",				E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("QueryRefused",				E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("InvalidServerVersion",			E_CLIENT_ERROR_OTHER_ERROR) },
+		{ err ("OtherError",				E_CLIENT_ERROR_OTHER_ERROR) }
 	};
 	#undef err
 
+	g_return_if_fail (client_error != NULL);
+	g_return_if_fail (*client_error == NULL);
+
 	if G_LIKELY (error == NULL)
-		return E_BOOK_CLIENT_ERROR_SUCCESS;
+		return;
 
 	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR)) {
 		gchar *name;
@@ -163,24 +133,40 @@ get_client_error_from_gerror (GError *error)
 
 		name = g_dbus_error_get_remote_error (error);
 
-		for (i = 0; i < G_N_ELEMENTS (errors); i++) {
-			if (g_ascii_strcasecmp (errors[i].name, name) == 0) {
+		for (i = 0; i < G_N_ELEMENTS (book_errors); i++) {
+			if (g_ascii_strcasecmp (book_errors[i].name, name) == 0) {
 				g_free (name);
-				return errors[i].err_code;
+				g_dbus_error_strip_remote_error (error);
+
+				*client_error = g_error_new_literal (E_BOOK_CLIENT_ERROR, book_errors[i].err_code, error->message);
+				return;
+			}
+		}
+
+		for (i = 0; i < G_N_ELEMENTS (cl_errors); i++) {
+			if (g_ascii_strcasecmp (cl_errors[i].name, name) == 0) {
+				g_free (name);
+				g_dbus_error_strip_remote_error (error);
+
+				*client_error = g_error_new_literal (E_CLIENT_ERROR, cl_errors[i].err_code, error->message);
+				return;
 			}
 		}
 
 		g_warning (G_STRLOC ": Unmatched error name %s", name);
 		g_free (name);
 
-		return E_BOOK_CLIENT_ERROR_OTHER_ERROR;
-	} else if (error->domain == E_BOOK_CLIENT_ERROR) {
-		return error->code;
+		g_dbus_error_strip_remote_error (error);
+		*client_error = g_error_new_literal (E_CLIENT_ERROR, E_CLIENT_ERROR_OTHER_ERROR, error->message);
+	} else if (error->domain == E_BOOK_CLIENT_ERROR || error->domain == E_CLIENT_ERROR) {
+		*client_error = g_error_copy (error);
 	} else {
 		/* In this case the error was caused by DBus. Dump the message to the
 		   console as otherwise we have no idea what the problem is. */
 		g_debug ("DBus error: %s", error->message);
-		return E_BOOK_CLIENT_ERROR_DBUS_ERROR;
+		g_dbus_error_strip_remote_error (error);
+
+		*client_error = g_error_new_literal (E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, error->message);
 	}
 }
 
@@ -196,14 +182,8 @@ unwrap_dbus_error (GError *error, GError **client_error)
 		return TRUE;
 
 	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR)) {
-		if (client_error) {
-			gint code;
-
-			code = get_client_error_from_gerror (error);
-			g_dbus_error_strip_remote_error (error);
-
-			*client_error = g_error_new_literal (E_BOOK_CLIENT_ERROR, code, error->message);
-		}
+		if (client_error)
+			get_client_error_from_gerror (error, client_error);
 
 		g_error_free (error);
 	} else {
@@ -217,6 +197,12 @@ unwrap_dbus_error (GError *error, GError **client_error)
 	}
 
 	return FALSE;
+}
+
+static void
+set_proxy_gone_error (GError **error)
+{
+	g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
 }
 
 static guint active_book_clients = 0, book_connection_closed_id = 0;
@@ -459,7 +445,7 @@ e_book_client_new (ESource *source, GError **error)
 			g_propagate_error (error, err);
 		} else {
 			g_warning ("%s: Failed to run book factory: Unknown error", G_STRFUNC);
-			g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("Failed to run book factory"));
+			g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, _("Failed to run book factory"));
 		}
 
 		return NULL;
@@ -468,7 +454,7 @@ e_book_client_new (ESource *source, GError **error)
 	xml = e_source_to_standalone_xml (source);
 	if (!xml || !*xml) {
 		g_free (xml);
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_INVALID_ARG, _("Invalid source"));
+		g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_INVALID_ARG, _("Invalid source"));
 		return NULL;
 	}
 
@@ -566,7 +552,7 @@ e_book_client_new_from_uri (const gchar *uri, GError **error)
 
 	if (!source) {
 		g_object_unref (source_list);
-		g_set_error (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_INVALID_ARG, _("Incorrect uri '%s'"), uri);
+		g_set_error (error, E_CLIENT_ERROR, E_CLIENT_ERROR_INVALID_ARG, _("Incorrect uri '%s'"), uri);
 
 		return NULL;
 	}
@@ -710,7 +696,7 @@ e_book_client_set_default_source (ESource *source, GError **error)
 	if (res)
 		res = e_source_list_sync (source_list, error);
 	else
-		g_set_error (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_INVALID_ARG,
+		g_set_error (error, E_CLIENT_ERROR, E_CLIENT_ERROR_INVALID_ARG,
 			_("There was no source for UID '%s' stored in a source list."), e_source_peek_uid (source));
 
 	g_object_unref (source_list);
@@ -941,7 +927,7 @@ book_client_open_sync (EClient *client, gboolean only_if_exists, GCancellable *c
 	g_return_val_if_fail (book_client->priv != NULL, FALSE);
 
 	if (!book_client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -975,7 +961,7 @@ book_client_remove_sync (EClient *client, GCancellable *cancellable, GError **er
 	g_return_val_if_fail (book_client->priv != NULL, FALSE);
 
 	if (!book_client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1075,7 +1061,7 @@ e_book_client_get_capabilities_sync (EBookClient *client, GSList **capabilities,
 	g_return_val_if_fail (capabilities != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1178,7 +1164,7 @@ e_book_client_get_required_fields_sync (EBookClient *client, GSList **fields, GC
 	g_return_val_if_fail (fields != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1280,7 +1266,7 @@ e_book_client_get_supported_fields_sync (EBookClient *client, GSList **fields, G
 	g_return_val_if_fail (client->priv != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1378,7 +1364,7 @@ e_book_client_get_supported_auth_methods_sync (EBookClient *client, GSList **aut
 	g_return_val_if_fail (client->priv != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1498,7 +1484,7 @@ e_book_client_add_contact_sync (EBookClient *client, const EContact *contact, gc
 	g_return_val_if_fail (client->priv != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1600,7 +1586,7 @@ e_book_client_modify_contact_sync (EBookClient *client, const EContact *contact,
 	g_return_val_if_fail (client->priv != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1701,7 +1687,7 @@ e_book_client_remove_contact_sync (EBookClient *client, const EContact *contact,
 	g_return_val_if_fail (E_IS_CONTACT (contact), FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1803,7 +1789,7 @@ e_book_client_remove_contact_by_uid_sync (EBookClient *client, const gchar *uid,
 	g_return_val_if_fail (uid != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -1906,7 +1892,7 @@ e_book_client_remove_contacts_sync (EBookClient *client, const GSList *uids, GCa
 	g_return_val_if_fail (uids != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -2021,7 +2007,7 @@ e_book_client_get_contact_sync (EBookClient *client, const gchar *uid, EContact 
 	g_return_val_if_fail (contact != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -2151,7 +2137,7 @@ e_book_client_get_contacts_sync (EBookClient *client, const EBookQuery *query, G
 	g_return_val_if_fail (contacts != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
@@ -2247,7 +2233,7 @@ complete_get_view (EBookClient *client, gboolean res, gchar *view_path, EBookVie
 	}
 
 	if (!*book_view && error && !*error)
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("Cannot get connection to view"));
+		g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, _("Cannot get connection to view"));
 
 	g_free (view_path);
 
@@ -2312,7 +2298,7 @@ e_book_client_get_view_sync (EBookClient *client, const EBookQuery *query, EBook
 	g_return_val_if_fail (book_view != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
-		g_set_error_literal (error, E_BOOK_CLIENT_ERROR, E_BOOK_CLIENT_ERROR_DBUS_ERROR, _("D-Bus book proxy gone"));
+		set_proxy_gone_error (error);
 		return FALSE;
 	}
 
