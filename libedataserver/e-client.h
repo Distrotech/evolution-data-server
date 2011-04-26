@@ -95,6 +95,8 @@ gboolean	e_client_remove_sync		(EClient *client, GCancellable *cancellable, GErr
 /* utility functions */
 gchar **	e_client_util_slist_to_strv	(const GSList *strings);
 GSList *	e_client_util_strv_to_slist	(const gchar * const *strv);
+GSList *	e_client_util_copy_string_slist	(GSList *copy_to, const GSList *strings);
+GSList *	e_client_util_copy_object_slist	(GSList *copy_to, const GSList *objects);
 void		e_client_util_free_string_slist	(GSList *strings);
 void		e_client_util_free_object_slist	(GSList *objects);
 GSList *	e_client_util_parse_capabilities(const gchar *capabilities);

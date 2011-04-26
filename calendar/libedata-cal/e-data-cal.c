@@ -1150,25 +1150,20 @@ e_data_cal_respond_get_object_list (EDataCal *cal, guint32 opid, GError *error, 
  * e_data_cal_respond_get_free_busy:
  * @cal: A calendar client interface.
  * @error: Operation error, if any, automatically freed if passed it.
- * @freebusy: List of free/busy objects.
  *
  * Notifies listeners of the completion of the get_free_busy method call.
+ * To pass actual free/busy objects to the client use e_data_cal_report_free_busy_data().
  */
 void
-e_data_cal_respond_get_free_busy (EDataCal *cal, guint32 opid, GError *error, const GSList *freebusy)
+e_data_cal_respond_get_free_busy (EDataCal *cal, guint32 opid, GError *error)
 {
-	gchar **strv_freebusy;
-
 	op_complete (cal, opid);
 
 	/* Translators: This is prefix to a detailed error message */
 	g_prefix_error (&error, "%s", _("Cannot retrieve calendar free/busy list: "));
 
-	strv_freebusy = gslist_to_strv (freebusy);
+	e_gdbus_cal_emit_get_free_busy_done (cal->priv->gdbus_object, opid, error);
 
-	e_gdbus_cal_emit_get_free_busy_done (cal->priv->gdbus_object, opid, error, (const gchar * const *) strv_freebusy);
-
-	g_strfreev (strv_freebusy);
 	if (error)
 		g_error_free (error);
 }
@@ -1181,7 +1176,8 @@ e_data_cal_respond_get_free_busy (EDataCal *cal, guint32 opid, GError *error, co
  * @object: The object created as an iCalendar string.
  *
  * Notifies listeners of the completion of the create_object method call.
- */void
+ */
+void
 e_data_cal_respond_create_object (EDataCal *cal, guint32 opid, GError *error,
 				  const gchar *uid, const gchar *object)
 {
@@ -1446,6 +1442,20 @@ e_data_cal_report_auth_required (EDataCal *cal, const ECredentials *credentials)
 	e_gdbus_cal_emit_auth_required (cal->priv->gdbus_object, (const gchar * const *) (strv ? strv : empty_strv));
 
 	g_strfreev (strv);
+}
+
+void
+e_data_cal_report_free_busy_data (EDataCal *cal, const GSList *freebusy)
+{
+	gchar **strv_freebusy;
+
+	g_return_if_fail (cal != NULL);
+
+	strv_freebusy = gslist_to_strv (freebusy);
+
+	e_gdbus_cal_emit_free_busy_data (cal->priv->gdbus_object, (const gchar * const *) strv_freebusy);
+
+	g_strfreev (strv_freebusy);
 }
 
 /* Instance init */

@@ -1031,6 +1031,56 @@ e_client_util_strv_to_slist (const gchar * const *strv)
 }
 
 /**
+ * e_client_util_copy_string_slist:
+ * @copy_to: Where to copy; can be NULL
+ * @strings: GSList of strings to be copied
+ *
+ * Copies GSList of strings at the end of @copy_to.
+ *
+ * Returns: New head of @copy_to.
+ * Returned pointer can be freed with e_client_util_free_string_slist().
+ *
+ * Since: 3.2
+ **/
+GSList *
+e_client_util_copy_string_slist	(GSList *copy_to, const GSList *strings)
+{
+	GSList *res = copy_to;
+	const GSList *iter;
+
+	for (iter = strings; iter; iter = iter->next) {
+		res = g_slist_append (res, g_strdup (iter->data));
+	}
+
+	return res;
+}
+
+/**
+ * e_client_util_copy_object_slist:
+ * @copy_to: Where to copy; can be NULL
+ * @objects: GSList of GObject-s to be copied
+ *
+ * Copies GSList of GObject-s at the end of @copy_to.
+ *
+ * Returns: New head of @copy_to.
+ * Returned pointer can be freed with e_client_util_free_object_slist().
+ *
+ * Since: 3.2
+ **/
+GSList *
+e_client_util_copy_object_slist	(GSList *copy_to, const GSList *objects)
+{
+	GSList *res = copy_to;
+	const GSList *iter;
+
+	for (iter = objects; iter; iter = iter->next) {
+		res = g_slist_append (res, g_object_ref (iter->data));
+	}
+
+	return res;
+}
+
+/**
  * e_client_util_free_string_slist:
  * @strings: a #GSList of strings (gchar *)
  *

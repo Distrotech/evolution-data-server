@@ -2433,13 +2433,10 @@ static void
 book_client_finalize (GObject *object)
 {
 	EBookClient *client;
-	EBookClientPrivate *priv;
 
 	client = E_BOOK_CLIENT (object);
 	g_return_if_fail (client != NULL);
 	g_return_if_fail (client->priv != NULL);
-
-	priv = client->priv;
 
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (e_book_client_parent_class)->finalize (object);

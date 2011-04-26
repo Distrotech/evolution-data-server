@@ -118,7 +118,7 @@ void		e_data_cal_respond_get_alarm_email_address	(EDataCal *cal, guint32 opid, G
 void		e_data_cal_respond_get_default_object		(EDataCal *cal, guint32 opid, GError *error, const gchar *object);
 void		e_data_cal_respond_get_object			(EDataCal *cal, guint32 opid, GError *error, const gchar *object);
 void		e_data_cal_respond_get_object_list		(EDataCal *cal, guint32 opid, GError *error, const GSList *objects);
-void		e_data_cal_respond_get_free_busy		(EDataCal *cal, guint32 opid, GError *error, const GSList *freebusy);
+void		e_data_cal_respond_get_free_busy		(EDataCal *cal, guint32 opid, GError *error);
 void		e_data_cal_respond_create_object		(EDataCal *cal, guint32 opid, GError *error, const gchar *uid, const gchar *object);
 void		e_data_cal_respond_modify_object		(EDataCal *cal, guint32 opid, GError *error, const gchar *old_object, const gchar *object);
 void		e_data_cal_respond_remove_object		(EDataCal *cal, guint32 opid, GError *error, const ECalComponentId *id, const gchar *old_object, const gchar *object);
@@ -133,6 +133,7 @@ void		e_data_cal_report_error				(EDataCal *cal, const gchar *message);
 void		e_data_cal_report_readonly			(EDataCal *cal, gboolean is_readonly);
 void		e_data_cal_report_online			(EDataCal *cal, gboolean is_online);
 void		e_data_cal_report_auth_required			(EDataCal *cal, const ECredentials *credentials);
+void		e_data_cal_report_free_busy_data		(EDataCal *cal, const GSList *freebusy);
 
 G_END_DECLS
 

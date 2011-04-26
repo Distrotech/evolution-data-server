@@ -91,6 +91,9 @@ struct _ECalClient {
 
 struct _ECalClientClass {
 	EClientClass parent;
+
+	/* Signals */
+	void (* free_busy_data) (ECalClient *client, const GSList *free_busy_ecalcomps);
 };
 
 GType			e_cal_client_get_type			(void);
@@ -167,8 +170,8 @@ gboolean	e_cal_client_get_object_list_as_comps_finish	(ECalClient *client, GAsyn
 gboolean	e_cal_client_get_object_list_as_comps_sync	(ECalClient *client, const gchar *sexp, GSList **ecalcomps, GCancellable *cancellable, GError **error);
 
 guint32		e_cal_client_get_free_busy			(ECalClient *client, time_t start, time_t end, const GSList *users, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_cal_client_get_free_busy_finish		(ECalClient *client, GAsyncResult *result, GSList **ecalcomps, GError **error);
-gboolean	e_cal_client_get_free_busy_sync			(ECalClient *client, time_t start, time_t end, const GSList *users, GSList **ecalcomps, GCancellable *cancellable, GError **error);
+gboolean	e_cal_client_get_free_busy_finish		(ECalClient *client, GAsyncResult *result, GError **error);
+gboolean	e_cal_client_get_free_busy_sync			(ECalClient *client, time_t start, time_t end, const GSList *users, GCancellable *cancellable, GError **error);
 
 guint32		e_cal_client_create_object			(ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_cal_client_create_object_finish		(ECalClient *client, GAsyncResult *result, gchar **uid, GError **error);

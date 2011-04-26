@@ -40,6 +40,7 @@ enum
 	__READONLY_SIGNAL,
 	__ONLINE_SIGNAL,
 	__AUTH_REQUIRED_SIGNAL,
+	__FREE_BUSY_DATA_SIGNAL,
 	__OPEN_METHOD,
 	__OPEN_DONE_SIGNAL,
 	__AUTHENTICATE_USER_METHOD,
@@ -134,6 +135,7 @@ E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRING  (GDBUS_CAL_INTERFACE_NAME, backend_
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_BOOLEAN (GDBUS_CAL_INTERFACE_NAME, readonly)
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_BOOLEAN (GDBUS_CAL_INTERFACE_NAME, online)
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV    (GDBUS_CAL_INTERFACE_NAME, auth_required)
+E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV    (GDBUS_CAL_INTERFACE_NAME, free_busy_data)
 
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, open)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, authenticate_user)
@@ -146,7 +148,7 @@ E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME, get_default_object)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME, get_object)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRV	(GDBUS_CAL_INTERFACE_NAME, get_object_list)
-E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRV	(GDBUS_CAL_INTERFACE_NAME, get_free_busy)
+E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, get_free_busy)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME, create_object)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, modify_object)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, remove_object)
@@ -171,6 +173,7 @@ e_gdbus_cal_default_init (EGdbusCalIface *iface)
 	E_INIT_GDBUS_SIGNAL_BOOLEAN		(EGdbusCalIface, "readonly",		readonly,	__READONLY_SIGNAL)
 	E_INIT_GDBUS_SIGNAL_BOOLEAN		(EGdbusCalIface, "online",		online,		__ONLINE_SIGNAL)
 	E_INIT_GDBUS_SIGNAL_STRV   		(EGdbusCalIface, "auth_required", 	auth_required,	__AUTH_REQUIRED_SIGNAL)
+	E_INIT_GDBUS_SIGNAL_STRV   		(EGdbusCalIface, "free_busy_data", 	free_busy_data,	__FREE_BUSY_DATA_SIGNAL)
 
 	/* GObject signals definitions for D-Bus methods: */
 	E_INIT_GDBUS_METHOD_ASYNC_BOOLEAN__VOID	(EGdbusCalIface, "open",			open, __OPEN_METHOD, __OPEN_DONE_SIGNAL)
@@ -184,7 +187,7 @@ e_gdbus_cal_default_init (EGdbusCalIface *iface)
 	E_INIT_GDBUS_METHOD_ASYNC_VOID__STRING	(EGdbusCalIface, "getDefaultObject",		get_default_object, __GET_DEFAULT_OBJECT_METHOD, __GET_DEFAULT_OBJECT_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRV__STRING	(EGdbusCalIface, "getObject",			get_object, __GET_OBJECT_METHOD, __GET_OBJECT_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRV	(EGdbusCalIface, "getObjectList",		get_object_list, __GET_OBJECT_LIST_METHOD, __GET_OBJECT_LIST_DONE_SIGNAL)
-	E_INIT_GDBUS_METHOD_ASYNC_STRV__STRV	(EGdbusCalIface, "getFreeBusy",			get_free_busy, __GET_FREE_BUSY_METHOD, __GET_FREE_BUSY_DONE_SIGNAL)
+	E_INIT_GDBUS_METHOD_ASYNC_STRV__VOID	(EGdbusCalIface, "getFreeBusy",			get_free_busy, __GET_FREE_BUSY_METHOD, __GET_FREE_BUSY_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRING(EGdbusCalIface, "createObject",		create_object, __CREATE_OBJECT_METHOD, __CREATE_OBJECT_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRV__VOID	(EGdbusCalIface, "modifyObject",		modify_object, __MODIFY_OBJECT_METHOD, __MODIFY_OBJECT_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRV__VOID	(EGdbusCalIface, "removeObject",		remove_object, __REMOVE_OBJECT_METHOD, __REMOVE_OBJECT_DONE_SIGNAL)
@@ -517,15 +520,15 @@ e_gdbus_cal_call_get_free_busy (GDBusProxy *proxy, const gchar * const *in_start
 }
 
 gboolean
-e_gdbus_cal_call_get_free_busy_finish (GDBusProxy *proxy, GAsyncResult *result, gchar ***out_freebusy, GError **error)
+e_gdbus_cal_call_get_free_busy_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error)
 {
-	return e_gdbus_proxy_finish_call_strv (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, out_freebusy, error, e_gdbus_cal_call_get_free_busy);
+	return e_gdbus_proxy_finish_call_void (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, error, e_gdbus_cal_call_get_free_busy);
 }
 
 gboolean
-e_gdbus_cal_call_get_free_busy_sync (GDBusProxy *proxy, const gchar * const *in_start_end_userlist, gchar ***out_freebusy, GCancellable *cancellable, GError **error)
+e_gdbus_cal_call_get_free_busy_sync (GDBusProxy *proxy, const gchar * const *in_start_end_userlist, GCancellable *cancellable, GError **error)
 {
-	return e_gdbus_proxy_call_sync_strv__strv (proxy, in_start_end_userlist, out_freebusy, cancellable, error,
+	return e_gdbus_proxy_call_sync_strv__void (proxy, in_start_end_userlist, cancellable, error,
 		e_gdbus_cal_call_get_free_busy,
 		e_gdbus_cal_call_get_free_busy_finish);
 }
@@ -915,7 +918,7 @@ DECLARE_EMIT_DONE_SIGNAL_1 (get_alarm_email_address,	__GET_ALARM_EMAIL_ADDRESS_D
 DECLARE_EMIT_DONE_SIGNAL_1 (get_default_object,		__GET_DEFAULT_OBJECT_DONE_SIGNAL, const gchar *)
 DECLARE_EMIT_DONE_SIGNAL_1 (get_object,			__GET_OBJECT_DONE_SIGNAL, const gchar *)
 DECLARE_EMIT_DONE_SIGNAL_1 (get_object_list,		__GET_OBJECT_LIST_DONE_SIGNAL, const gchar * const *)
-DECLARE_EMIT_DONE_SIGNAL_1 (get_free_busy,		__GET_FREE_BUSY_DONE_SIGNAL, const gchar * const *)
+DECLARE_EMIT_DONE_SIGNAL_0 (get_free_busy,		__GET_FREE_BUSY_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_1 (create_object,		__CREATE_OBJECT_DONE_SIGNAL, const gchar *)
 DECLARE_EMIT_DONE_SIGNAL_0 (modify_object,		__MODIFY_OBJECT_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_0 (remove_object,		__REMOVE_OBJECT_DONE_SIGNAL)
@@ -953,10 +956,17 @@ e_gdbus_cal_emit_auth_required (EGdbusCal *object, const gchar * const *arg_cred
 	g_signal_emit (object, signals[__AUTH_REQUIRED_SIGNAL], 0, arg_credentials);
 }
 
+void
+e_gdbus_cal_emit_free_busy_data (EGdbusCal *object, const gchar * const *arg_free_busy)
+{
+	g_signal_emit (object, signals[__FREE_BUSY_DATA_SIGNAL], 0, arg_free_busy);
+}
+
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal, backend_error, message, "s")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal, readonly, is_readonly, "b")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal, online, is_online, "b")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal, auth_required, credentials, "as")
+E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal, free_busy_data, free_busy_data, "as")
 
 E_DECLARE_GDBUS_ASYNC_METHOD_1			(cal, open, only_if_exists, "b")
 E_DECLARE_GDBUS_ASYNC_METHOD_1			(cal, authenticateUser, credentials, "as")
@@ -1021,6 +1031,7 @@ static const GDBusSignalInfo * const e_gdbus_cal_signal_info_pointers[] =
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, readonly),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, online),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, auth_required),
+	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, free_busy_data),
 
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, open_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, authenticateUser_done),

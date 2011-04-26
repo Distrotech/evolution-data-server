@@ -107,6 +107,7 @@ struct _EGdbusCalIface
 	void	(*readonly)				(EGdbusCal *object, gboolean arg_is_readonly);
 	void	(*online)				(EGdbusCal *object, gboolean arg_is_online);
 	void	(*auth_required)			(EGdbusCal *object, const gchar * const *arg_credentials);
+	void	(*free_busy_data)			(EGdbusCal *object, const gchar * const *arg_free_busy);
 
 	/* Signal handlers for handling D-Bus method calls: */
 	gboolean (*handle_open)				(EGdbusCal *object, GDBusMethodInvocation *invocation, gboolean in_only_if_exists);
@@ -143,7 +144,7 @@ struct _EGdbusCalIface
 	void	 (*get_object_list_done)		(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar ***out_objects);
 
 	gboolean (*handle_get_free_busy)		(EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar * const *in_start_end_userlist);
-	void	 (*get_free_busy_done)			(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar ***out_freebusy);
+	void	 (*get_free_busy_done)			(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 
 	gboolean (*handle_create_object)		(EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar *in_calobj);
 	void	 (*create_object_done)			(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar **out_uid);
@@ -227,8 +228,8 @@ gboolean	e_gdbus_cal_call_get_object_list_sync		(GDBusProxy *proxy, const gchar 
 gchar **	e_gdbus_cal_encode_get_free_busy		(guint in_start, guint in_end, const GSList *in_users);
 gboolean	e_gdbus_cal_decode_get_free_busy		(const gchar * const *in_strv, guint *out_start, guint *out_end, GSList **out_users);
 void		e_gdbus_cal_call_get_free_busy			(GDBusProxy *proxy, const gchar * const *in_start_end_userlist, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_cal_call_get_free_busy_finish		(GDBusProxy *proxy, GAsyncResult *result, gchar ***out_freebusy, GError **error);
-gboolean	e_gdbus_cal_call_get_free_busy_sync		(GDBusProxy *proxy, const gchar * const *in_start_end_userlist, gchar ***out_freebusy, GCancellable *cancellable, GError **error);
+gboolean	e_gdbus_cal_call_get_free_busy_finish		(GDBusProxy *proxy, GAsyncResult *result, GError **error);
+gboolean	e_gdbus_cal_call_get_free_busy_sync		(GDBusProxy *proxy, const gchar * const *in_start_end_userlist, GCancellable *cancellable, GError **error);
 
 void		e_gdbus_cal_call_create_object			(GDBusProxy *proxy, const gchar *in_calobj, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_gdbus_cal_call_create_object_finish		(GDBusProxy *proxy, GAsyncResult *result, gchar **out_uid, GError **error);
@@ -324,7 +325,8 @@ void e_gdbus_cal_emit_get_alarm_email_address_done	(EGdbusCal *object, guint arg
 void e_gdbus_cal_emit_get_default_object_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_object);
 void e_gdbus_cal_emit_get_object_done			(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_object);
 void e_gdbus_cal_emit_get_object_list_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar * const *out_objects);
-void e_gdbus_cal_emit_get_free_busy_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar * const *out_freebusy);
+void e_gdbus_cal_emit_get_free_busy_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
+void e_gdbus_cal_emit_get_free_busy_data		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar * const *out_freebusy);
 void e_gdbus_cal_emit_discard_alarm_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_create_object_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_uid);
 void e_gdbus_cal_emit_modify_object_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
@@ -341,6 +343,7 @@ void e_gdbus_cal_emit_backend_error	(EGdbusCal *object, const gchar *arg_message
 void e_gdbus_cal_emit_readonly		(EGdbusCal *object, gboolean arg_is_readonly);
 void e_gdbus_cal_emit_online		(EGdbusCal *object, gint arg_is_online);
 void e_gdbus_cal_emit_auth_required	(EGdbusCal *object, const gchar * const *arg_credentials);
+void e_gdbus_cal_emit_free_busy_data	(EGdbusCal *object, const gchar * const *arg_free_busy);
 
 G_END_DECLS
 

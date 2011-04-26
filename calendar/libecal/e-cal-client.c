@@ -55,6 +55,13 @@ struct _ECalClientPrivate
 	GHashTable *zone_cache;
 };
 
+enum {
+	FREE_BUSY_DATA,
+	LAST_SIGNAL
+};
+
+static guint signals[LAST_SIGNAL];
+
 G_DEFINE_TYPE (ECalClient, e_cal_client, E_TYPE_CLIENT)
 
 /**
@@ -460,6 +467,48 @@ auth_required_cb (EGdbusCal *object, const gchar * const *credentials_strv, ECal
 	e_credentials_free (credentials);
 }
 
+static void
+free_busy_data_cb (EGdbusCal *object, const gchar * const *free_busy_strv, ECalClient *client)
+{
+	GSList *ecalcomps = NULL;
+	gint ii;
+
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CAL_CLIENT (client));
+	g_return_if_fail (free_busy_strv != NULL);
+
+
+	for (ii = 0; free_busy_strv[ii]; ii++) {
+		ECalComponent *comp;
+		icalcomponent *icalcomp;
+		icalcomponent_kind kind;
+
+		icalcomp = icalcomponent_new_from_string (free_busy_strv[ii]);
+		if (!icalcomp)
+			continue;
+
+		kind = icalcomponent_isa (icalcomp);
+		if (kind == ICAL_VFREEBUSY_COMPONENT) {
+			comp = e_cal_component_new ();
+			if (!e_cal_component_set_icalcomponent (comp, icalcomp)) {
+				icalcomponent_free (icalcomp);
+				g_object_unref (G_OBJECT (comp));
+				continue;
+			}
+
+			ecalcomps = g_slist_prepend (ecalcomps, comp);
+		} else {
+			icalcomponent_free (icalcomp);
+		}
+	}
+
+	ecalcomps = g_slist_reverse (ecalcomps);
+
+	g_signal_emit (client, signals[FREE_BUSY_DATA], 0, ecalcomps);
+
+	e_client_util_free_object_slist (ecalcomps);
+}
+
 static EDataCalObjType
 convert_type (ECalClientSourceType type)
 {
@@ -586,6 +635,7 @@ e_cal_client_new (ESource *source, ECalClientSourceType source_type, GError **er
 	g_signal_connect (client->priv->gdbus_cal, "readonly", G_CALLBACK (readonly_cb), client);
 	g_signal_connect (client->priv->gdbus_cal, "online", G_CALLBACK (online_cb), client);
 	g_signal_connect (client->priv->gdbus_cal, "auth-required", G_CALLBACK (auth_required_cb), client);
+	g_signal_connect (client->priv->gdbus_cal, "free-busy-data", G_CALLBACK (free_busy_data_cb), client);
 
 	return client;
 }
@@ -1629,13 +1679,10 @@ static void
 foreach_tzid_callback (icalparameter *param, gpointer cbdata)
 {
 	ForeachTZIDCallbackData *data = cbdata;
-	ECalClientPrivate *priv;
 	const gchar *tzid;
 	icaltimezone *zone = NULL;
 	icalcomponent *vtimezone_comp;
 	gchar *vtimezone_as_string;
-
-	priv = data->client->priv;
 
 	/* Get the TZID string from the parameter. */
 	tzid = icalparameter_get_tzid (param);
@@ -2848,8 +2895,9 @@ e_cal_client_get_object_list_as_comps_sync (ECalClient *client, const gchar *sex
  * @callback: callback to call when a result is ready
  * @user_data: user data for the @callback
  *
- * Gets free/busy information from the calendar server
- * as a list of #ECalComponent-s.
+ * Begins retrieval of free/busy information from the calendar server
+ * as a list of #ECalComponent-s. Connect to "free-busy-data" signal
+ * to receive chunks of free/busy components.
  * The call is finished by e_cal_client_get_free_busy_finish() from
  * the @callback.
  *
@@ -2872,84 +2920,30 @@ e_cal_client_get_free_busy (ECalClient *client, time_t start, time_t end, const 
 
 	opid = e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_get_free_busy,
 			e_gdbus_cal_call_get_free_busy,
-			NULL, NULL, NULL, e_gdbus_cal_call_get_free_busy_finish, NULL);
+			e_gdbus_cal_call_get_free_busy_finish, NULL, NULL, NULL, NULL);
 
 	g_strfreev (strv);
 
 	return opid;
 }
 
-static gboolean
-complete_get_free_busy (gboolean res, gchar **out_strv, GSList **ecalcomps, GError **error)
-{
-	g_return_val_if_fail (ecalcomps != NULL, FALSE);
-
-	*ecalcomps = NULL;
-
-	if (res && out_strv) {
-		gint ii;
-
-		for (ii = 0; out_strv[ii]; ii++) {
-			ECalComponent *comp;
-			icalcomponent *icalcomp;
-			icalcomponent_kind kind;
-
-			icalcomp = icalcomponent_new_from_string (out_strv[ii]);
-			if (!icalcomp)
-				continue;
-
-			kind = icalcomponent_isa (icalcomp);
-			if (kind == ICAL_VFREEBUSY_COMPONENT) {
-				comp = e_cal_component_new ();
-				if (!e_cal_component_set_icalcomponent (comp, icalcomp)) {
-					icalcomponent_free (icalcomp);
-					g_object_unref (G_OBJECT (comp));
-					continue;
-				}
-
-				*ecalcomps = g_slist_prepend (*ecalcomps, comp);
-			} else {
-				icalcomponent_free (icalcomp);
-			}
-		}
-
-		*ecalcomps = g_slist_reverse (*ecalcomps);
-	} else {
-		res = FALSE;
-	}
-
-	g_strfreev (out_strv);
-
-	return res;
-}
-
 /**
  * e_cal_client_get_free_busy_finish:
  * @client: an #ECalClient
  * @result: a #GAsyncResult
- * @ecalcomps: (out): Return value for VFREEBUSY #ECalComponent objects.
  * @error: (out): a #GError to set an error, if any
  *
- * Finishes previous call of e_cal_client_get_free_busy() and sets @ecalcomps
- * with fetched free/busy information from the calendar server.
- * The @ecalcomps is a list of #ECalComponent.
- * This list should be freed with #e_cal_client_free_ecalcomp_slist().
+ * Finishes previous call of e_cal_client_get_free_busy().
+ * All VFREEBUSY #ECalComponent-s were received by "free-busy-data" signal.
  *
  * Returns: %TRUE if successful, %FALSE otherwise.
  *
  * Since: 3.2
  **/
 gboolean
-e_cal_client_get_free_busy_finish (ECalClient *client, GAsyncResult *result, GSList **ecalcomps, GError **error)
+e_cal_client_get_free_busy_finish (ECalClient *client, GAsyncResult *result, GError **error)
 {
-	gboolean res;
-	gchar **out_strv = NULL;
-
-	g_return_val_if_fail (ecalcomps != NULL, FALSE);
-
-	res = e_client_proxy_call_finish_strv (E_CLIENT (client), result, &out_strv, error, e_cal_client_get_free_busy);
-
-	return complete_get_free_busy (res, out_strv, ecalcomps, error);
+	return e_client_proxy_call_finish_void (E_CLIENT (client), result, error, e_cal_client_get_free_busy);
 }
 
 /**
@@ -2958,29 +2952,26 @@ e_cal_client_get_free_busy_finish (ECalClient *client, GAsyncResult *result, GSL
  * @start: Start time for query
  * @end: End time for query
  * @users: List of users to retrieve free/busy information for
- * @ecalcomps: (out): Return value for VFREEBUSY #ECalComponent objects.
  * @cancellable: a #GCancellable; can be %NULL
  * @error: (out): a #GError to set an error, if any
  *
- * Gets free/busy information from the calendar server. The objects will
- * be returned in the @ecalcomps argument, which is a list of #ECalComponent.
- * This list should be freed with #e_cal_client_free_ecalcomp_slist().
+ * Gets free/busy information from the calendar server.
+ * All VFREEBUSY #ECalComponent-s were received by "free-busy-data" signal.
  *
  * Returns: %TRUE if successful, %FALSE otherwise.
  *
  * Since: 3.2
  **/
 gboolean
-e_cal_client_get_free_busy_sync (ECalClient *client, time_t start, time_t end, const GSList *users, GSList **ecalcomps, GCancellable *cancellable, GError **error)
+e_cal_client_get_free_busy_sync (ECalClient *client, time_t start, time_t end, const GSList *users, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
-	gchar **strv, **out_strv = NULL;
+	gchar **strv;
 
 	g_return_val_if_fail (client != NULL, FALSE);
 	g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
 	g_return_val_if_fail (client->priv != NULL, FALSE);
 	g_return_val_if_fail (users != NULL, FALSE);
-	g_return_val_if_fail (ecalcomps != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
 		g_set_error_literal (error, E_CAL_CLIENT_ERROR, E_CAL_CLIENT_ERROR_DBUS_ERROR, _("D-Bus calendar proxy gone"));
@@ -2988,10 +2979,10 @@ e_cal_client_get_free_busy_sync (ECalClient *client, time_t start, time_t end, c
 	}
 
 	strv = e_gdbus_cal_encode_get_free_busy (start, end, users);
-	res = e_client_proxy_call_sync_strv__strv (E_CLIENT (client), (const gchar * const *) strv, &out_strv, cancellable, error, e_gdbus_cal_call_get_free_busy_sync);
+	res = e_client_proxy_call_sync_strv__void (E_CLIENT (client), (const gchar * const *) strv, cancellable, error, e_gdbus_cal_call_get_free_busy_sync);
 	g_strfreev (strv);
 
-	return complete_get_free_busy (res, out_strv, ecalcomps, error);
+	return res;
 }
 
 /**
@@ -4390,4 +4381,14 @@ e_cal_client_class_init (ECalClientClass *klass)
 	client_class->remove = cal_client_remove;
 	client_class->remove_finish = cal_client_remove_finish;
 	client_class->remove_sync = cal_client_remove_sync;
+
+	signals[FREE_BUSY_DATA] = g_signal_new (
+		"free-busy-data",
+		G_OBJECT_CLASS_TYPE (klass),
+		G_SIGNAL_RUN_FIRST,
+		G_STRUCT_OFFSET (ECalClientClass, free_busy_data),
+		NULL, NULL,
+		g_cclosure_marshal_VOID__POINTER,
+		G_TYPE_NONE, 1,
+		G_TYPE_POINTER);
 }

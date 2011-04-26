@@ -7,14 +7,23 @@
 
 #include "client-test-utils.h"
 
+#define USER_EMAIL "user@example.com"
+
+static void
+free_busy_data_cb (ECalClient *client, const GSList *free_busy, const gchar *func_name)
+{
+	g_print ("   Received %d Free/Busy components from %s\n", g_slist_length ((GSList *) free_busy), func_name);
+}
+
 static gboolean
 test_sync (void)
 {
 	ECalClient *cal_client;
 	GError *error = NULL;
 	icaltimezone *utc;
-	GSList *users = NULL, *free_busy_ecalcomps = NULL;
+	GSList *users = NULL;
 	time_t start, end;
+	gulong sig_id;
 
 	cal_client = new_temp_client (E_CAL_CLIENT_SOURCE_TYPE_EVENT, NULL);
 	g_return_val_if_fail (cal_client != NULL, FALSE);
@@ -28,18 +37,21 @@ test_sync (void)
 	utc = icaltimezone_get_utc_timezone ();
 	start = time_from_isodate ("20040212T000000Z");
 	end = time_add_day_with_zone (start, 2, utc);
-	/* XXX: create dummy list, which the file backend will ignore */
-	users = g_slist_append (users, (gpointer) "user@example.com");
+	users = g_slist_append (users, (gpointer) USER_EMAIL);
 
-	if (!e_cal_client_get_free_busy_sync (cal_client, start, end, users, &free_busy_ecalcomps, NULL, &error)) {
+	sig_id = g_signal_connect (cal_client, "free-busy-data", G_CALLBACK (free_busy_data_cb), (gpointer) G_STRFUNC);
+
+	if (!e_cal_client_get_free_busy_sync (cal_client, start, end, users, NULL, &error)) {
 		report_error ("get free busy sync", &error);
+		g_signal_handler_disconnect (cal_client, sig_id);
 		g_object_unref (cal_client);
 		g_slist_free (users);
 		return FALSE;
 	}
 
+	g_signal_handler_disconnect (cal_client, sig_id);
+
 	g_slist_free (users);
-	e_cal_client_free_ecalcomp_slist (free_busy_ecalcomps);
 
 	if (!e_client_remove_sync (E_CLIENT (cal_client), NULL, &error)) {
 		report_error ("client remove sync", &error);
@@ -58,18 +70,15 @@ async_get_free_busy_result_ready (GObject *source_object, GAsyncResult *result, 
 {
 	ECalClient *cal_client;
 	GError *error = NULL;
-	GSList *free_busy_ecalcomps = NULL;
 
 	cal_client = E_CAL_CLIENT (source_object);
 
-	if (!e_cal_client_get_free_busy_finish (cal_client, result, &free_busy_ecalcomps, &error)) {
+	if (!e_cal_client_get_free_busy_finish (cal_client, result, &error)) {
 		report_error ("create object finish", &error);
 		g_object_unref (cal_client);
 		stop_main_loop (1);
 		return;
 	}
-
-	e_cal_client_free_ecalcomp_slist (free_busy_ecalcomps);
 
 	if (!e_client_remove_sync (E_CLIENT (cal_client), NULL, &error)) {
 		report_error ("client remove sync", &error);
@@ -85,7 +94,7 @@ async_get_free_busy_result_ready (GObject *source_object, GAsyncResult *result, 
 
 /* synchronously in idle with main-loop running */
 static gboolean
-test_sync_in_idle (gpointer user_data)
+test_async_in_idle (gpointer user_data)
 {
 	ECalClient *cal_client;
 	GError *error = NULL;
@@ -111,8 +120,10 @@ test_sync_in_idle (gpointer user_data)
 	utc = icaltimezone_get_utc_timezone ();
 	start = time_from_isodate ("20040212T000000Z");
 	end = time_add_day_with_zone (start, 2, utc);
-	/* XXX: create dummy list, which the file backend will ignore */
-	users = g_slist_append (users, (gpointer) "user@example.com");
+	users = g_slist_append (users, (gpointer) USER_EMAIL);
+
+	/* here is all Free/Busy information received */
+	g_signal_connect (cal_client, "free-busy-data", G_CALLBACK (free_busy_data_cb), (gpointer) G_STRFUNC);
 
 	if (!e_cal_client_get_free_busy (cal_client, start, end, users, NULL, async_get_free_busy_result_ready, NULL)) {
 		report_error ("get free busy", NULL);
@@ -136,7 +147,7 @@ test_sync_in_thread (gpointer user_data)
 		return NULL;
 	}
 
-	g_idle_add (test_sync_in_idle, NULL);
+	g_idle_add (test_async_in_idle, NULL);
 
 	return NULL;
 }

@@ -123,6 +123,9 @@ struct _ECalPrivate {
 	/* For locking the operation while localling cache values like 
 	   static capabilities, cal address etc. */
 	GStaticRecMutex cache_lock;
+
+	GList **free_busy_data;
+	GMutex *free_busy_data_lock;
 };
 
 
@@ -435,6 +438,7 @@ e_cal_init (ECal *ecal)
 	priv->gdbus_cal = NULL;
 	priv->timezones = g_hash_table_new (g_str_hash, g_str_equal);
 	priv->default_zone = icaltimezone_get_utc_timezone ();
+	priv->free_busy_data_lock = g_mutex_new ();
 	g_static_rec_mutex_init (&priv->cache_lock);
 }
 
@@ -570,10 +574,20 @@ e_cal_finalize (GObject *object)
 		priv->capabilities = NULL;
 	}
 
+	if (priv->free_busy_data) {
+		g_mutex_lock (priv->free_busy_data_lock);
+		g_list_foreach (*priv->free_busy_data, (GFunc) g_object_unref, NULL);
+		g_list_free (*priv->free_busy_data);
+		*priv->free_busy_data = NULL;
+		priv->free_busy_data = NULL;
+		g_mutex_unlock (priv->free_busy_data_lock);
+	}
+
 	g_hash_table_foreach (priv->timezones, free_timezone, NULL);
 	g_hash_table_destroy (priv->timezones);
 	priv->timezones = NULL;
 	g_static_rec_mutex_free (&priv->cache_lock);
+	g_mutex_free (priv->free_busy_data_lock);
 
 	(* G_OBJECT_CLASS (parent_class)->finalize) (object);
 
@@ -931,7 +945,7 @@ reopen_with_auth (gpointer data)
 }
 
 static void
-auth_required_cb (EGdbusCal *gdbus_cal, const ECredentials *credentials, ECal *cal)
+auth_required_cb (EGdbusCal *gdbus_cal, const gchar * const *credentials_strv, ECal *cal)
 {
 	ECalPrivate *priv;
 	g_return_if_fail (E_IS_CAL (cal));
@@ -942,6 +956,51 @@ auth_required_cb (EGdbusCal *gdbus_cal, const ECredentials *credentials, ECal *c
 
 	if (priv->load_state != E_CAL_LOAD_AUTHENTICATING)
 		g_idle_add (reopen_with_auth, (gpointer) cal);
+}
+
+static void
+free_busy_data_cb (EGdbusCal *gdbus_cal, const gchar * const *free_busy_strv, ECal *cal)
+{
+	ECalPrivate *priv;
+
+	g_return_if_fail (E_IS_CAL (cal));
+
+	priv = cal->priv;
+
+	g_mutex_lock (priv->free_busy_data_lock);
+
+	if (priv->free_busy_data) {
+		gint ii;
+		GList *list = *priv->free_busy_data;
+
+		for (ii = 0; free_busy_strv[ii]; ii++) {
+			ECalComponent *comp;
+			icalcomponent *icalcomp;
+			icalcomponent_kind kind;
+
+			icalcomp = icalcomponent_new_from_string (free_busy_strv[ii]);
+			if (!icalcomp)
+				continue;
+
+			kind = icalcomponent_isa (icalcomp);
+			if (kind == ICAL_VFREEBUSY_COMPONENT) {
+				comp = e_cal_component_new ();
+				if (!e_cal_component_set_icalcomponent (comp, icalcomp)) {
+					icalcomponent_free (icalcomp);
+					g_object_unref (G_OBJECT (comp));
+					continue;
+				}
+
+				list = g_list_append (list, comp);
+			} else {
+				icalcomponent_free (icalcomp);
+			}
+		}
+
+		*priv->free_busy_data = list;
+	}
+
+	g_mutex_unlock (priv->free_busy_data_lock);
 }
 
 typedef struct
@@ -1117,6 +1176,7 @@ e_cal_new (ESource *source, ECalSourceType type)
 	g_signal_connect (priv->gdbus_cal, "backend-error", G_CALLBACK (backend_error_cb), ecal);
 	g_signal_connect (priv->gdbus_cal, "readonly", G_CALLBACK (readonly_cb), ecal);
 	g_signal_connect (priv->gdbus_cal, "online", G_CALLBACK (online_cb), ecal);
+	g_signal_connect (priv->gdbus_cal, "free-busy-data", G_CALLBACK (free_busy_data_cb), ecal);
 
 	/* Set the local attachment store path for the calendar */
 	set_local_attachment_store (ecal);
@@ -2748,40 +2808,6 @@ e_cal_free_object_list (GList *objects)
 	g_list_free (objects);
 }
 
-static GList *
-build_free_busy_list (const gchar **seq)
-{
-	GList *list = NULL;
-	gint i;
-
-	/* Create the list in reverse order */
-	for (i = 0; seq[i]; i++) {
-		ECalComponent *comp;
-		icalcomponent *icalcomp;
-		icalcomponent_kind kind;
-
-		icalcomp = icalcomponent_new_from_string ((gchar *)seq[i]);
-		if (!icalcomp)
-			continue;
-
-		kind = icalcomponent_isa (icalcomp);
-		if (kind == ICAL_VFREEBUSY_COMPONENT) {
-			comp = e_cal_component_new ();
-			if (!e_cal_component_set_icalcomponent (comp, icalcomp)) {
-				icalcomponent_free (icalcomp);
-				g_object_unref (G_OBJECT (comp));
-				continue;
-			}
-
-			list = g_list_append (list, comp);
-		} else {
-			icalcomponent_free (icalcomp);
-		}
-	}
-
-	return list;
-}
-
 /**
  * e_cal_get_free_busy
  * @ecal: A calendar client.
@@ -2803,7 +2829,6 @@ e_cal_get_free_busy (ECal *ecal, GList *users, time_t start, time_t end,
 {
 	ECalPrivate *priv;
 	gchar **strv;
-	gchar **freebusy_array = NULL;
 	GSList *susers;
 	GList *l;
 
@@ -2826,18 +2851,25 @@ e_cal_get_free_busy (ECal *ecal, GList *users, time_t start, time_t end,
 	strv = e_gdbus_cal_encode_get_free_busy (start, end, susers);
 	g_slist_free (susers);
 
-	if (!e_gdbus_cal_call_get_free_busy_sync (priv->gdbus_cal, (const gchar * const *) strv, &freebusy_array, NULL, error)) {
+	g_mutex_lock (priv->free_busy_data_lock);
+	priv->free_busy_data = freebusy;
+	g_mutex_unlock (priv->free_busy_data_lock);
+
+	if (!e_gdbus_cal_call_get_free_busy_sync (priv->gdbus_cal, (const gchar * const *) strv, NULL, error)) {
 		g_strfreev (strv);
+		g_mutex_lock (priv->free_busy_data_lock);
+		priv->free_busy_data = NULL;
+		g_mutex_unlock (priv->free_busy_data_lock);
+
 		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_DBUS_EXCEPTION, error);
 	}
 	g_strfreev (strv);
 
-	if (freebusy_array) {
-		*freebusy = build_free_busy_list ((const gchar **) freebusy_array);
-		g_strfreev (freebusy_array);
-		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_OK, error);
-	} else
-		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_OTHER_ERROR, error);
+	g_mutex_lock (priv->free_busy_data_lock);
+	priv->free_busy_data = NULL;
+	g_mutex_unlock (priv->free_busy_data_lock);
+
+	E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_OK, error);
 }
 
 struct comp_instance {
