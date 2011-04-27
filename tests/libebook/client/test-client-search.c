@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <libebook/e-book-client.h>
+#include <libebook/e-book-query.h>
 
 #include "client-test-utils.h"
 
@@ -11,6 +12,7 @@ main (gint argc, gchar **argv)
 	EBookClient *book_client;
 	const gchar *query_string;
 	EBookQuery *query;
+	gchar *sexp;
 	GSList *c, *contacts;
 	GError *error = NULL;
 
@@ -30,15 +32,18 @@ main (gint argc, gchar **argv)
 		return 1;
 	}
 
+	sexp = e_book_query_to_string (query);
+	e_book_query_unref (query);
+
 	book_client = open_system_book (FALSE);
 	if (!book_client) {
-		e_book_query_unref (query);
+		g_free (sexp);
 		return 1;
 	}
 
-	if (!e_book_client_get_contacts_sync (book_client, query, &contacts, NULL, &error)) {
+	if (!e_book_client_get_contacts_sync (book_client, sexp, &contacts, NULL, &error)) {
 		report_error ("get contacts sync", &error);
-		e_book_query_unref (query);
+		g_free (sexp);
 		g_object_unref (book_client);
 		return 1;
 	}
@@ -55,7 +60,7 @@ main (gint argc, gchar **argv)
 	g_slist_foreach (contacts, (GFunc) g_object_unref, NULL);
 	g_slist_free (contacts);
 
-	e_book_query_unref (query);
+	g_free (sexp);
 	g_object_unref (book_client);
 
 	return 0;

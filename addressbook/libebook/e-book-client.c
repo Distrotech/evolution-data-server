@@ -1382,7 +1382,7 @@ e_book_client_get_supported_auth_methods_sync (EBookClient *client, GSList **aut
  * Since: 3.2
  **/
 void
-e_book_client_add_contact (EBookClient *client, const EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_book_client_add_contact (EBookClient *client, /* const */ EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	gchar *vcard, *gdbus_vcard = NULL;
 
@@ -1455,7 +1455,7 @@ e_book_client_add_contact_finish (EBookClient *client, GAsyncResult *result, gch
  * Since: 3.2
  **/
 gboolean
-e_book_client_add_contact_sync (EBookClient *client, const EContact *contact, gchar **added_uid, GCancellable *cancellable, GError **error)
+e_book_client_add_contact_sync (EBookClient *client, /* const */ EContact *contact, gchar **added_uid, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
 	gchar *vcard, *gdbus_vcard = NULL, *out_uid = NULL;
@@ -1502,7 +1502,7 @@ e_book_client_add_contact_sync (EBookClient *client, const EContact *contact, gc
  * Since: 3.2
  **/
 void
-e_book_client_modify_contact (EBookClient *client, const EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_book_client_modify_contact (EBookClient *client, /* const */ EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	gchar *vcard, *gdbus_vcard = NULL;
 
@@ -1551,7 +1551,7 @@ e_book_client_modify_contact_finish (EBookClient *client, GAsyncResult *result, 
  * Since: 3.2
  **/
 gboolean
-e_book_client_modify_contact_sync (EBookClient *client, const EContact *contact, GCancellable *cancellable, GError **error)
+e_book_client_modify_contact_sync (EBookClient *client, /* const */ EContact *contact, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
 	gchar *vcard, *gdbus_vcard = NULL;
@@ -1590,7 +1590,7 @@ e_book_client_modify_contact_sync (EBookClient *client, const EContact *contact,
  * Since: 3.2
  **/
 void
-e_book_client_remove_contact (EBookClient *client, const EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_book_client_remove_contact (EBookClient *client, /* const */ EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	gchar *uid;
 	const gchar *lst[2];
@@ -1643,7 +1643,7 @@ e_book_client_remove_contact_finish (EBookClient *client, GAsyncResult *result, 
  * Since: 3.2
  **/
 gboolean
-e_book_client_remove_contact_sync (EBookClient *client, const EContact *contact, GCancellable *cancellable, GError **error)
+e_book_client_remove_contact_sync (EBookClient *client, /* const */ EContact *contact, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
 	gchar *uid;
@@ -1981,31 +1981,31 @@ e_book_client_get_contact_sync (EBookClient *client, const gchar *uid, EContact 
 /**
  * e_book_client_get_contacts:
  * @client: an #EBookClient
- * @query: an #EBookQuery
+ * @sexp: an S-expression representing the query
  * @cancellable: a #GCancellable; can be %NULL
  * @callback: callback to call when a result is ready
  * @user_data: user data for the @callback
  *
- * Query @client with @query, receiving a list of contacts which
+ * Query @client with @sexp, receiving a list of contacts which
  * matched. The call is finished by e_book_client_get_contacts_finish()
  * from the @callback.
+ *
+ * Note: @sexp can be obtained through #EBookQuery, by converting it
+ * to a string with e_book_query_to_string().
  *
  * Since: 3.2
  **/
 void
-e_book_client_get_contacts (EBookClient *client, const EBookQuery *query, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_book_client_get_contacts (EBookClient *client, const gchar *sexp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	gchar *sexp, *gdbus_sexp = NULL;
+	gchar *gdbus_sexp = NULL;
 
-	g_return_if_fail (query != NULL);
-
-	sexp = e_book_query_to_string ((EBookQuery *) query);
+	g_return_if_fail (sexp != NULL);
 
 	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_book_client_get_contacts,
 			e_gdbus_book_call_get_contact_list,
 			NULL, NULL, NULL, e_gdbus_book_call_get_contact_list_finish, NULL);
 
-	g_free (sexp);
 	g_free (gdbus_sexp);
 }
 
@@ -2055,38 +2055,39 @@ e_book_client_get_contacts_finish (EBookClient *client, GAsyncResult *result, GS
 /**
  * e_book_client_get_contacts_sync:
  * @client: an #EBookClient
- * @query: an #EBookQuery
+ * @sexp: an S-expression representing the query
  * @contacts: (out) a #GSList of matched #EContact-s
  * @cancellable: a #GCancellable; can be %NULL
  * @error: (out): a #GError to set an error, if any
  *
- * Query @client with @query, receiving a list of contacts which matched.
+ * Query @client with @sexp, receiving a list of contacts which matched.
  * If successful, then the @contacts is set to newly allocated #GSList of
  * #EContact-s, which should be freed with e_client_util_free_object_slist().
+ *
+ * Note: @sexp can be obtained through #EBookQuery, by converting it
+ * to a string with e_book_query_to_string().
  *
  * Returns: %TRUE if successful, %FALSE otherwise.
  *
  * Since: 3.2
  **/
 gboolean
-e_book_client_get_contacts_sync (EBookClient *client, const EBookQuery *query, GSList **contacts, GCancellable *cancellable, GError **error)
+e_book_client_get_contacts_sync (EBookClient *client, const gchar *sexp, GSList **contacts, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
-	gchar *sexp, *gdbus_sexp = NULL;
+	gchar *gdbus_sexp = NULL;
 	gchar **vcards = NULL;
 
 	g_return_val_if_fail (client != NULL, FALSE);
 	g_return_val_if_fail (E_IS_BOOK_CLIENT (client), FALSE);
 	g_return_val_if_fail (client->priv != NULL, FALSE);
-	g_return_val_if_fail (query != NULL, FALSE);
+	g_return_val_if_fail (sexp != NULL, FALSE);
 	g_return_val_if_fail (contacts != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
 		set_proxy_gone_error (error);
 		return FALSE;
 	}
-
-	sexp = e_book_query_to_string ((EBookQuery *) query);
 
 	res = e_client_proxy_call_sync_string__strv (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), &vcards, cancellable, error, e_gdbus_book_call_get_contact_list_sync);
 
@@ -2103,7 +2104,6 @@ e_book_client_get_contacts_sync (EBookClient *client, const EBookQuery *query, G
 		*contacts = NULL;
 	}
 
-	g_free (sexp);
 	g_free (gdbus_sexp);
 	g_strfreev (vcards);
 
@@ -2113,31 +2113,31 @@ e_book_client_get_contacts_sync (EBookClient *client, const EBookQuery *query, G
 /**
  * e_book_client_get_view:
  * @client: an #EBookClient
- * @query: an #EBookQuery
+ * @sexp: an S-expression representing the query
  * @cancellable: a #GCancellable; can be %NULL
  * @callback: callback to call when a result is ready
  * @user_data: user data for the @callback
  *
- * Query @client with @query, creating an #EBookView.
+ * Query @client with @sexp, creating an #EBookView.
  * The call is finished by e_book_client_get_view_finish()
  * from the @callback.
+ *
+ * Note: @sexp can be obtained through #EBookQuery, by converting it
+ * to a string with e_book_query_to_string().
  *
  * Since: 3.2
  **/
 void
-e_book_client_get_view (EBookClient *client, const EBookQuery *query, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_book_client_get_view (EBookClient *client, const gchar *sexp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	gchar *sexp, *gdbus_sexp = NULL;
+	gchar *gdbus_sexp = NULL;
 
-	g_return_if_fail (query != NULL);
-
-	sexp = e_book_query_to_string ((EBookQuery *) query);
+	g_return_if_fail (sexp != NULL);
 
 	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_book_client_get_view,
 			e_gdbus_book_call_get_view,
 			NULL, NULL, e_gdbus_book_call_get_view_finish, NULL, NULL);
 
-	g_free (sexp);
 	g_free (gdbus_sexp);
 }
 
@@ -2210,30 +2210,33 @@ e_book_client_get_view_finish (EBookClient *client, GAsyncResult *result, EBookV
 /**
  * e_book_client_get_view_sync:
  * @client: an #EBookClient
- * @query: an #EBookQuery
+ * @sexp: an S-expression representing the query
  * @book_view: (out) an #EBookView
  * @cancellable: a #GCancellable; can be %NULL
  * @error: (out): a #GError to set an error, if any
  *
- * Query @client with @query, creating an #EBookView.
+ * Query @client with @sexp, creating an #EBookView.
  * If successful, then the @book_view is set to newly allocated #EBookView,
  * which should be freed with g_object_unref().
+ *
+ * Note: @sexp can be obtained through #EBookQuery, by converting it
+ * to a string with e_book_query_to_string().
  *
  * Returns: %TRUE if successful, %FALSE otherwise.
  *
  * Since: 3.2
  **/
 gboolean
-e_book_client_get_view_sync (EBookClient *client, const EBookQuery *query, EBookView **book_view, GCancellable *cancellable, GError **error)
+e_book_client_get_view_sync (EBookClient *client, const gchar *sexp, EBookView **book_view, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
-	gchar *sexp, *gdbus_sexp = NULL;
+	gchar *gdbus_sexp = NULL;
 	gchar *view_path = NULL;
 
 	g_return_val_if_fail (client != NULL, FALSE);
 	g_return_val_if_fail (E_IS_BOOK_CLIENT (client), FALSE);
 	g_return_val_if_fail (client->priv != NULL, FALSE);
-	g_return_val_if_fail (query != NULL, FALSE);
+	g_return_val_if_fail (sexp != NULL, FALSE);
 	g_return_val_if_fail (book_view != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
@@ -2241,11 +2244,8 @@ e_book_client_get_view_sync (EBookClient *client, const EBookQuery *query, EBook
 		return FALSE;
 	}
 
-	sexp = e_book_query_to_string ((EBookQuery *) query);
-
 	res = e_client_proxy_call_sync_string__string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), &view_path, cancellable, error, e_gdbus_book_call_get_view_sync);
 
-	g_free (sexp);
 	g_free (gdbus_sexp);
 
 	return complete_get_view (client, res, view_path, book_view, error);

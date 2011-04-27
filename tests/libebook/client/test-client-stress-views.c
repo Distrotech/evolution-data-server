@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <libebook/e-book-client.h>
+#include <libebook/e-book-query.h>
 
 #include "client-test-utils.h"
 
@@ -39,20 +40,23 @@ stress_book_views (EBookClient *book_client, gboolean in_thread)
 	EBookQuery *query;
 	EBookView *view = NULL;
 	EBookView *new_view;
+	gchar *sexp;
 	gint i;
 
 	g_return_val_if_fail (book_client != NULL, -1);
 	g_return_val_if_fail (E_IS_BOOK_CLIENT (book_client), -1);
 
 	query = e_book_query_any_field_contains ("");
+	sexp = e_book_query_to_string (query);
+	e_book_query_unref (query);
 
 	for (i = 0; i < NUM_VIEWS; i++) {
 		GError *error = NULL;
 
-		if (!e_book_client_get_view_sync (book_client, query, &new_view, NULL, &error)) {
+		if (!e_book_client_get_view_sync (book_client, sexp, &new_view, NULL, &error)) {
 			report_error ("get book view sync", &error);
 			g_object_unref (view);
-			e_book_query_unref (query);
+			g_free (sexp);
 			return 1;
 		}
 
@@ -77,7 +81,7 @@ stress_book_views (EBookClient *book_client, gboolean in_thread)
 	e_book_view_stop (view);
 	g_object_unref (view);
 
-	e_book_query_unref (query);
+	g_free (sexp);
 
 	return 0;
 }

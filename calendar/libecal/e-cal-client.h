@@ -96,8 +96,8 @@ gboolean		e_cal_client_get_sources		(ESourceList **sources, ECalClientSourceType
 /* Calendar properties not managed by EClient */
 ECalClientSourceType	e_cal_client_get_source_type		(ECalClient *client);
 const gchar *		e_cal_client_get_local_attachment_store	(ECalClient *client);
-void			e_cal_client_set_default_timezone	(ECalClient *client, const icaltimezone *zone);
-const icaltimezone *	e_cal_client_get_default_timezone	(ECalClient *client);
+void			e_cal_client_set_default_timezone	(ECalClient *client, /* const */ icaltimezone *zone);
+/*const*/ icaltimezone *e_cal_client_get_default_timezone	(ECalClient *client);
 
 /* Check predefined capabilities */
 gboolean		e_cal_client_check_one_alarm_only	(ECalClient *client);
@@ -157,25 +157,25 @@ void		e_cal_client_get_free_busy			(ECalClient *client, time_t start, time_t end
 gboolean	e_cal_client_get_free_busy_finish		(ECalClient *client, GAsyncResult *result, GError **error);
 gboolean	e_cal_client_get_free_busy_sync			(ECalClient *client, time_t start, time_t end, const GSList *users, GCancellable *cancellable, GError **error);
 
-void		e_cal_client_create_object			(ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+void		e_cal_client_create_object			(ECalClient *client, /* const */ icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_cal_client_create_object_finish		(ECalClient *client, GAsyncResult *result, gchar **uid, GError **error);
-gboolean	e_cal_client_create_object_sync			(ECalClient *client, const icalcomponent *icalcomp, gchar **uid, GCancellable *cancellable, GError **error);
+gboolean	e_cal_client_create_object_sync			(ECalClient *client, /* const */ icalcomponent *icalcomp, gchar **uid, GCancellable *cancellable, GError **error);
 
-void		e_cal_client_modify_object			(ECalClient *client, const icalcomponent *icalcomp, CalObjModType mod, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+void		e_cal_client_modify_object			(ECalClient *client, /* const */ icalcomponent *icalcomp, CalObjModType mod, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_cal_client_modify_object_finish		(ECalClient *client, GAsyncResult *result, GError **error);
-gboolean	e_cal_client_modify_object_sync			(ECalClient *client, const icalcomponent *icalcomp, CalObjModType mod, GCancellable *cancellable, GError **error);
+gboolean	e_cal_client_modify_object_sync			(ECalClient *client, /* const */ icalcomponent *icalcomp, CalObjModType mod, GCancellable *cancellable, GError **error);
 
 void		e_cal_client_remove_object			(ECalClient *client, const gchar *uid, const gchar *rid, CalObjModType mod, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_cal_client_remove_object_finish		(ECalClient *client, GAsyncResult *result, GError **error);
 gboolean	e_cal_client_remove_object_sync			(ECalClient *client, const gchar *uid, const gchar *rid, CalObjModType mod, GCancellable *cancellable, GError **error);
 
-void		e_cal_client_receive_objects			(ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+void		e_cal_client_receive_objects			(ECalClient *client, /* const */ icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_cal_client_receive_objects_finish		(ECalClient *client, GAsyncResult *result, GError **error);
-gboolean	e_cal_client_receive_objects_sync		(ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GError **error);
+gboolean	e_cal_client_receive_objects_sync		(ECalClient *client, /* const */ icalcomponent *icalcomp, GCancellable *cancellable, GError **error);
 
-void		e_cal_client_send_objects			(ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+void		e_cal_client_send_objects			(ECalClient *client, /* const */ icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_cal_client_send_objects_finish		(ECalClient *client, GAsyncResult *result, GSList **users, icalcomponent **modified_icalcomp, GError **error);
-gboolean	e_cal_client_send_objects_sync			(ECalClient *client, const icalcomponent *icalcomp, GSList **users, icalcomponent **modified_icalcomp, GCancellable *cancellable, GError **error);
+gboolean	e_cal_client_send_objects_sync			(ECalClient *client, /* const */ icalcomponent *icalcomp, GSList **users, icalcomponent **modified_icalcomp, GCancellable *cancellable, GError **error);
 
 void		e_cal_client_get_attachment_uris		(ECalClient *client, const gchar *uid, const gchar *rid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_cal_client_get_attachment_uris_finish		(ECalClient *client, GAsyncResult *result, GSList **attachment_uris, GError **error);
@@ -189,9 +189,9 @@ void		e_cal_client_get_timezone			(ECalClient *client, const gchar *tzid, GCance
 gboolean	e_cal_client_get_timezone_finish		(ECalClient *client, GAsyncResult *result, icaltimezone **zone, GError **error);
 gboolean	e_cal_client_get_timezone_sync			(ECalClient *client, const gchar *tzid, icaltimezone **zone, GCancellable *cancellable, GError **error);
 
-void		e_cal_client_add_timezone			(ECalClient *client, const icaltimezone *zone, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+void		e_cal_client_add_timezone			(ECalClient *client, /* const */ icaltimezone *zone, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_cal_client_add_timezone_finish		(ECalClient *client, GAsyncResult *result, GError **error);
-gboolean	e_cal_client_add_timezone_sync			(ECalClient *client, const icaltimezone *zone, GCancellable *cancellable, GError **error);
+gboolean	e_cal_client_add_timezone_sync			(ECalClient *client, /* const */ icaltimezone *zone, GCancellable *cancellable, GError **error);
 
 G_END_DECLS
 

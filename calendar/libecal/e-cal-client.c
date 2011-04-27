@@ -938,7 +938,7 @@ e_cal_client_get_local_attachment_store (ECalClient *client)
  * Since: 3.2
  **/
 void
-e_cal_client_set_default_timezone (ECalClient *client, const icaltimezone *zone)
+e_cal_client_set_default_timezone (ECalClient *client, /* const */ icaltimezone *zone)
 {
 	g_return_if_fail (client != NULL);
 	g_return_if_fail (E_IS_CAL_CLIENT (client));
@@ -946,7 +946,7 @@ e_cal_client_set_default_timezone (ECalClient *client, const icaltimezone *zone)
 	g_return_if_fail (zone != NULL);
 
 	icaltimezone_free (client->priv->default_zone, 1);
-	client->priv->default_zone = icaltimezone_copy ((icaltimezone *) zone);
+	client->priv->default_zone = icaltimezone_copy (zone);
 }
 
 /**
@@ -954,11 +954,11 @@ e_cal_client_set_default_timezone (ECalClient *client, const icaltimezone *zone)
  * @client: A calendar client.
  *
  * Returns: Default timezone previously set with e_cal_client_set_default_timezone().
- * Returned pointer is owned by the @client.
+ * Returned pointer is owned by the @client and should not be freed.
  *
  * Since: 3.2
  **/
-const icaltimezone *
+/* const */ icaltimezone *
 e_cal_client_get_default_timezone (ECalClient *client)
 {
 	g_return_val_if_fail (client != NULL, NULL);
@@ -2944,13 +2944,13 @@ e_cal_client_get_free_busy_sync (ECalClient *client, time_t start, time_t end, c
  * Since: 3.2
  **/
 void
-e_cal_client_create_object (ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_cal_client_create_object (ECalClient *client, /* const */ icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	gchar *comp_str, *gdbus_comp = NULL;
 
 	g_return_if_fail (icalcomp != NULL);
 
-	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
+	comp_str = icalcomponent_as_ical_string_r (icalcomp);
 
 	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), cancellable, callback, user_data, e_cal_client_create_object,
 			e_gdbus_cal_call_create_object,
@@ -3007,7 +3007,7 @@ e_cal_client_create_object_finish (ECalClient *client, GAsyncResult *result, gch
  * Since: 3.2
  **/
 gboolean
-e_cal_client_create_object_sync (ECalClient *client, const icalcomponent *icalcomp, gchar **uid, GCancellable *cancellable, GError **error)
+e_cal_client_create_object_sync (ECalClient *client, /* const */ icalcomponent *icalcomp, gchar **uid, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
 	gchar *comp_str, *gdbus_comp = NULL;
@@ -3024,7 +3024,7 @@ e_cal_client_create_object_sync (ECalClient *client, const icalcomponent *icalco
 		return FALSE;
 	}
 
-	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
+	comp_str = icalcomponent_as_ical_string_r (icalcomp);
 
 	res = e_client_proxy_call_sync_string__string (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), &out_string, cancellable, error, e_gdbus_cal_call_create_object_sync);
 
@@ -3057,13 +3057,13 @@ e_cal_client_create_object_sync (ECalClient *client, const icalcomponent *icalco
  * Since: 3.2
  **/
 void
-e_cal_client_modify_object (ECalClient *client, const icalcomponent *icalcomp, CalObjModType mod, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_cal_client_modify_object (ECalClient *client, /* const */ icalcomponent *icalcomp, CalObjModType mod, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	gchar *comp_str, **strv;
 
 	g_return_if_fail (icalcomp != NULL);
 
-	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
+	comp_str = icalcomponent_as_ical_string_r (icalcomp);
 	strv = e_gdbus_cal_encode_modify_object (comp_str, mod);
 
 	e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_modify_object,
@@ -3113,7 +3113,7 @@ e_cal_client_modify_object_finish (ECalClient *client, GAsyncResult *result, GEr
  * Since: 3.2
  **/
 gboolean
-e_cal_client_modify_object_sync (ECalClient *client, const icalcomponent *icalcomp, CalObjModType mod, GCancellable *cancellable, GError **error)
+e_cal_client_modify_object_sync (ECalClient *client, /* const */ icalcomponent *icalcomp, CalObjModType mod, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
 	gchar *comp_str, **strv;
@@ -3128,7 +3128,7 @@ e_cal_client_modify_object_sync (ECalClient *client, const icalcomponent *icalco
 		return FALSE;
 	}
 
-	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
+	comp_str = icalcomponent_as_ical_string_r (icalcomp);
 	strv = e_gdbus_cal_encode_modify_object (comp_str, mod);
 
 	res = e_client_proxy_call_sync_strv__void (E_CLIENT (client), (const gchar * const *) strv, cancellable, error, e_gdbus_cal_call_modify_object_sync);
@@ -3256,13 +3256,13 @@ e_cal_client_remove_object_sync (ECalClient *client, const gchar *uid, const gch
  * Since: 3.2
  **/
 void
-e_cal_client_receive_objects (ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_cal_client_receive_objects (ECalClient *client, /* const */ icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	gchar *comp_str, *gdbus_comp = NULL;
 
 	g_return_if_fail (icalcomp != NULL);
 
-	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
+	comp_str = icalcomponent_as_ical_string_r (icalcomp);
 
 	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), cancellable, callback, user_data, e_cal_client_receive_objects,
 			e_gdbus_cal_call_receive_objects,
@@ -3306,7 +3306,7 @@ e_cal_client_receive_objects_finish (ECalClient *client, GAsyncResult *result, G
  * Since: 3.2
  **/
 gboolean
-e_cal_client_receive_objects_sync (ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GError **error)
+e_cal_client_receive_objects_sync (ECalClient *client, /* const */ icalcomponent *icalcomp, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
 	gchar *comp_str, *gdbus_comp = NULL;
@@ -3320,7 +3320,7 @@ e_cal_client_receive_objects_sync (ECalClient *client, const icalcomponent *ical
 		return FALSE;
 	}
 
-	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
+	comp_str = icalcomponent_as_ical_string_r (icalcomp);
 
 	res = e_client_proxy_call_sync_string__void (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), cancellable, error, e_gdbus_cal_call_receive_objects_sync);
 
@@ -3346,13 +3346,13 @@ e_cal_client_receive_objects_sync (ECalClient *client, const icalcomponent *ical
  * Since: 3.2
  **/
 void
-e_cal_client_send_objects (ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_cal_client_send_objects (ECalClient *client, /* const */ icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	gchar *comp_str, *gdbus_comp = NULL;
 
 	g_return_if_fail (icalcomp != NULL);
 
-	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
+	comp_str = icalcomponent_as_ical_string_r (icalcomp);
 
 	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), cancellable, callback, user_data, e_cal_client_send_objects,
 			e_gdbus_cal_call_send_objects,
@@ -3449,7 +3449,7 @@ e_cal_client_send_objects_finish (ECalClient *client, GAsyncResult *result, GSLi
  * Since: 3.2
  **/
 gboolean
-e_cal_client_send_objects_sync (ECalClient *client, const icalcomponent *icalcomp, GSList **users, icalcomponent **modified_icalcomp, GCancellable *cancellable, GError **error)
+e_cal_client_send_objects_sync (ECalClient *client, /* const */ icalcomponent *icalcomp, GSList **users, icalcomponent **modified_icalcomp, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
 	gchar **out_strv = NULL, *comp_str, *gdbus_comp = NULL;
@@ -3466,7 +3466,7 @@ e_cal_client_send_objects_sync (ECalClient *client, const icalcomponent *icalcom
 		return FALSE;
 	}
 
-	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
+	comp_str = icalcomponent_as_ical_string_r (icalcomp);
 
 	res = e_client_proxy_call_sync_string__strv (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), &out_strv, cancellable, error, e_gdbus_cal_call_send_objects_sync);
 
@@ -4007,7 +4007,7 @@ e_cal_client_get_timezone_sync (ECalClient *client, const gchar *tzid, icaltimez
  * Since: 3.2
  **/
 void
-e_cal_client_add_timezone (ECalClient *client, const icaltimezone *zone, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_cal_client_add_timezone (ECalClient *client, /* const */ icaltimezone *zone, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	icalcomponent *icalcomp;
 	gchar *zone_str, *gdbus_zone = NULL;
@@ -4017,7 +4017,7 @@ e_cal_client_add_timezone (ECalClient *client, const icaltimezone *zone, GCancel
 	if (zone == icaltimezone_get_utc_timezone ())
 		return;
 
-	icalcomp = icaltimezone_get_component ((icaltimezone *) zone);
+	icalcomp = icaltimezone_get_component (zone);
 	g_return_if_fail (icalcomp != NULL);
 
 	zone_str = icalcomponent_as_ical_string_r (icalcomp);
@@ -4062,7 +4062,7 @@ e_cal_client_add_timezone_finish (ECalClient *client, GAsyncResult *result, GErr
  * Since: 3.2
  **/
 gboolean
-e_cal_client_add_timezone_sync (ECalClient *client, const icaltimezone *zone, GCancellable *cancellable, GError **error)
+e_cal_client_add_timezone_sync (ECalClient *client, /* const */ icaltimezone *zone, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
 	icalcomponent *icalcomp;
@@ -4076,7 +4076,7 @@ e_cal_client_add_timezone_sync (ECalClient *client, const icaltimezone *zone, GC
 	if (zone == icaltimezone_get_utc_timezone ())
 		return TRUE;
 
-	icalcomp = icaltimezone_get_component ((icaltimezone *) zone);
+	icalcomp = icaltimezone_get_component (zone);
 	if (!icalcomp) {
 		g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_INVALID_ARG, e_client_error_to_string (E_CLIENT_ERROR_INVALID_ARG));
 		return FALSE;

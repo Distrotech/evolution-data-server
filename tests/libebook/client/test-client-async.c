@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <libebook/e-book-client.h>
+#include <libebook/e-book-query.h>
 
 #include "client-test-utils.h"
 
@@ -37,12 +38,15 @@ static void
 print_all_emails (EBookClient *book_client)
 {
 	EBookQuery *query;
+	gchar *sexp;
 
 	query = e_book_query_field_exists (E_CONTACT_FULL_NAME);
-
-	e_book_client_get_contacts (book_client, query, NULL, print_all_emails_cb, NULL);
-
+	sexp = e_book_query_to_string (query);
 	e_book_query_unref (query);
+
+	e_book_client_get_contacts (book_client, sexp, NULL, print_all_emails_cb, NULL);
+
+	g_free (sexp);
 }
 
 static void

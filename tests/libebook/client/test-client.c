@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <libebook/e-book-client.h>
+#include <libebook/e-book-query.h>
 
 #include "client-test-utils.h"
 
@@ -10,14 +11,17 @@ print_all_emails (EBookClient *book)
 {
 	GError *error = NULL;
 	EBookQuery *query;
+	gchar *sexp;
 	gboolean result;
 	GSList *cards, *c;
 
 	query = e_book_query_field_exists (E_CONTACT_FULL_NAME);
-
-	result = e_book_client_get_contacts_sync (book, query, &cards, NULL, &error);
-
+	sexp = e_book_query_to_string (query);
 	e_book_query_unref (query);
+
+	result = e_book_client_get_contacts_sync (book, sexp, &cards, NULL, &error);
+
+	g_free (sexp);
 
 	if (!result) {
 		fprintf (stderr, "Error getting card list: %s\n", error ? error->message : "Unknown error");

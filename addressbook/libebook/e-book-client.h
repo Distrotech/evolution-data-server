@@ -27,7 +27,6 @@
 
 #include <libedataserver/e-client.h>
 #include <libedataserver/e-source-list.h>
-#include <libebook/e-book-query.h>
 #include <libebook/e-book-view.h>
 
 #define E_TYPE_BOOK_CLIENT		(e_book_client_get_type ())
@@ -106,17 +105,17 @@ void		e_book_client_get_supported_auth_methods	(EBookClient *client, GCancellabl
 gboolean	e_book_client_get_supported_auth_methods_finish	(EBookClient *client, GAsyncResult *result, GSList **auth_methods, GError **error);
 gboolean	e_book_client_get_supported_auth_methods_sync	(EBookClient *client, GSList **auth_methods, GCancellable *cancellable, GError **error);
 
-void		e_book_client_add_contact			(EBookClient *client, const EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+void		e_book_client_add_contact			(EBookClient *client, /* const */ EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_book_client_add_contact_finish		(EBookClient *client, GAsyncResult *result, gchar **added_uid, GError **error);
-gboolean	e_book_client_add_contact_sync			(EBookClient *client, const EContact *contact, gchar **added_uid, GCancellable *cancellable, GError **error);
+gboolean	e_book_client_add_contact_sync			(EBookClient *client, /* const */ EContact *contact, gchar **added_uid, GCancellable *cancellable, GError **error);
 
-void		e_book_client_modify_contact			(EBookClient *client, const EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+void		e_book_client_modify_contact			(EBookClient *client, /* const */ EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_book_client_modify_contact_finish		(EBookClient *client, GAsyncResult *result, GError **error);
-gboolean	e_book_client_modify_contact_sync		(EBookClient *client, const EContact *contact, GCancellable *cancellable, GError **error);
+gboolean	e_book_client_modify_contact_sync		(EBookClient *client, /* const */ EContact *contact, GCancellable *cancellable, GError **error);
 
-void		e_book_client_remove_contact			(EBookClient *client, const EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+void		e_book_client_remove_contact			(EBookClient *client, /* const */ EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_book_client_remove_contact_finish		(EBookClient *client, GAsyncResult *result, GError **error);
-gboolean	e_book_client_remove_contact_sync		(EBookClient *client, const EContact *contact, GCancellable *cancellable, GError **error);
+gboolean	e_book_client_remove_contact_sync		(EBookClient *client, /* const */ EContact *contact, GCancellable *cancellable, GError **error);
 
 void		e_book_client_remove_contact_by_uid		(EBookClient *client, const gchar *uid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_book_client_remove_contact_by_uid_finish	(EBookClient *client, GAsyncResult *result, GError **error);
@@ -130,13 +129,13 @@ void		e_book_client_get_contact			(EBookClient *client, const gchar *uid, GCance
 gboolean	e_book_client_get_contact_finish		(EBookClient *client, GAsyncResult *result, EContact **contact, GError **error);
 gboolean	e_book_client_get_contact_sync			(EBookClient *client, const gchar *uid, EContact **contact, GCancellable *cancellable, GError **error);
 
-void		e_book_client_get_contacts			(EBookClient *client, const EBookQuery *query, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+void		e_book_client_get_contacts			(EBookClient *client, const gchar *sexp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_book_client_get_contacts_finish		(EBookClient *client, GAsyncResult *result, GSList **contacts, GError **error);
-gboolean	e_book_client_get_contacts_sync			(EBookClient *client, const EBookQuery *query, GSList **contacts, GCancellable *cancellable, GError **error);
+gboolean	e_book_client_get_contacts_sync			(EBookClient *client, const gchar *sexp, GSList **contacts, GCancellable *cancellable, GError **error);
 
-void		e_book_client_get_view				(EBookClient *client, const EBookQuery *query, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+void		e_book_client_get_view				(EBookClient *client, const gchar *sexp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_book_client_get_view_finish			(EBookClient *client, GAsyncResult *result, EBookView **book_view, GError **error);
-gboolean	e_book_client_get_view_sync			(EBookClient *client, const EBookQuery *query, EBookView **book_view, GCancellable *cancellable, GError **error);
+gboolean	e_book_client_get_view_sync			(EBookClient *client, const gchar *sexp, EBookView **book_view, GCancellable *cancellable, GError **error);
 
 G_END_DECLS
 

@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <libebook/e-book-client.h>
+#include <libebook/e-book-query.h>
 
 #include "client-test-utils.h"
 
@@ -91,15 +92,18 @@ call_get_book_view (gpointer user_data)
 {
 	EBookQuery *query;
 	EBookClient *book_client = user_data;
+	gchar *sexp;
 
 	g_return_val_if_fail (book_client != NULL, NULL);
 	g_return_val_if_fail (E_IS_BOOK_CLIENT (book_client), NULL);
 
 	query = e_book_query_any_field_contains ("");
-
-	e_book_client_get_view (book_client, query, NULL, get_book_view_cb, NULL);
-
+	sexp = e_book_query_to_string (query);
 	e_book_query_unref (query);
+
+	e_book_client_get_view (book_client, sexp, NULL, get_book_view_cb, NULL);
+
+	g_free (sexp);
 
 	return NULL;
 }
@@ -110,6 +114,7 @@ main (gint argc, gchar **argv)
 	EBookClient *book_client;
 	EBookQuery *query;
 	EBookView *view;
+	gchar *sexp;
 	GError *error = NULL;
 
 	main_initialize ();
@@ -121,13 +126,17 @@ main (gint argc, gchar **argv)
 		return 1;
 
 	query = e_book_query_any_field_contains ("");
-	if (!e_book_client_get_view_sync (book_client, query, &view, NULL, &error)) {
+	sexp = e_book_query_to_string (query);
+	e_book_query_unref (query);
+	if (!e_book_client_get_view_sync (book_client, sexp, &view, NULL, &error)) {
 		report_error ("get book view sync", &error);
-		e_book_query_unref (query);
+		g_free (sexp);
 		g_object_unref (book_client);
 
 		return 1;
 	}
+
+	g_free (sexp);
 
 	setup_and_start_view (view);
 
@@ -135,13 +144,11 @@ main (gint argc, gchar **argv)
 
 	if (!e_client_remove_sync (E_CLIENT (book_client), NULL, &error)) {
 		report_error ("client remove sync", &error);
-		e_book_query_unref (query);
 		g_object_unref (book_client);
 
 		return 1;
 	}
 
-	e_book_query_unref (query);
 	g_object_unref (book_client);
 
 	/*
