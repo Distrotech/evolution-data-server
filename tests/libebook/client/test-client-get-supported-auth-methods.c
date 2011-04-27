@@ -63,12 +63,8 @@ continue_next_source (gpointer async_data)
 			continue;
 		}
 
-		if (!e_client_open (E_CLIENT (book_client), TRUE, NULL, client_opened_async, async_data)) {
-			report_error ("client open", NULL);
-			g_object_unref (book_client);
-		} else {
-			break;
-		}
+		e_client_open (E_CLIENT (book_client), TRUE, NULL, client_opened_async, async_data);
+		break;
 	}
 
 	if (!async_data)
@@ -114,11 +110,7 @@ client_opened_async (GObject *source_object, GAsyncResult *result, gpointer asyn
 		return;
 	}
 
-	if (!e_book_client_get_supported_auth_methods (E_BOOK_CLIENT (source_object), NULL, client_got_values_async, async_data)) {
-		report_error ("get supported auth methods", NULL);
-		g_object_unref (source_object);
-		continue_next_source (async_data);
-	}
+	e_book_client_get_supported_auth_methods (E_BOOK_CLIENT (source_object), NULL, client_got_values_async, async_data);
 }
 
 static void
@@ -178,32 +170,20 @@ in_main_thread_idle_cb (gpointer unused)
 
 	printf ("* run in main thread async\n");
 
-	while (TRUE) {
+	identify_source (source);
+
+	while (book_client = e_book_client_new (source, &error), !book_client) {
+		report_error ("book client new", &error);
+
+		if (!foreach_configured_source_async_next (&async_data, &source)) {
+			stop_main_loop (0);
+			return FALSE;
+		}
+
 		identify_source (source);
-
-		while (book_client = e_book_client_new (source, &error), !book_client) {
-			report_error ("book client new", &error);
-
-			if (!foreach_configured_source_async_next (&async_data, &source)) {
-				stop_main_loop (0);
-				return FALSE;
-			}
-
-			identify_source (source);
-		}
-
-		if (!e_client_open (E_CLIENT (book_client), TRUE, NULL, client_opened_async, async_data)) {
-			report_error ("client open", NULL);
-			g_object_unref (book_client);
-
-			if (!foreach_configured_source_async_next (&async_data, &source)) {
-				stop_main_loop (0);
-				return FALSE;
-			}
-		} else {
-			break;
-		}
 	}
+
+	e_client_open (E_CLIENT (book_client), TRUE, NULL, client_opened_async, async_data);
 
 	return FALSE;
 }

@@ -43,7 +43,6 @@ static gboolean
 test_sync_in_idle (gpointer user_data)
 {
 	ECalClient *cal_client = user_data;
-	GError *error = NULL;
 
 	g_return_val_if_fail (cal_client != NULL, FALSE);
 	g_return_val_if_fail (E_IS_CAL_CLIENT (cal_client), FALSE);
@@ -53,11 +52,7 @@ test_sync_in_idle (gpointer user_data)
 		return FALSE;
 	}
 
-	if (!e_cal_client_refresh (cal_client, NULL, async_refresh_result_ready, NULL)) {
-		report_error ("refresh", &error);
-		stop_main_loop (1);
-		return FALSE;
-	}
+	e_cal_client_refresh (cal_client, NULL, async_refresh_result_ready, NULL);
 
 	return FALSE;
 }

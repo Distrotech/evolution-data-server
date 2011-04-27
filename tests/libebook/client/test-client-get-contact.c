@@ -52,12 +52,7 @@ main (gint argc, gchar **argv)
 	/*
 	 * Async version
 	 */
-	if (!e_book_client_get_contact (book_client, e_contact_get_const (contact_final, E_CONTACT_UID), NULL, contact_ready_cb, NULL)) {
-		report_error ("get contact", NULL);
-		g_object_unref (contact_final);
-		g_object_unref (book_client);
-		return 1;
-	}
+	e_book_client_get_contact (book_client, e_contact_get_const (contact_final, E_CONTACT_UID), NULL, contact_ready_cb, NULL);
 
 	g_object_unref (contact_final);
 

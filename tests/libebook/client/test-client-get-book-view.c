@@ -97,10 +97,7 @@ call_get_book_view (gpointer user_data)
 
 	query = e_book_query_any_field_contains ("");
 
-	if (!e_book_client_get_view (book_client, query, NULL, get_book_view_cb, NULL)) {
-		report_error ("get book view", NULL);
-		stop_main_loop (1);
-	}
+	e_book_client_get_view (book_client, query, NULL, get_book_view_cb, NULL);
 
 	e_book_query_unref (query);
 

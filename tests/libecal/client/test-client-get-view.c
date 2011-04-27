@@ -159,10 +159,7 @@ get_view_async (gpointer user_data)
 
 	g_return_val_if_fail (user_data != NULL, NULL);
 
-	if (!e_cal_client_get_view (cal_client, "(contains? \"any\" \"event\")", NULL, async_get_view_ready, NULL)) {
-		report_error ("get view", NULL);
-		stop_main_loop (1);
-	}
+	e_cal_client_get_view (cal_client, "(contains? \"any\" \"event\")", NULL, async_get_view_ready, NULL);
 
 	return NULL;
 }

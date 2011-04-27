@@ -122,7 +122,6 @@ get_client_error_from_gerror (GError *error, GError **client_error)
 	#undef err
 
 	g_return_if_fail (client_error != NULL);
-	g_return_if_fail (*client_error == NULL);
 
 	if G_LIKELY (error == NULL)
 		return;
@@ -900,10 +899,10 @@ e_book_client_is_self (EContact *contact)
 	return is_self;
 }
 
-static guint32
+static void
 book_client_open (EClient *client, gboolean only_if_exists, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_boolean (client, only_if_exists, cancellable, callback, user_data, book_client_open,
+	e_client_proxy_call_boolean (client, only_if_exists, cancellable, callback, user_data, book_client_open,
 			e_gdbus_book_call_open,
 			e_gdbus_book_call_open_finish, NULL, NULL, NULL, NULL);
 }
@@ -934,10 +933,10 @@ book_client_open_sync (EClient *client, gboolean only_if_exists, GCancellable *c
 	return e_client_proxy_call_sync_boolean__void (client, only_if_exists, cancellable, error, e_gdbus_book_call_open_sync);
 }
 
-static guint32
+static void
 book_client_remove (EClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_void (client, cancellable, callback, user_data, book_client_remove,
+	e_client_proxy_call_void (client, cancellable, callback, user_data, book_client_remove,
 			e_gdbus_book_call_remove,
 			e_gdbus_book_call_remove_finish, NULL, NULL, NULL, NULL);
 }
@@ -980,18 +979,15 @@ book_client_remove_sync (EClient *client, GCancellable *cancellable, GError **er
  * supports. The call is finished by e_book_client_get_capabilities_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Note: Usually is sufficient to use e_client_get_capabilities() or e_client_check_capability(),
  * which caches capabilities of a backend on the client side.
  *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_get_capabilities (EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_capabilities,
+	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_capabilities,
 			e_gdbus_book_call_get_capabilities,
 			NULL, NULL, e_gdbus_book_call_get_capabilities_finish, NULL, NULL);
 }
@@ -1088,15 +1084,12 @@ e_book_client_get_capabilities_sync (EBookClient *client, GSList **capabilities,
  * all contacts in this @client. The call is finished by
  * e_book_client_get_required_fields_finish() from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_get_required_fields (EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_required_fields,
+	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_required_fields,
 			e_gdbus_book_call_get_required_fields,
 			NULL, NULL, NULL, e_gdbus_book_call_get_required_fields_finish, NULL);
 }
@@ -1191,15 +1184,12 @@ e_book_client_get_required_fields_sync (EBookClient *client, GSList **fields, GC
  * in this @client. Other fields may be discarded. The call is finished by
  * e_book_client_get_supported_fields_finish() from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_get_supported_fields (EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_supported_fields,
+	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_supported_fields,
 			e_gdbus_book_call_get_supported_fields,
 			NULL, NULL, NULL, e_gdbus_book_call_get_supported_fields_finish, NULL);
 }
@@ -1293,15 +1283,12 @@ e_book_client_get_supported_fields_sync (EBookClient *client, GSList **fields, G
  * The call is finished by e_book_client_get_supported_auth_methods_finish()
  * from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_get_supported_auth_methods (EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_supported_auth_methods,
+	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_supported_auth_methods,
 			e_gdbus_book_call_get_supported_auth_methods,
 			NULL, NULL, NULL, e_gdbus_book_call_get_supported_auth_methods_finish, NULL);
 }
@@ -1392,30 +1379,24 @@ e_book_client_get_supported_auth_methods_sync (EBookClient *client, GSList **aut
  * The call is finished by e_book_client_add_contact_finish()
  * from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_add_contact (EBookClient *client, const EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *vcard, *gdbus_vcard = NULL;
 
-	g_return_val_if_fail (contact != NULL, 0);
-	g_return_val_if_fail (E_IS_CONTACT (contact), 0);
+	g_return_if_fail (contact != NULL);
+	g_return_if_fail (E_IS_CONTACT (contact));
 
 	vcard = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
 
-	opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (vcard, &gdbus_vcard), cancellable, callback, user_data, e_book_client_add_contact,
+	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (vcard, &gdbus_vcard), cancellable, callback, user_data, e_book_client_add_contact,
 			e_gdbus_book_call_add_contact,
 			NULL, NULL, e_gdbus_book_call_add_contact_finish, NULL, NULL);
 
 	g_free (vcard);
 	g_free (gdbus_vcard);
-
-	return opid;
 }
 
 /**
@@ -1518,30 +1499,24 @@ e_book_client_add_contact_sync (EBookClient *client, const EContact *contact, gc
  * The call is finished by e_book_client_modify_contact_finish()
  * from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_modify_contact (EBookClient *client, const EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *vcard, *gdbus_vcard = NULL;
 
-	g_return_val_if_fail (contact != NULL, 0);
-	g_return_val_if_fail (E_IS_CONTACT (contact), 0);
+	g_return_if_fail (contact != NULL);
+	g_return_if_fail (E_IS_CONTACT (contact));
 
 	vcard = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
 
-	opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (vcard, &gdbus_vcard), cancellable, callback, user_data, e_book_client_modify_contact,
+	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (vcard, &gdbus_vcard), cancellable, callback, user_data, e_book_client_modify_contact,
 			e_gdbus_book_call_modify_contact,
 			e_gdbus_book_call_modify_contact_finish, NULL, NULL, NULL, NULL);
 
 	g_free (vcard);
 	g_free (gdbus_vcard);
-
-	return opid;
 }
 
 /**
@@ -1612,34 +1587,28 @@ e_book_client_modify_contact_sync (EBookClient *client, const EContact *contact,
  * The call is finished by e_book_client_remove_contact_finish()
  * from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_remove_contact (EBookClient *client, const EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *uid;
 	const gchar *lst[2];
 
-	g_return_val_if_fail (contact != NULL, 0);
-	g_return_val_if_fail (E_IS_CONTACT (contact), 0);
+	g_return_if_fail (contact != NULL);
+	g_return_if_fail (E_IS_CONTACT (contact));
 
 	uid = e_util_utf8_make_valid (e_contact_get_const ((EContact *) contact, E_CONTACT_UID));
-	g_return_val_if_fail (uid != NULL, 0);
+	g_return_if_fail (uid != NULL);
 
 	lst[0] = uid;
 	lst[1] = NULL;
 
-	opid = e_client_proxy_call_strv (E_CLIENT (client), lst, cancellable, callback, user_data, e_book_client_remove_contact,
+	e_client_proxy_call_strv (E_CLIENT (client), lst, cancellable, callback, user_data, e_book_client_remove_contact,
 			e_gdbus_book_call_remove_contacts,
 			e_gdbus_book_call_remove_contacts_finish, NULL, NULL, NULL, NULL);
 
 	g_free (uid);
-
-	return opid;
 }
 
 /**
@@ -1716,33 +1685,27 @@ e_book_client_remove_contact_sync (EBookClient *client, const EContact *contact,
  * The call is finished by e_book_client_remove_contact_by_uid_finish()
  * from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_remove_contact_by_uid (EBookClient *client, const gchar *uid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *safe_uid;
 	const gchar *lst[2];
 
-	g_return_val_if_fail (uid != NULL, 0);
+	g_return_if_fail (uid != NULL);
 
 	safe_uid = e_util_utf8_make_valid (uid);
-	g_return_val_if_fail (safe_uid != NULL, 0);
+	g_return_if_fail (safe_uid != NULL);
 
 	lst[0] = safe_uid;
 	lst[1] = NULL;
 
-	opid = e_client_proxy_call_strv (E_CLIENT (client), lst, cancellable, callback, user_data, e_book_client_remove_contact_by_uid,
+	e_client_proxy_call_strv (E_CLIENT (client), lst, cancellable, callback, user_data, e_book_client_remove_contact_by_uid,
 			e_gdbus_book_call_remove_contacts,
 			e_gdbus_book_call_remove_contacts_finish, NULL, NULL, NULL, NULL);
 
 	g_free (safe_uid);
-
-	return opid;
 }
 
 /**
@@ -1821,29 +1784,23 @@ e_book_client_remove_contact_by_uid_sync (EBookClient *client, const gchar *uid,
  * The call is finished by e_book_client_remove_contacts_finish()
  * from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_remove_contacts (EBookClient *client, const GSList *uids, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar **lst;
 
-	g_return_val_if_fail (uids != NULL, 0);
+	g_return_if_fail (uids != NULL);
 
 	lst = e_client_util_slist_to_strv (uids);
-	g_return_val_if_fail (lst != NULL, 0);
+	g_return_if_fail (lst != NULL);
 
-	opid = e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) lst, cancellable, callback, user_data, e_book_client_remove_contacts,
+	e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) lst, cancellable, callback, user_data, e_book_client_remove_contacts,
 			e_gdbus_book_call_remove_contacts,
 			e_gdbus_book_call_remove_contacts_finish, NULL, NULL, NULL, NULL);
 
 	g_strfreev (lst);
-
-	return opid;
 }
 
 /**
@@ -1918,29 +1875,23 @@ e_book_client_remove_contacts_sync (EBookClient *client, const GSList *uids, GCa
  * The call is finished by e_book_client_get_contact_finish()
  * from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_get_contact (EBookClient *client, const gchar *uid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *safe_uid;
 
-	g_return_val_if_fail (uid != NULL, 0);
+	g_return_if_fail (uid != NULL);
 
 	safe_uid = e_util_utf8_make_valid (uid);
-	g_return_val_if_fail (safe_uid != NULL, 0);
+	g_return_if_fail (safe_uid != NULL);
 	
-	opid = e_client_proxy_call_string (E_CLIENT (client), safe_uid, cancellable, callback, user_data, e_book_client_get_contact,
+	e_client_proxy_call_string (E_CLIENT (client), safe_uid, cancellable, callback, user_data, e_book_client_get_contact,
 			e_gdbus_book_call_get_contact,
 			NULL, NULL, e_gdbus_book_call_get_contact_finish, NULL, NULL);
 
 	g_free (safe_uid);
-
-	return opid;
 }
 
 /**
@@ -2039,29 +1990,23 @@ e_book_client_get_contact_sync (EBookClient *client, const gchar *uid, EContact 
  * matched. The call is finished by e_book_client_get_contacts_finish()
  * from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_get_contacts (EBookClient *client, const EBookQuery *query, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *sexp, *gdbus_sexp = NULL;
 
-	g_return_val_if_fail (query != NULL, 0);
+	g_return_if_fail (query != NULL);
 
 	sexp = e_book_query_to_string ((EBookQuery *) query);
 
-	opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_book_client_get_contacts,
+	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_book_client_get_contacts,
 			e_gdbus_book_call_get_contact_list,
 			NULL, NULL, NULL, e_gdbus_book_call_get_contact_list_finish, NULL);
 
 	g_free (sexp);
 	g_free (gdbus_sexp);
-
-	return opid;
 }
 
 /**
@@ -2177,29 +2122,23 @@ e_book_client_get_contacts_sync (EBookClient *client, const EBookQuery *query, G
  * The call is finished by e_book_client_get_view_finish()
  * from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_book_client_get_view (EBookClient *client, const EBookQuery *query, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *sexp, *gdbus_sexp = NULL;
 
-	g_return_val_if_fail (query != NULL, 0);
+	g_return_if_fail (query != NULL);
 
 	sexp = e_book_query_to_string ((EBookQuery *) query);
 
-	opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_book_client_get_view,
+	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_book_client_get_view,
 			e_gdbus_book_call_get_view,
 			NULL, NULL, e_gdbus_book_call_get_view_finish, NULL, NULL);
 
 	g_free (sexp);
 	g_free (gdbus_sexp);
-
-	return opid;
 }
 
 static gboolean

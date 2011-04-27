@@ -78,13 +78,7 @@ main (gint argc, gchar **argv)
 	contact = e_contact_new_from_vcard (vcard);
 	g_free (vcard);
 
-	if (!e_book_client_add_contact (book_client, contact, NULL, add_contact_cb, NULL)) {
-		report_error ("add contact", NULL);
-		g_object_unref (contact);
-		g_object_unref (book_client);
-		return 1;
-	}
-
+	e_book_client_add_contact (book_client, contact, NULL, add_contact_cb, NULL);
 	g_object_unref (contact);
 
 	start_main_loop (NULL, NULL);

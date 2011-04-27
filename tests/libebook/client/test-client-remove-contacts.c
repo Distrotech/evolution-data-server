@@ -141,13 +141,7 @@ main (gint argc, gchar **argv)
 		return 1;
 	}
 
-	if (!e_book_client_remove_contacts (book_client, uids, NULL, remove_contacts_cb, uids)) {
-		report_error ("remove contact", NULL);
-		g_slist_foreach (uids, (GFunc) g_free, NULL);
-		g_slist_free (uids);
-		g_object_unref (book_client);
-		return 1;
-	}
+	e_book_client_remove_contacts (book_client, uids, NULL, remove_contacts_cb, uids);
 
 	start_main_loop (NULL, NULL);
 

@@ -125,13 +125,7 @@ test_async_in_idle (gpointer user_data)
 	/* here is all Free/Busy information received */
 	g_signal_connect (cal_client, "free-busy-data", G_CALLBACK (free_busy_data_cb), (gpointer) G_STRFUNC);
 
-	if (!e_cal_client_get_free_busy (cal_client, start, end, users, NULL, async_get_free_busy_result_ready, NULL)) {
-		report_error ("get free busy", NULL);
-		g_object_unref (cal_client);
-		g_slist_free (users);
-		stop_main_loop (1);
-		return FALSE;
-	}
+	e_cal_client_get_free_busy (cal_client, start, end, users, NULL, async_get_free_busy_result_ready, NULL);
 
 	g_slist_free (users);
 

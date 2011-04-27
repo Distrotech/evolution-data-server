@@ -108,10 +108,7 @@ async_get_object_list_result_ready (GObject *source_object, GAsyncResult *result
 
 	e_cal_client_free_icalcomp_slist (icalcomps);
 
-	if (!e_cal_client_get_object_list_as_comps (cal_client, EVENT_QUERY, NULL, async_get_object_list_as_comps_result_ready, NULL)) {
-		report_error ("get object list as comps", NULL);
-		stop_main_loop (1);
-	}
+	e_cal_client_get_object_list_as_comps (cal_client, EVENT_QUERY, NULL, async_get_object_list_as_comps_result_ready, NULL);
 }
 
 /* synchronously in idle with main-loop running */
@@ -128,11 +125,7 @@ test_sync_in_idle (gpointer user_data)
 		return FALSE;
 	}
 
-	if (!e_cal_client_get_object_list (cal_client, EVENT_QUERY, NULL, async_get_object_list_result_ready, NULL)) {
-		report_error ("get object list", NULL);
-		stop_main_loop (1);
-		return FALSE;
-	}
+	e_cal_client_get_object_list (cal_client, EVENT_QUERY, NULL, async_get_object_list_result_ready, NULL);
 
 	return FALSE;
 }

@@ -69,12 +69,7 @@ async_open_ready (GObject *source_object, GAsyncResult *result, gpointer user_da
 		return;
 	}
 
-	if (!e_client_remove (E_CLIENT (cal_client), NULL, async_remove_ready, NULL)) {
-		report_error ("client remove", NULL);
-		g_object_unref (cal_client);
-		stop_main_loop (1);
-		return;
-	}
+	e_client_remove (E_CLIENT (cal_client), NULL, async_remove_ready, NULL);
 }
 
 /* synchronously in idle with main-loop running */
@@ -91,12 +86,7 @@ test_sync_in_idle (gpointer user_data)
 	cal_client = new_temp_client (E_CAL_CLIENT_SOURCE_TYPE_EVENT, NULL);
 	g_return_val_if_fail (cal_client != NULL, FALSE);
 
-	if (!e_client_open (E_CLIENT (cal_client), FALSE, NULL, async_open_ready, NULL)) {
-		report_error ("client open", NULL);
-		g_object_unref (cal_client);
-		stop_main_loop (1);
-		return FALSE;
-	}
+	e_client_open (E_CLIENT (cal_client), FALSE, NULL, async_open_ready, NULL);
 
 	return FALSE;
 }

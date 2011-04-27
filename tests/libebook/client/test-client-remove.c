@@ -59,11 +59,7 @@ main (gint argc, gchar **argv)
 		return 1;
 	}
 
-	if (!e_client_remove (E_CLIENT (book_client), NULL, client_removed_cb, NULL)) {
-		report_error ("client remove", NULL);
-		g_object_unref (book_client);
-		return 1;
-	}
+	e_client_remove (E_CLIENT (book_client), NULL, client_removed_cb, NULL);
 
 	start_main_loop (NULL, NULL);
 

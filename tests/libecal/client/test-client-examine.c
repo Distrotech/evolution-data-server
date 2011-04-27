@@ -159,13 +159,8 @@ continue_next_source (gpointer async_data)
 			continue;
 		}
 
-		if (!e_client_open (E_CLIENT (cal_client), TRUE, NULL, client_opened_async, async_data)) {
-			identify_source (source, source_type);
-			report_error ("client open", NULL);
-			g_object_unref (cal_client);
-		} else {
-			break;
-		}
+		e_client_open (E_CLIENT (cal_client), TRUE, NULL, client_opened_async, async_data);
+		break;
 	}
 
 	if (!async_data) {
@@ -232,13 +227,7 @@ client_got_alarm_email_address_async (GObject *source_object, GAsyncResult *resu
 		return;
 	}
 
-	if (!e_cal_client_get_capabilities (cal_client, NULL, client_got_values_async, evals)) {
-		identify_cal_client (cal_client);
-		report_error ("get capabilities", NULL);
-		g_object_unref (source_object);
-		continue_next_source (evals->async_data);
-		extra_values_free (evals);
-	}
+	e_cal_client_get_capabilities (cal_client, NULL, client_got_values_async, evals);
 }
 
 static void
@@ -263,13 +252,7 @@ client_got_cal_address_async (GObject *source_object, GAsyncResult *result, gpoi
 		return;
 	}
 
-	if (!e_cal_client_get_alarm_email_address (cal_client, NULL, client_got_alarm_email_address_async, evals)) {
-		identify_cal_client (cal_client);
-		report_error ("get alarm email address", NULL);
-		g_object_unref (source_object);
-		continue_next_source (evals->async_data);
-		extra_values_free (evals);
-	}
+	e_cal_client_get_alarm_email_address (cal_client, NULL, client_got_alarm_email_address_async, evals);
 }
 
 static void
@@ -290,13 +273,7 @@ client_got_default_object_async (GObject *source_object, GAsyncResult *result, g
 		report_error ("get default object finish", &error);
 	}
 
-	if (!e_cal_client_get_cal_email_address (cal_client, NULL, client_got_cal_address_async, evals)) {
-		identify_cal_client (cal_client);
-		report_error ("get cal address", NULL);
-		g_object_unref (source_object);
-		continue_next_source (evals->async_data);
-		extra_values_free (evals);
-	}
+	e_cal_client_get_cal_email_address (cal_client, NULL, client_got_cal_address_async, evals);
 }
 
 static void
@@ -323,13 +300,7 @@ client_opened_async (GObject *source_object, GAsyncResult *result, gpointer asyn
 	evals = g_new0 (ExtraValues, 1);
 	evals->async_data = async_data;
 	
-	if (!e_cal_client_get_default_object (cal_client, NULL, client_got_default_object_async, evals)) {
-		identify_cal_client (cal_client);
-		report_error ("get default object", NULL);
-		g_object_unref (source_object);
-		continue_next_source (async_data);
-		extra_values_free (evals);
-	}
+	e_cal_client_get_default_object (cal_client, NULL, client_got_default_object_async, evals);
 }
 
 static void
@@ -401,36 +372,21 @@ foreach_async (ECalClientSourceType source_type)
 
 	running_async++;
 
-	while (TRUE) {
-		while (cal_client = e_cal_client_new (source, source_type, &error), !cal_client) {
-			identify_source (source, source_type);
-			report_error ("cal client new", &error);
+	while (cal_client = e_cal_client_new (source, source_type, &error), !cal_client) {
+		identify_source (source, source_type);
+		report_error ("cal client new", &error);
 
-			if (!foreach_configured_source_async_next (&async_data, &source)) {
-				running_async--;
-				if (!running_async)
-					stop_main_loop (0);
-				return FALSE;
-			}
-
-			identify_source (source, source_type);
+		if (!foreach_configured_source_async_next (&async_data, &source)) {
+			running_async--;
+			if (!running_async)
+				stop_main_loop (0);
+			return FALSE;
 		}
 
-		if (!e_client_open (E_CLIENT (cal_client), TRUE, NULL, client_opened_async, async_data)) {
-			identify_source (source, source_type);
-			report_error ("client open", NULL);
-			g_object_unref (cal_client);
-
-			if (!foreach_configured_source_async_next (&async_data, &source)) {
-				running_async--;
-				if (!running_async)
-					stop_main_loop (0);
-				return FALSE;
-			}
-		} else {
-			break;
-		}
+		identify_source (source, source_type);
 	}
+
+	e_client_open (E_CLIENT (cal_client), TRUE, NULL, client_opened_async, async_data);
 
 	return TRUE;
 }

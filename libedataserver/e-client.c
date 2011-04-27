@@ -642,8 +642,8 @@ e_client_is_opened (EClient *client)
 	return client->priv->opened;
 }
 
-/**
- * e_client_cancel_op:
+/*
+ * client_cancel_op:
  * @client: an #EClient
  * @opid: asynchronous operation ID
  *
@@ -652,9 +652,9 @@ e_client_is_opened (EClient *client)
  * if the asynchronous operation doesn't exist any more.
  *
  * Since: 3.2
- **/
-void
-e_client_cancel_op (EClient *client, guint32 opid)
+ */
+static void
+client_cancel_op (EClient *client, guint32 opid)
 {
 	GCancellable *cancellable;
 
@@ -685,7 +685,7 @@ gather_opids_cb (gpointer opid, gpointer cancellable, gpointer ids_list)
 static void
 cancel_op_cb (gpointer opid, gpointer client)
 {
-	e_client_cancel_op (client, GPOINTER_TO_INT (opid));
+	client_cancel_op (client, GPOINTER_TO_INT (opid));
 }
 
 /**
@@ -843,26 +843,23 @@ e_client_emit_backend_died (EClient *client)
  * Opens the @client, making it ready for queries and other operations.
  * The call is finished by e_client_open_finish() from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_client_open (EClient *client, gboolean only_if_exists, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	EClientClass *klass;
 
-	g_return_val_if_fail (client != NULL, 0);
-	g_return_val_if_fail (E_IS_CLIENT (client), 0);
-	g_return_val_if_fail (client->priv != NULL, 0);
-	g_return_val_if_fail (callback != NULL, 0);
+	g_return_if_fail (callback != NULL);
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (client->priv != NULL);
 
 	klass = E_CLIENT_GET_CLASS (client);
-	g_return_val_if_fail (klass != NULL, 0);
-	g_return_val_if_fail (klass->open != NULL, 0);
+	g_return_if_fail (klass != NULL);
+	g_return_if_fail (klass->open != NULL);
 
-	return klass->open (client, only_if_exists, cancellable, callback, user_data);
+	klass->open (client, only_if_exists, cancellable, callback, user_data);
 }
 
 /**
@@ -939,26 +936,23 @@ e_client_open_sync (EClient *client, gboolean only_if_exists, GCancellable *canc
  * deletes the database file. You cannot get it back!
  * The call is finished by e_client_remove_finish() from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_client_remove (EClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	EClientClass *klass;
 
-	g_return_val_if_fail (client != NULL, 0);
-	g_return_val_if_fail (E_IS_CLIENT (client), 0);
-	g_return_val_if_fail (client->priv != NULL, 0);
-	g_return_val_if_fail (callback != NULL, 0);
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (client->priv != NULL);
+	g_return_if_fail (callback != NULL);
 
 	klass = E_CLIENT_GET_CLASS (client);
-	g_return_val_if_fail (klass != NULL, 0);
-	g_return_val_if_fail (klass->remove != NULL, 0);
+	g_return_if_fail (klass != NULL);
+	g_return_if_fail (klass->remove != NULL);
 
-	return klass->remove (client, cancellable, callback, user_data);
+	klass->remove (client, cancellable, callback, user_data);
 }
 
 /**
@@ -1532,66 +1526,69 @@ async_result_ready_cb (GObject *source_object, GAsyncResult *result, gpointer us
 }
 
 static EClientAsyncOpData *
-prepare_async_data (EClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data, gpointer source_tag, EClientProxyFinishVoidFunc finish_void, EClientProxyFinishBooleanFunc finish_boolean, EClientProxyFinishStringFunc finish_string, EClientProxyFinishStrvFunc finish_strv, EClientProxyFinishUintFunc finish_uint, GDBusProxy **proxy, guint32 *opid, GCancellable **out_cancellable)
+prepare_async_data (EClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data, gpointer source_tag, gboolean error_report_only, EClientProxyFinishVoidFunc finish_void, EClientProxyFinishBooleanFunc finish_boolean, EClientProxyFinishStringFunc finish_string, EClientProxyFinishStrvFunc finish_strv, EClientProxyFinishUintFunc finish_uint, GDBusProxy **proxy, GCancellable **out_cancellable)
 {
 	EClientAsyncOpData *async_data;
 	GCancellable *use_cancellable;
+	guint32 opid;
 
 	g_return_val_if_fail (client != NULL, NULL);
 	g_return_val_if_fail (callback != NULL, NULL);
 	g_return_val_if_fail (source_tag != NULL, NULL);
-	g_return_val_if_fail (proxy != NULL, NULL);
-	g_return_val_if_fail (opid != NULL, NULL);
-	g_return_val_if_fail (out_cancellable != NULL, NULL);
-	g_return_val_if_fail (finish_void || finish_boolean || finish_string || finish_strv || finish_uint, NULL);
 
-	if (finish_void) {
-		g_return_val_if_fail (finish_boolean == NULL, NULL);
-		g_return_val_if_fail (finish_string == NULL, NULL);
-		g_return_val_if_fail (finish_strv == NULL, NULL);
-		g_return_val_if_fail (finish_uint == NULL, NULL);
+	if (!error_report_only) {
+		g_return_val_if_fail (proxy != NULL, NULL);
+		g_return_val_if_fail (out_cancellable != NULL, NULL);
+		g_return_val_if_fail (finish_void || finish_boolean || finish_string || finish_strv || finish_uint, NULL);
+
+		if (finish_void) {
+			g_return_val_if_fail (finish_boolean == NULL, NULL);
+			g_return_val_if_fail (finish_string == NULL, NULL);
+			g_return_val_if_fail (finish_strv == NULL, NULL);
+			g_return_val_if_fail (finish_uint == NULL, NULL);
+		}
+
+		if (finish_boolean) {
+			g_return_val_if_fail (finish_void == NULL, NULL);
+			g_return_val_if_fail (finish_string == NULL, NULL);
+			g_return_val_if_fail (finish_strv == NULL, NULL);
+			g_return_val_if_fail (finish_uint == NULL, NULL);
+		}
+
+		if (finish_string) {
+			g_return_val_if_fail (finish_void == NULL, NULL);
+			g_return_val_if_fail (finish_boolean == NULL, NULL);
+			g_return_val_if_fail (finish_strv == NULL, NULL);
+			g_return_val_if_fail (finish_uint == NULL, NULL);
+		}
+
+		if (finish_strv) {
+			g_return_val_if_fail (finish_void == NULL, NULL);
+			g_return_val_if_fail (finish_boolean == NULL, NULL);
+			g_return_val_if_fail (finish_string == NULL, NULL);
+			g_return_val_if_fail (finish_uint == NULL, NULL);
+		}
+
+		if (finish_uint) {
+			g_return_val_if_fail (finish_void == NULL, NULL);
+			g_return_val_if_fail (finish_boolean == NULL, NULL);
+			g_return_val_if_fail (finish_string == NULL, NULL);
+			g_return_val_if_fail (finish_strv == NULL, NULL);
+		}
+
+		*proxy = e_client_get_dbus_proxy (client);
+		if (!*proxy)
+			return NULL;
 	}
-
-	if (finish_boolean) {
-		g_return_val_if_fail (finish_void == NULL, NULL);
-		g_return_val_if_fail (finish_string == NULL, NULL);
-		g_return_val_if_fail (finish_strv == NULL, NULL);
-		g_return_val_if_fail (finish_uint == NULL, NULL);
-	}
-
-	if (finish_string) {
-		g_return_val_if_fail (finish_void == NULL, NULL);
-		g_return_val_if_fail (finish_boolean == NULL, NULL);
-		g_return_val_if_fail (finish_strv == NULL, NULL);
-		g_return_val_if_fail (finish_uint == NULL, NULL);
-	}
-
-	if (finish_strv) {
-		g_return_val_if_fail (finish_void == NULL, NULL);
-		g_return_val_if_fail (finish_boolean == NULL, NULL);
-		g_return_val_if_fail (finish_string == NULL, NULL);
-		g_return_val_if_fail (finish_uint == NULL, NULL);
-	}
-
-	if (finish_uint) {
-		g_return_val_if_fail (finish_void == NULL, NULL);
-		g_return_val_if_fail (finish_boolean == NULL, NULL);
-		g_return_val_if_fail (finish_string == NULL, NULL);
-		g_return_val_if_fail (finish_strv == NULL, NULL);
-	}
-
-	*proxy = e_client_get_dbus_proxy (client);
-	if (!*proxy)
-		return NULL;
 
 	use_cancellable = cancellable;
 	if (!use_cancellable)
 		use_cancellable = g_cancellable_new ();
 
-	*opid = e_client_register_op (client, use_cancellable);
+	opid = e_client_register_op (client, use_cancellable);
 	async_data = g_new0 (EClientAsyncOpData, 1);
 	async_data->client = g_object_ref (client);
-	async_data->opid = *opid;
+	async_data->opid = opid;
 	async_data->source_tag = source_tag;
 	async_data->callback = callback;
 	async_data->user_data = user_data;
@@ -1605,116 +1602,118 @@ prepare_async_data (EClient *client, GCancellable *cancellable, GAsyncReadyCallb
 	if (use_cancellable != cancellable)
 		g_object_unref (use_cancellable);
 
-	*out_cancellable = use_cancellable;
+	if (out_cancellable)
+		*out_cancellable = use_cancellable;
 
 	return async_data;
 }
 
-guint32
+void
+e_client_proxy_return_async_error (EClient *client, const GError *error, GAsyncReadyCallback callback, gpointer user_data, gpointer source_tag)
+{
+	EClientAsyncOpData *async_data;
+
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (error != NULL);
+	g_return_if_fail (callback != NULL);
+
+	async_data = prepare_async_data (client, NULL, callback, user_data, source_tag, TRUE, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+	g_return_if_fail (async_data != NULL);
+
+	finish_async_op (async_data, error, TRUE);
+}
+
+void
 e_client_proxy_call_void (EClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data, gpointer source_tag, void (*func) (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), EClientProxyFinishVoidFunc finish_void, EClientProxyFinishBooleanFunc finish_boolean, EClientProxyFinishStringFunc finish_string, EClientProxyFinishStrvFunc finish_strv, EClientProxyFinishUintFunc finish_uint)
 {
 	EClientAsyncOpData *async_data;
-	guint32 opid = 0;
 	GDBusProxy *proxy = NULL;
 
-	g_return_val_if_fail (client != NULL, 0);
-	g_return_val_if_fail (E_IS_CLIENT (client), 0);
-	g_return_val_if_fail (callback != NULL, 0);
-	g_return_val_if_fail (source_tag != NULL, 0);
-	g_return_val_if_fail (func != NULL, 0);
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (callback != NULL);
+	g_return_if_fail (source_tag != NULL);
+	e_client_return_async_if_fail (func != NULL, client, callback, user_data, source_tag);
 
-	async_data = prepare_async_data (client, cancellable, callback, user_data, source_tag, finish_void, finish_boolean, finish_string, finish_strv, finish_uint, &proxy, &opid, &cancellable);
-	g_return_val_if_fail (async_data != NULL, 0);
+	async_data = prepare_async_data (client, cancellable, callback, user_data, source_tag, FALSE, finish_void, finish_boolean, finish_string, finish_strv, finish_uint, &proxy, &cancellable);
+	e_client_return_async_if_fail (async_data != NULL, client, callback, user_data, source_tag);
 
 	func (proxy, cancellable, async_result_ready_cb, async_data);
-
-	return opid;
 }
 
-guint32
+void
 e_client_proxy_call_boolean (EClient *client, gboolean in_boolean, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data, gpointer source_tag, void (*func) (GDBusProxy *proxy, gboolean in_boolean, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), EClientProxyFinishVoidFunc finish_void, EClientProxyFinishBooleanFunc finish_boolean, EClientProxyFinishStringFunc finish_string, EClientProxyFinishStrvFunc finish_strv, EClientProxyFinishUintFunc finish_uint)
 {
 	EClientAsyncOpData *async_data;
-	guint32 opid = 0;
 	GDBusProxy *proxy = NULL;
 
-	g_return_val_if_fail (client != NULL, 0);
-	g_return_val_if_fail (E_IS_CLIENT (client), 0);
-	g_return_val_if_fail (callback != NULL, 0);
-	g_return_val_if_fail (source_tag != NULL, 0);
-	g_return_val_if_fail (func != NULL, 0);
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (callback != NULL);
+	g_return_if_fail (source_tag != NULL);
+	e_client_return_async_if_fail (func != NULL, client, callback, user_data, source_tag);
 
-	async_data = prepare_async_data (client, cancellable, callback, user_data, source_tag, finish_void, finish_boolean, finish_string, finish_strv, finish_uint, &proxy, &opid, &cancellable);
-	g_return_val_if_fail (async_data != NULL, 0);
+	async_data = prepare_async_data (client, cancellable, callback, user_data, source_tag, FALSE, finish_void, finish_boolean, finish_string, finish_strv, finish_uint, &proxy, &cancellable);
+	e_client_return_async_if_fail (async_data != NULL, client, callback, user_data, source_tag);
 
 	func (proxy, in_boolean, cancellable, async_result_ready_cb, async_data);
-
-	return opid;
 }
 
-guint32
+void
 e_client_proxy_call_string (EClient *client, const gchar *in_string, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data, gpointer source_tag, void (*func) (GDBusProxy *proxy, const gchar * in_string, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), EClientProxyFinishVoidFunc finish_void, EClientProxyFinishBooleanFunc finish_boolean, EClientProxyFinishStringFunc finish_string, EClientProxyFinishStrvFunc finish_strv, EClientProxyFinishUintFunc finish_uint)
 {
 	EClientAsyncOpData *async_data;
-	guint32 opid = 0;
 	GDBusProxy *proxy = NULL;
 
-	g_return_val_if_fail (client != NULL, 0);
-	g_return_val_if_fail (E_IS_CLIENT (client), 0);
-	g_return_val_if_fail (callback != NULL, 0);
-	g_return_val_if_fail (source_tag != NULL, 0);
-	g_return_val_if_fail (func != NULL, 0);
-	g_return_val_if_fail (in_string != NULL, 0);
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (callback != NULL);
+	g_return_if_fail (source_tag != NULL);
+	e_client_return_async_if_fail (func != NULL, client, callback, user_data, source_tag);
+	e_client_return_async_if_fail (in_string != NULL, client, callback, user_data, source_tag);
 
-	async_data = prepare_async_data (client, cancellable, callback, user_data, source_tag, finish_void, finish_boolean, finish_string, finish_strv, finish_uint, &proxy, &opid, &cancellable);
-	g_return_val_if_fail (async_data != NULL, 0);
+	async_data = prepare_async_data (client, cancellable, callback, user_data, source_tag, FALSE, finish_void, finish_boolean, finish_string, finish_strv, finish_uint, &proxy, &cancellable);
+	e_client_return_async_if_fail (async_data != NULL, client, callback, user_data, source_tag);
 
 	func (proxy, in_string, cancellable, async_result_ready_cb, async_data);
-
-	return opid;
 }
 
-guint32
+void
 e_client_proxy_call_strv (EClient *client, const gchar * const *in_strv, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data, gpointer source_tag, void (*func) (GDBusProxy *proxy, const gchar * const * in_strv, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), EClientProxyFinishVoidFunc finish_void, EClientProxyFinishBooleanFunc finish_boolean, EClientProxyFinishStringFunc finish_string, EClientProxyFinishStrvFunc finish_strv, EClientProxyFinishUintFunc finish_uint)
 {
 	EClientAsyncOpData *async_data;
-	guint32 opid = 0;
 	GDBusProxy *proxy = NULL;
 
-	g_return_val_if_fail (client != NULL, 0);
-	g_return_val_if_fail (E_IS_CLIENT (client), 0);
-	g_return_val_if_fail (callback != NULL, 0);
-	g_return_val_if_fail (source_tag != NULL, 0);
-	g_return_val_if_fail (func != NULL, 0);
-	g_return_val_if_fail (in_strv != NULL, 0);
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (callback != NULL);
+	g_return_if_fail (source_tag != NULL);
+	e_client_return_async_if_fail (func != NULL, client, callback, user_data, source_tag);
+	e_client_return_async_if_fail (in_strv != NULL, client, callback, user_data, source_tag);
 
-	async_data = prepare_async_data (client, cancellable, callback, user_data, source_tag, finish_void, finish_boolean, finish_string, finish_strv, finish_uint, &proxy, &opid, &cancellable);
-	g_return_val_if_fail (async_data != NULL, 0);
+	async_data = prepare_async_data (client, cancellable, callback, user_data, source_tag, FALSE, finish_void, finish_boolean, finish_string, finish_strv, finish_uint, &proxy, &cancellable);
+	e_client_return_async_if_fail (async_data != NULL, client, callback, user_data, source_tag);
 
 	func (proxy, in_strv, cancellable, async_result_ready_cb, async_data);
-
-	return opid;
 }
 
-guint32
+void
 e_client_proxy_call_uint (EClient *client, guint in_uint, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data, gpointer source_tag, void (*func) (GDBusProxy *proxy, guint in_uint, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), EClientProxyFinishVoidFunc finish_void, EClientProxyFinishBooleanFunc finish_boolean, EClientProxyFinishStringFunc finish_string, EClientProxyFinishStrvFunc finish_strv, EClientProxyFinishUintFunc finish_uint)
 {
 	EClientAsyncOpData *async_data;
-	guint32 opid = 0;
 	GDBusProxy *proxy = NULL;
 
-	g_return_val_if_fail (client != NULL, 0);
-	g_return_val_if_fail (E_IS_CLIENT (client), 0);
-	g_return_val_if_fail (callback != NULL, 0);
-	g_return_val_if_fail (source_tag != NULL, 0);
-	g_return_val_if_fail (func != NULL, 0);
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (callback != NULL);
+	g_return_if_fail (source_tag != NULL);
+	e_client_return_async_if_fail (func != NULL, client, callback, user_data, source_tag);
 
-	async_data = prepare_async_data (client, cancellable, callback, user_data, source_tag, finish_void, finish_boolean, finish_string, finish_strv, finish_uint, &proxy, &opid, &cancellable);
-	g_return_val_if_fail (async_data != NULL, 0);
+	async_data = prepare_async_data (client, cancellable, callback, user_data, source_tag, FALSE, finish_void, finish_boolean, finish_string, finish_strv, finish_uint, &proxy, &cancellable);
+	e_client_return_async_if_fail (async_data != NULL, client, callback, user_data, source_tag);
 
 	func (proxy, in_uint, cancellable, async_result_ready_cb, async_data);
-
-	return opid;
 }
 
 gboolean

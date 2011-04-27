@@ -62,11 +62,7 @@ contact_modified_cb (GObject *source_object, GAsyncResult *result, gpointer user
 		return;
 	}
 
-	if (!e_book_client_get_contact (E_BOOK_CLIENT (source_object), e_contact_get_const (contact, E_CONTACT_UID), NULL, contact_ready_cb, NULL)) {
-		report_error ("get contact", NULL);
-		stop_main_loop (1);
-		return;
-	}
+	e_book_client_get_contact (E_BOOK_CLIENT (source_object), e_contact_get_const (contact, E_CONTACT_UID), NULL, contact_ready_cb, NULL);
 }
 
 gint
@@ -145,12 +141,7 @@ main (gint argc, gchar **argv)
 
 	verify_premodify_and_prepare_contact (contact);
 
-	if (!e_book_client_modify_contact (book_client, contact, NULL, contact_modified_cb, contact)) {
-		report_error ("modify contact", NULL);
-		g_object_unref (book_client);
-		g_object_unref (contact);
-		return 1;
-	}
+	e_book_client_modify_contact (book_client, contact, NULL, contact_modified_cb, contact);
 
 	start_main_loop (NULL, NULL);
 

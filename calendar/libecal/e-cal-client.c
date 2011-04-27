@@ -164,7 +164,6 @@ get_client_error_from_gerror (GError *error, GError **client_error)
 	#undef err
 
 	g_return_if_fail (client_error != NULL);
-	g_return_if_fail (*client_error == NULL);
 
 	if G_LIKELY (error == NULL)
 		return;
@@ -1781,10 +1780,10 @@ e_cal_client_get_component_as_string (ECalClient *client, icalcomponent *icalcom
 	return obj_string;
 }
 
-static guint32
+static void
 cal_client_open (EClient *client, gboolean only_if_exists, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_boolean (client, only_if_exists, cancellable, callback, user_data, cal_client_open,
+	e_client_proxy_call_boolean (client, only_if_exists, cancellable, callback, user_data, cal_client_open,
 			e_gdbus_cal_call_open,
 			e_gdbus_cal_call_open_finish, NULL, NULL, NULL, NULL);
 }
@@ -1815,10 +1814,10 @@ cal_client_open_sync (EClient *client, gboolean only_if_exists, GCancellable *ca
 	return e_client_proxy_call_sync_boolean__void (client, only_if_exists, cancellable, error, e_gdbus_cal_call_open_sync);
 }
 
-static guint32
+static void
 cal_client_remove (EClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_void (client, cancellable, callback, user_data, cal_client_remove,
+	e_client_proxy_call_void (client, cancellable, callback, user_data, cal_client_remove,
 			e_gdbus_cal_call_remove,
 			e_gdbus_cal_call_remove_finish, NULL, NULL, NULL, NULL);
 }
@@ -1861,18 +1860,15 @@ cal_client_remove_sync (EClient *client, GCancellable *cancellable, GError **err
  * supports. The call is finished by e_cal_client_get_capabilities_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Note: Usually is sufficient to use e_client_get_capabilities() or e_client_check_capability(),
  * which caches capabilities of a backend on the client side.
  *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_capabilities (ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_capabilities,
+	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_capabilities,
 			e_gdbus_cal_call_get_capabilities,
 			NULL, NULL, e_gdbus_cal_call_get_capabilities_finish, NULL, NULL);
 }
@@ -1994,15 +1990,12 @@ complete_string_exchange (gboolean res, gchar *out_string, gchar **result, GErro
  * The call is finished by e_cal_client_get_cal_email_address_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_cal_email_address (ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_cal_email_address,
+	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_cal_email_address,
 			e_gdbus_cal_call_get_cal_email_address,
 			NULL, NULL, e_gdbus_cal_call_get_cal_email_address_finish, NULL, NULL);
 }
@@ -2081,15 +2074,12 @@ e_cal_client_get_cal_email_address_sync (ECalClient *client, gchar **address, GC
  * The call is finished by e_cal_client_get_alarm_email_address_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_alarm_email_address (ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_alarm_email_address,
+	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_alarm_email_address,
 			e_gdbus_cal_call_get_alarm_email_address,
 			NULL, NULL, e_gdbus_cal_call_get_alarm_email_address_finish, NULL, NULL);
 }
@@ -2168,15 +2158,12 @@ e_cal_client_get_alarm_email_address_sync (ECalClient *client, gchar **address, 
  * values for properties needed. The call is finished
  * by e_cal_client_get_default_object_finish() from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_default_object (ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_default_object,
+	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_default_object,
 			e_gdbus_cal_call_get_default_object,
 			NULL, NULL, e_gdbus_cal_call_get_default_object_finish, NULL, NULL);
 }
@@ -2278,15 +2265,12 @@ e_cal_client_get_default_object_sync (ECalClient *client, icalcomponent **icalco
  * The call is finished by e_cal_client_refresh_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_refresh (ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	return e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_refresh,
+	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_refresh,
 			e_gdbus_cal_call_refresh,
 			e_gdbus_cal_call_refresh_finish, NULL, NULL, NULL, NULL);
 }
@@ -2349,28 +2333,22 @@ e_cal_client_refresh_sync (ECalClient *client, GCancellable *cancellable, GError
  * identifier. The call is finished by e_cal_client_get_object_finish()
  * from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_object (ECalClient *client, const gchar *uid, const gchar *rid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar **strv;
 
-	g_return_val_if_fail (uid != NULL, 0);
+	g_return_if_fail (uid != NULL);
 
 	strv = e_gdbus_cal_encode_get_object (uid, rid);
 
-	opid = e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_get_object,
+	e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_get_object,
 			e_gdbus_cal_call_get_object,
 			NULL, NULL, e_gdbus_cal_call_get_object_finish, NULL, NULL);
 
 	g_strfreev (strv);
-
-	return opid;
 }
 
 /**
@@ -2456,28 +2434,22 @@ e_cal_client_get_object_sync (ECalClient *client, const gchar *uid, const gchar 
  * The call is finished by e_cal_client_get_objects_for_uid_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_objects_for_uid (ECalClient *client, const gchar *uid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar **strv;
 
-	g_return_val_if_fail (uid != NULL, 0);
+	g_return_if_fail (uid != NULL);
 
 	strv = e_gdbus_cal_encode_get_object (uid, "");
 
-	opid = e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_get_objects_for_uid,
+	e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_get_objects_for_uid,
 			e_gdbus_cal_call_get_object,
 			NULL, NULL, e_gdbus_cal_call_get_object_finish, NULL, NULL);
 
 	g_strfreev (strv);
-
-	return opid;
 }
 
 static gboolean
@@ -2615,26 +2587,20 @@ e_cal_client_get_objects_for_uid_sync (ECalClient *client, const gchar *uid, GSL
  * The call is finished by e_cal_client_get_object_list_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_object_list (ECalClient *client, const gchar *sexp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	gchar *gdbus_sexp = NULL;
-	guint32 opid;
 
-	g_return_val_if_fail (sexp != NULL, 0);
+	g_return_if_fail (sexp != NULL);
 
-	opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_cal_client_get_object_list,
+	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_cal_client_get_object_list,
 			e_gdbus_cal_call_get_object_list,
 			NULL, NULL, NULL, e_gdbus_cal_call_get_object_list_finish, NULL);
 
 	g_free (gdbus_sexp);
-
-	return opid;
 }
 
 static gboolean
@@ -2748,26 +2714,20 @@ e_cal_client_get_object_list_sync (ECalClient *client, const gchar *sexp, GSList
  * The call is finished by e_cal_client_get_object_list_as_comps_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_object_list_as_comps (ECalClient *client, const gchar *sexp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *gdbus_sexp = NULL;
 
-	g_return_val_if_fail (sexp != NULL, 0);
+	g_return_if_fail (sexp != NULL);
 
-	opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_cal_client_get_object_list_as_comps,
+	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_cal_client_get_object_list_as_comps,
 			e_gdbus_cal_call_get_object_list,
 			NULL, NULL, NULL, e_gdbus_cal_call_get_object_list_finish, NULL);
 
 	g_free (gdbus_sexp);
-
-	return opid;
 }
 
 static gboolean
@@ -2889,30 +2849,24 @@ e_cal_client_get_object_list_as_comps_sync (ECalClient *client, const gchar *sex
  * The call is finished by e_cal_client_get_free_busy_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_free_busy (ECalClient *client, time_t start, time_t end, const GSList *users, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	gchar **strv;
-	guint32 opid;
 
-	g_return_val_if_fail (start > 0, 0);
-	g_return_val_if_fail (end > 0, 0);
-	g_return_val_if_fail (users != NULL, 0);
+	g_return_if_fail (start > 0);
+	g_return_if_fail (end > 0);
+	g_return_if_fail (users != NULL);
 
 	strv = e_gdbus_cal_encode_get_free_busy (start, end, users);
 
-	opid = e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_get_free_busy,
+	e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_get_free_busy,
 			e_gdbus_cal_call_get_free_busy,
 			e_gdbus_cal_call_get_free_busy_finish, NULL, NULL, NULL, NULL);
 
 	g_strfreev (strv);
-
-	return opid;
 }
 
 /**
@@ -2987,29 +2941,23 @@ e_cal_client_get_free_busy_sync (ECalClient *client, time_t start, time_t end, c
  * The call is finished by e_cal_client_create_object_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_create_object (ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *comp_str, *gdbus_comp = NULL;
 
-	g_return_val_if_fail (icalcomp != NULL, 0);
+	g_return_if_fail (icalcomp != NULL);
 
 	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
 
-	opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), cancellable, callback, user_data, e_cal_client_create_object,
+	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), cancellable, callback, user_data, e_cal_client_create_object,
 			e_gdbus_cal_call_create_object,
 			NULL, NULL, e_gdbus_cal_call_create_object_finish, NULL, NULL);
 
 	g_free (comp_str);
 	g_free (gdbus_comp);
-
-	return opid;
 }
 
 /**
@@ -3106,30 +3054,24 @@ e_cal_client_create_object_sync (ECalClient *client, const icalcomponent *icalco
  * The call is finished by e_cal_client_modify_object_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_modify_object (ECalClient *client, const icalcomponent *icalcomp, CalObjModType mod, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *comp_str, **strv;
 
-	g_return_val_if_fail (icalcomp != NULL, 0);
+	g_return_if_fail (icalcomp != NULL);
 
 	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
 	strv = e_gdbus_cal_encode_modify_object (comp_str, mod);
 
-	opid = e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_modify_object,
+	e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_modify_object,
 			e_gdbus_cal_call_modify_object,
 			e_gdbus_cal_call_modify_object_finish, NULL, NULL, NULL, NULL);
 
 	g_strfreev (strv);
 	g_free (comp_str);
-
-	return opid;
 }
 
 /**
@@ -3216,28 +3158,22 @@ e_cal_client_modify_object_sync (ECalClient *client, const icalcomponent *icalco
  * The call is finished by e_cal_client_remove_object_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_remove_object (ECalClient *client, const gchar *uid, const gchar *rid, CalObjModType mod, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar **strv;
 
-	g_return_val_if_fail (uid != NULL, 0);
+	g_return_if_fail (uid != NULL);
 
 	strv = e_gdbus_cal_encode_remove_object (uid, rid, mod);
 
-	opid = e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_remove_object,
+	e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_remove_object,
 			e_gdbus_cal_call_remove_object,
 			e_gdbus_cal_call_remove_object_finish, NULL, NULL, NULL, NULL);
 
 	g_strfreev (strv);
-
-	return opid;
 }
 
 /**
@@ -3317,29 +3253,23 @@ e_cal_client_remove_object_sync (ECalClient *client, const gchar *uid, const gch
  * The call is finished by e_cal_client_receive_objects_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_receive_objects (ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *comp_str, *gdbus_comp = NULL;
 
-	g_return_val_if_fail (icalcomp != NULL, 0);
+	g_return_if_fail (icalcomp != NULL);
 
 	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
 
-	opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), cancellable, callback, user_data, e_cal_client_receive_objects,
+	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), cancellable, callback, user_data, e_cal_client_receive_objects,
 			e_gdbus_cal_call_receive_objects,
 			e_gdbus_cal_call_receive_objects_finish, NULL, NULL, NULL, NULL);
 
 	g_free (comp_str);
 	g_free (gdbus_comp);
-
-	return opid;
 }
 
 /**
@@ -3413,29 +3343,23 @@ e_cal_client_receive_objects_sync (ECalClient *client, const icalcomponent *ical
  * The call is finished by e_cal_client_send_objects_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_send_objects (ECalClient *client, const icalcomponent *icalcomp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *comp_str, *gdbus_comp = NULL;
 
-	g_return_val_if_fail (icalcomp != NULL, 0);
+	g_return_if_fail (icalcomp != NULL);
 
 	comp_str = icalcomponent_as_ical_string_r ((icalcomponent *) icalcomp);
 
-	opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), cancellable, callback, user_data, e_cal_client_send_objects,
+	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (comp_str, &gdbus_comp), cancellable, callback, user_data, e_cal_client_send_objects,
 			e_gdbus_cal_call_send_objects,
 			NULL, NULL, NULL, e_gdbus_cal_call_send_objects_finish, NULL);
 
 	g_free (comp_str);
 	g_free (gdbus_comp);
-
-	return opid;
 }
 
 static gboolean
@@ -3565,28 +3489,22 @@ e_cal_client_send_objects_sync (ECalClient *client, const icalcomponent *icalcom
  * The call is finished by e_cal_client_get_attachment_uris_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_attachment_uris (ECalClient *client, const gchar *uid, const gchar *rid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar **strv;
 
-	g_return_val_if_fail (uid != NULL, 0);
+	g_return_if_fail (uid != NULL);
 
 	strv = e_gdbus_cal_encode_get_attachment_uris (uid, rid);
 
-	opid = e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_get_attachment_uris,
+	e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_get_attachment_uris,
 			e_gdbus_cal_call_get_attachment_uris,
 			NULL, NULL, NULL, e_gdbus_cal_call_get_attachment_uris_finish, NULL);
 
 	g_strfreev (strv);
-
-	return opid;
 }
 
 /**
@@ -3687,26 +3605,20 @@ e_cal_client_get_attachment_uris_sync (ECalClient *client, const gchar *uid, con
  * The call is finished by e_cal_client_get_view_finish()
  * from the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_view (ECalClient *client, const gchar *sexp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *gdbus_sexp = NULL;
 
-	g_return_val_if_fail (sexp != NULL, 0);
+	g_return_if_fail (sexp != NULL);
 
-	opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_cal_client_get_view,
+	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (sexp, &gdbus_sexp), cancellable, callback, user_data, e_cal_client_get_view,
 			e_gdbus_cal_call_get_view,
 			NULL, NULL, e_gdbus_cal_call_get_view_finish, NULL, NULL);
 
 	g_free (gdbus_sexp);
-
-	return opid;
 }
 
 static gboolean
@@ -3929,23 +3841,20 @@ cal_client_get_timezone_from_cache_finish (ECalClient *client, GAsyncResult *res
  * The call is finished by e_cal_client_get_timezone_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_get_timezone (ECalClient *client, const gchar *tzid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	gchar *gdbus_tzid = NULL;
 	icaltimezone *zone;
 
-	g_return_val_if_fail (tzid != NULL, 0);
+	g_return_if_fail (tzid != NULL);
 
 	zone = cal_client_get_timezone_from_cache (client, tzid);
 	if (zone) {
 		GCancellable *use_cancellable = cancellable;
+		guint32 opid;
 
 		if (!use_cancellable)
 			use_cancellable = g_cancellable_new ();
@@ -3963,14 +3872,12 @@ e_cal_client_get_timezone (ECalClient *client, const gchar *tzid, GCancellable *
 		if (use_cancellable != cancellable)
 			g_object_unref (use_cancellable);
 	} else {
-		opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (tzid, &gdbus_tzid), cancellable, callback, user_data, e_cal_client_get_timezone,
+		e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (tzid, &gdbus_tzid), cancellable, callback, user_data, e_cal_client_get_timezone,
 				e_gdbus_cal_call_get_timezone,
 				NULL, NULL, e_gdbus_cal_call_get_timezone_finish, NULL, NULL);
 
 		g_free (gdbus_tzid);
 	}
-
-	return opid;
 }
 
 static gboolean
@@ -4097,36 +4004,30 @@ e_cal_client_get_timezone_sync (ECalClient *client, const gchar *tzid, icaltimez
  * The call is finished by e_cal_client_add_timezone_finish() from
  * the @callback.
  *
- * Returns: Asynchronous operation ID, which can be passed to e_client_cancel_op(),
- * or zero on a failure.
- *
  * Since: 3.2
  **/
-guint32
+void
 e_cal_client_add_timezone (ECalClient *client, const icaltimezone *zone, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	guint32 opid;
 	icalcomponent *icalcomp;
 	gchar *zone_str, *gdbus_zone = NULL;
 
-	g_return_val_if_fail (zone != NULL, 0);
+	g_return_if_fail (zone != NULL);
 
 	if (zone == icaltimezone_get_utc_timezone ())
-		return 0;
+		return;
 
 	icalcomp = icaltimezone_get_component ((icaltimezone *) zone);
-	g_return_val_if_fail (icalcomp != NULL, 0);
+	g_return_if_fail (icalcomp != NULL);
 
 	zone_str = icalcomponent_as_ical_string_r (icalcomp);
 
-	opid = e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (zone_str, &gdbus_zone), cancellable, callback, user_data, e_cal_client_add_timezone,
+	e_client_proxy_call_string (E_CLIENT (client), e_util_ensure_gdbus_string (zone_str, &gdbus_zone), cancellable, callback, user_data, e_cal_client_add_timezone,
 			e_gdbus_cal_call_add_timezone,
 			e_gdbus_cal_call_add_timezone_finish, NULL, NULL, NULL, NULL);
 
 	g_free (zone_str);
 	g_free (gdbus_zone);
-
-	return opid;
 }
 
 /**

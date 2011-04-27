@@ -113,12 +113,7 @@ test_sync_in_idle (gpointer user_data)
 
 	icalcomponent_set_summary (icalcomp, EVENT_SUMMARY);
 
-	if (!e_cal_client_modify_object (cal_client, icalcomp, CALOBJ_MOD_ALL, NULL, async_modify_result_ready, NULL)) {
-		report_error ("modify object", &error);
-		icalcomponent_free (icalcomp);
-		stop_main_loop (1);
-		return FALSE;
-	}
+	e_cal_client_modify_object (cal_client, icalcomp, CALOBJ_MOD_ALL, NULL, async_modify_result_ready, NULL);
 
 	icalcomponent_free (icalcomp);
 

@@ -79,7 +79,6 @@ static gboolean
 test_sync_in_idle (gpointer user_data)
 {
 	ECalClient *cal_client = user_data;
-	GError *error = NULL;
 	gchar *uid;
 
 	g_return_val_if_fail (cal_client != NULL, FALSE);
@@ -96,12 +95,7 @@ test_sync_in_idle (gpointer user_data)
 		return FALSE;
 	}
 
-	if (!e_cal_client_remove_object (cal_client, uid, NULL, CALOBJ_MOD_ALL, NULL, async_remove_result_ready, NULL)) {
-		report_error ("remove object", &error);
-		g_free (uid);
-		stop_main_loop (1);
-		return FALSE;
-	}
+	e_cal_client_remove_object (cal_client, uid, NULL, CALOBJ_MOD_ALL, NULL, async_remove_result_ready, NULL);
 
 	g_free (uid);
 

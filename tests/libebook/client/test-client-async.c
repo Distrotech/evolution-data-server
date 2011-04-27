@@ -40,12 +40,7 @@ print_all_emails (EBookClient *book_client)
 
 	query = e_book_query_field_exists (E_CONTACT_FULL_NAME);
 
-	if (!e_book_client_get_contacts (book_client, query, NULL, print_all_emails_cb, NULL)) {
-		e_book_query_unref (query);
-		report_error ("get contacts", NULL);
-		stop_main_loop (1);
-		return;
-	}
+	e_book_client_get_contacts (book_client, query, NULL, print_all_emails_cb, NULL);
 
 	e_book_query_unref (query);
 }
@@ -74,11 +69,7 @@ print_email_cb (GObject *source_object, GAsyncResult *result, gpointer user_data
 static void
 print_one_email (EBookClient *book_client)
 {
-	if (!e_book_client_get_contact (book_client, "pas-id-0002023", NULL, print_email_cb, NULL)) {
-		report_error ("get contact", NULL);
-		stop_main_loop (1);
-		return;
-	}
+	e_book_client_get_contact (book_client, "pas-id-0002023", NULL, print_email_cb, NULL);
 }
 
 static void
@@ -116,11 +107,7 @@ main (gint argc, gchar **argv)
 
 	printf ("loading addressbook\n");
 
-	if (!e_client_open (E_CLIENT (book_client), FALSE, NULL, client_loaded_cb, NULL)) {
-		g_object_unref (book_client);
-		report_error ("open client", NULL);
-		return 1;
-	}
+	e_client_open (E_CLIENT (book_client), FALSE, NULL, client_loaded_cb, NULL);
 
 	start_main_loop (NULL, NULL);
 

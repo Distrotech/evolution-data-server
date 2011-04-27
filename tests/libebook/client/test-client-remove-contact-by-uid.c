@@ -109,12 +109,7 @@ main (gint argc, gchar **argv)
 
 	uid = e_contact_get (contact, E_CONTACT_UID);
 	g_object_unref (contact);
-	if (!e_book_client_remove_contact_by_uid (book_client, uid, NULL, remove_contact_by_uid_cb, uid)) {
-		report_error ("remove contact", NULL);
-		g_free (uid);
-		g_object_unref (book_client);
-		return 1;
-	}
+	e_book_client_remove_contact_by_uid (book_client, uid, NULL, remove_contact_by_uid_cb, uid);
 
 	start_main_loop (NULL, NULL);
 

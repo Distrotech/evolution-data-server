@@ -123,11 +123,7 @@ async_write_result_ready (GObject *source_object, GAsyncResult *result, gpointer
 		return;
 	}
 
-	if (!e_cal_client_get_timezone (cal_client, TZID_NEW, NULL, async_read_result_ready, user_data)) {
-		report_error ("get timezone", NULL);
-		g_object_unref (cal_client);
-		stop_main_loop (1);
-	}
+	e_cal_client_get_timezone (cal_client, TZID_NEW, NULL, async_read_result_ready, user_data);
 }
 
 /* synchronously in idle with main-loop running */
@@ -155,12 +151,7 @@ test_sync_in_idle (gpointer user_data)
 		return FALSE;
 	}
 
-	if (!e_cal_client_add_timezone (cal_client, zone, NULL, async_write_result_ready, zone)) {
-		report_error ("add timezone", NULL);
-		g_object_unref (cal_client);
-		stop_main_loop (1);
-		return FALSE;
-	}
+	e_cal_client_add_timezone (cal_client, zone, NULL, async_write_result_ready, zone);
 
 	return FALSE;
 }

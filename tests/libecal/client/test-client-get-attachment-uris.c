@@ -77,7 +77,6 @@ static gboolean
 test_sync_in_idle (gpointer user_data)
 {
 	ECalClient *cal_client = user_data;
-	GError *error = NULL;
 	const gchar *uid;
 
 	g_return_val_if_fail (cal_client != NULL, FALSE);
@@ -90,11 +89,7 @@ test_sync_in_idle (gpointer user_data)
 
 	uid = g_object_get_data (G_OBJECT (cal_client), "use-uid");
 
-	if (!e_cal_client_get_attachment_uris (cal_client, uid, NULL, NULL, async_attachment_uris_result_ready, NULL)) {
-		report_error ("get attachment uris", &error);
-		stop_main_loop (1);
-		return FALSE;
-	}
+	e_cal_client_get_attachment_uris (cal_client, uid, NULL, NULL, async_attachment_uris_result_ready, NULL);
 
 	return FALSE;
 }

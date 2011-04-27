@@ -169,7 +169,6 @@ async_read_result_ready (GObject *source_object, GAsyncResult *result, gpointer 
 	ECalClient *cal_client;
 	GError *error = NULL;
 	icalcomponent *icalcomp1 = user_data, *icalcomp2 = NULL;
-	gboolean res;
 
 	g_return_if_fail (icalcomp1 != NULL);
 
@@ -183,22 +182,11 @@ async_read_result_ready (GObject *source_object, GAsyncResult *result, gpointer 
 		return;
 	}
 
-	res = test_icalcomps (icalcomp1, icalcomp2);
+	test_icalcomps (icalcomp1, icalcomp2);
 
 	icalcomponent_free (icalcomp2);
 
-	if (!e_cal_client_get_objects_for_uid (cal_client, icalcomponent_get_uid (icalcomp1), NULL, async_read2_result_ready, icalcomp1)) {
-		report_error ("get objects for uid", NULL);
-
-		if (!e_client_remove_sync (E_CLIENT (cal_client), NULL, &error)) {
-			report_error ("client remove sync", &error);
-		}
-
-		g_object_unref (cal_client);
-		icalcomponent_free (icalcomp1);
-
-		stop_main_loop (res ? 0 : 1);
-	}
+	e_cal_client_get_objects_for_uid (cal_client, icalcomponent_get_uid (icalcomp1), NULL, async_read2_result_ready, icalcomp1);
 }
 
 /* asynchronous write callback with a main-loop running */
@@ -224,12 +212,7 @@ async_write_result_ready (GObject *source_object, GAsyncResult *result, gpointer
 	clone = icalcomponent_new_clone (icalcomp);
 	icalcomponent_set_uid (clone, uid);
 
-	if (!e_cal_client_get_object (cal_client, uid, NULL, NULL, async_read_result_ready, clone)) {
-		report_error ("get object", NULL);
-		g_object_unref (cal_client);
-		icalcomponent_free (clone);
-		stop_main_loop (1);
-	}
+	e_cal_client_get_object (cal_client, uid, NULL, NULL, async_read_result_ready, clone);
 
 	g_free (uid);
 }
@@ -259,12 +242,7 @@ test_sync_in_idle (gpointer user_data)
 		return FALSE;
 	}
 
-	if (!e_cal_client_create_object (cal_client, icalcomp, NULL, async_write_result_ready, icalcomp)) {
-		report_error ("create object", NULL);
-		g_object_unref (cal_client);
-		stop_main_loop (1);
-		return FALSE;
-	}
+	e_cal_client_create_object (cal_client, icalcomp, NULL, async_write_result_ready, icalcomp);
 
 	return FALSE;
 }

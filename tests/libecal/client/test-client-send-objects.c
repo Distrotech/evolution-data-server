@@ -92,7 +92,6 @@ static gboolean
 test_sync_in_idle (gpointer user_data)
 {
 	ECalClient *cal_client = user_data;
-	GError *error = NULL;
 	icalcomponent *icalcomp;
 
 	g_return_val_if_fail (cal_client != NULL, FALSE);
@@ -109,12 +108,7 @@ test_sync_in_idle (gpointer user_data)
 		return FALSE;
 	}
 
-	if (!e_cal_client_send_objects (cal_client, icalcomp, NULL, async_send_result_ready, NULL)) {
-		report_error ("send objects", &error);
-		icalcomponent_free (icalcomp);
-		stop_main_loop (1);
-		return FALSE;
-	}
+	e_cal_client_send_objects (cal_client, icalcomp, NULL, async_send_result_ready, NULL);
 
 	icalcomponent_free (icalcomp);
 
