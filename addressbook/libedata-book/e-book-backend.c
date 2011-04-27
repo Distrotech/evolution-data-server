@@ -255,7 +255,8 @@ e_book_backend_get_source (EBookBackend *backend)
  * @only_if_exists: %TRUE to prevent the creation of a new book
  *
  * Executes an 'open' request specified by @opid on @book
- * using @backend. This might be finished with e_data_book_respond_open().
+ * using @backend.
+ * This might be finished with e_data_book_respond_open().
  **/
 void
 e_book_backend_open (EBookBackend *backend,
@@ -299,6 +300,7 @@ e_book_backend_open (EBookBackend *backend,
  *
  * Executes a 'remove' request to remove all of @backend's data,
  * specified by @opid on @book.
+ * This might be finished with e_data_book_respond_remove().
  **/
 void
 e_book_backend_remove (EBookBackend *backend,
@@ -323,6 +325,7 @@ e_book_backend_remove (EBookBackend *backend,
  *
  * Executes a 'create contact' request specified by @opid on @book
  * using @backend.
+ * This might be finished with e_data_book_respond_create().
  **/
 void
 e_book_backend_create_contact (EBookBackend *backend,
@@ -349,6 +352,7 @@ e_book_backend_create_contact (EBookBackend *backend,
  *
  * Executes a 'remove contacts' request specified by @opid on @book
  * using @backend.
+ * This might be finished with e_data_book_respond_remove_contacts().
  **/
 void
 e_book_backend_remove_contacts (EBookBackend *backend,
@@ -375,6 +379,7 @@ e_book_backend_remove_contacts (EBookBackend *backend,
  *
  * Executes a 'modify contact' request specified by @opid on @book
  * using @backend.
+ * This might be finished with e_data_book_respond_modify().
  **/
 void
 e_book_backend_modify_contact (EBookBackend *backend,
@@ -401,6 +406,7 @@ e_book_backend_modify_contact (EBookBackend *backend,
  *
  * Executes a 'get contact' request specified by @opid on @book
  * using @backend.
+ * This might be finished with e_data_book_respond_get_contact().
  **/
 void
 e_book_backend_get_contact (EBookBackend *backend,
@@ -427,6 +433,7 @@ e_book_backend_get_contact (EBookBackend *backend,
  *
  * Executes a 'get contact list' request specified by @opid on @book
  * using @backend.
+ * This might be finished with e_data_book_respond_get_contact_list().
  **/
 void
 e_book_backend_get_contact_list (EBookBackend *backend,
@@ -491,6 +498,7 @@ e_book_backend_stop_book_view (EBookBackend  *backend,
  *
  * Executes an 'authenticate' request specified by @opid on @book
  * using @backend.
+ * This might be finished with e_data_book_respond_authenticate_user().
  **/
 void
 e_book_backend_authenticate_user (EBookBackend *backend,
@@ -516,6 +524,7 @@ e_book_backend_authenticate_user (EBookBackend *backend,
  *
  * Executes a 'get required fields' request specified by @opid on @book
  * using @backend.
+ * This might be finished with e_data_book_respond_get_required_fields().
  **/
 void
 e_book_backend_get_required_fields (EBookBackend *backend,
@@ -539,6 +548,7 @@ e_book_backend_get_required_fields (EBookBackend *backend,
  *
  * Executes a 'get supported fields' request specified by @opid on @book
  * using @backend.
+ * This might be finished with e_data_book_respond_get_supported_fields().
  **/
 void
 e_book_backend_get_supported_fields (EBookBackend *backend,
@@ -562,6 +572,7 @@ e_book_backend_get_supported_fields (EBookBackend *backend,
  *
  * Executes a 'get supported auth methods' request specified by @opid on @book
  * using @backend.
+ * This might be finished with e_data_book_respond_get_supported_auth_methods().
  **/
 void
 e_book_backend_get_supported_auth_methods (EBookBackend *backend,
@@ -719,6 +730,7 @@ e_book_backend_foreach_view (EBookBackend *backend, gboolean (* callback) (EData
  * @cancellable: a #GCancellable for the operation
  *
  * Gets the capabilities offered by this @backend.
+ * This might be finished with e_data_book_respond_get_capabilities().
  **/
 void
 e_book_backend_get_capabilities (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)

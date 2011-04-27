@@ -70,7 +70,6 @@ struct _ECalBackendClass {
 	void	(* get_object)			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid);
 	void	(* get_object_list)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *sexp);
 	void	(* get_free_busy)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const GSList *users, time_t start, time_t end);
-	void	(* discard_alarm)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *auid);
 	void	(* create_object)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj);
 	void	(* modify_object)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj, CalObjModType mod);
 	void	(* remove_object)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid, CalObjModType mod);
@@ -123,7 +122,6 @@ void		e_cal_backend_get_default_object	(ECalBackend *backend, EDataCal *cal, gui
 void		e_cal_backend_get_object		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid);
 void		e_cal_backend_get_object_list		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *sexp);
 void		e_cal_backend_get_free_busy		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const GSList *users, time_t start, time_t end);
-void		e_cal_backend_discard_alarm		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *auid);
 void		e_cal_backend_create_object		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj);
 void		e_cal_backend_modify_object		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj, CalObjModType mod);
 void		e_cal_backend_remove_object		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid, CalObjModType mod);

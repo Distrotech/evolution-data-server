@@ -548,7 +548,8 @@ e_cal_backend_set_cache_dir (ECalBackend *backend,
  * @cancellable: a #GCancellable for the operation
  *
  * Calls the get_capabilities method on the given backend.
- */
+ * This might be finished with e_data_cal_respond_get_capabilities().
+ **/
 void
 e_cal_backend_get_capabilities (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
 {
@@ -754,9 +755,9 @@ e_cal_backend_set_online (ECalBackend *backend, gboolean is_online)
  * exists.  If FALSE, a new calendar will be created when the specified @uri
  * does not exist.
  *
- * Opens a calendar backend with data from a calendar stored at the specified
- * URI.
- */
+ * Opens a calendar backend with data from a calendar stored at the specified URI.
+ * This might be finished with e_data_cal_respond_open().
+ **/
 void
 e_cal_backend_open (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, gboolean only_if_exists)
 {
@@ -778,6 +779,7 @@ e_cal_backend_open (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancella
  *
  * Executes an 'authenticate' request specified by @opid on @cal
  * using @backend.
+ * This might be finished with e_data_cal_respond_authenticate_user().
  **/
 void
 e_cal_backend_authenticate_user (ECalBackend  *backend,
@@ -802,7 +804,8 @@ e_cal_backend_authenticate_user (ECalBackend  *backend,
  * @cancellable: a #GCancellable for the operation
  *
  * Removes the calendar being accessed by the given backend.
- */
+ * This might be finished with e_data_cal_respond_remove().
+ **/
 void
 e_cal_backend_remove (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
 {
@@ -821,9 +824,10 @@ e_cal_backend_remove (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancel
  * @cancellable: a #GCancellable for the operation
  *
  * Refreshes the calendar being accessed by the given backend.
+ * This might be finished with e_data_cal_respond_refresh().
  *
  * Since: 2.30
- */
+ **/
 void
 e_cal_backend_refresh (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
 {
@@ -843,6 +847,7 @@ e_cal_backend_refresh (ECalBackend *backend, EDataCal *cal, guint32 opid, GCance
  *
  * Queries the cal address associated with a calendar backend, which
  * must already have an open calendar.
+ * This might be finished with e_data_cal_respond_get_cal_email_address().
  **/
 void
 e_cal_backend_get_cal_email_address (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
@@ -862,7 +867,8 @@ e_cal_backend_get_cal_email_address (ECalBackend *backend, EDataCal *cal, guint3
  * @cancellable: a #GCancellable for the operation
  *
  * Calls the get_alarm_email_address method on the given backend.
- */
+ * This might be finished with e_data_cal_respond_get_alarm_email_address().
+ **/
 void
 e_cal_backend_get_alarm_email_address (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
 {
@@ -881,7 +887,8 @@ e_cal_backend_get_alarm_email_address (ECalBackend *backend, EDataCal *cal, guin
  * @cancellable: a #GCancellable for the operation
  *
  * Calls the get_default_object method on the given backend.
- */
+ * This might be finished with e_data_cal_respond_get_default_object().
+ **/
 void
 e_cal_backend_get_default_object (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
 {
@@ -903,7 +910,8 @@ e_cal_backend_get_default_object (ECalBackend *backend, EDataCal *cal, guint32 o
  *
  * Queries a calendar backend for a calendar object based on its unique
  * identifier and its recurrence ID (if a recurrent appointment).
- */
+ * This might be finished with e_data_cal_respond_get_object().
+ **/
 void
 e_cal_backend_get_object (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid)
 {
@@ -924,7 +932,8 @@ e_cal_backend_get_object (ECalBackend *backend, EDataCal *cal, guint32 opid, GCa
  * @sexp: Expression to search for.
  *
  * Calls the get_object_list method on the given backend.
- */
+ * This might be finished with e_data_cal_respond_get_object_list().
+ **/
 void
 e_cal_backend_get_object_list (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *sexp)
 {
@@ -945,8 +954,10 @@ e_cal_backend_get_object_list (ECalBackend *backend, EDataCal *cal, guint32 opid
  * @start: Start time for query.
  * @end: End time for query.
  *
- * Gets a free/busy object for the given time interval
- */
+ * Gets a free/busy object for the given time interval. Client side is
+ * notified about free/busy objects throug e_data_cal_report_free_busy_data().
+ * This might be finished with e_data_cal_respond_get_free_busy().
+ **/
 void
 e_cal_backend_get_free_busy (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const GSList *users, time_t start, time_t end)
 {
@@ -960,30 +971,6 @@ e_cal_backend_get_free_busy (ECalBackend *backend, EDataCal *cal, guint32 opid, 
 }
 
 /**
- * e_cal_backend_discard_alarm
- * @backend: an #ECalBackend
- * @cal: an #EDataCal
- * @opid: the ID to use for this operation
- * @cancellable: a #GCancellable for the operation
- * @uid: UID of the component to discard the alarm from.
- * @auid: Alarm ID.
- *
- * Discards an alarm from the given component. This allows the specific backend
- * to do whatever is needed to really discard the alarm.
- */
-void
-e_cal_backend_discard_alarm (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *auid)
-{
-	g_return_if_fail (backend != NULL);
-	g_return_if_fail (E_IS_CAL_BACKEND (backend));
-	g_return_if_fail (uid != NULL);
-	g_return_if_fail (auid != NULL);
-	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->discard_alarm != NULL);
-
-	(* E_CAL_BACKEND_GET_CLASS (backend)->discard_alarm) (backend, cal, opid, cancellable, uid, auid);
-}
-
-/**
  * e_cal_backend_create_object:
  * @backend: an #ECalBackend
  * @cal: an #EDataCal
@@ -992,7 +979,8 @@ e_cal_backend_discard_alarm (ECalBackend *backend, EDataCal *cal, guint32 opid, 
  * @calobj: The object to create.
  *
  * Calls the create_object method on the given backend.
- */
+ * This might be finished with e_data_cal_respond_create_object().
+ **/
 void
 e_cal_backend_create_object (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj)
 {
@@ -1016,7 +1004,8 @@ e_cal_backend_create_object (ECalBackend *backend, EDataCal *cal, guint32 opid, 
  * @mod: Type of modification.
  *
  * Calls the modify_object method on the given backend.
- */
+ * This might be finished with e_data_cal_respond_modify_object().
+ **/
 void
 e_cal_backend_modify_object (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj, CalObjModType mod)
 {
@@ -1042,7 +1031,8 @@ e_cal_backend_modify_object (ECalBackend *backend, EDataCal *cal, guint32 opid, 
  *
  * Removes an object in a calendar backend.  The backend will notify all of its
  * clients about the change.
- */
+ * This might be finished with e_data_cal_respond_remove_object().
+ **/
 void
 e_cal_backend_remove_object (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid, CalObjModType mod)
 {
@@ -1063,7 +1053,8 @@ e_cal_backend_remove_object (ECalBackend *backend, EDataCal *cal, guint32 opid, 
  * @calobj: iCalendar object.
  *
  * Calls the receive_objects method on the given backend.
- */
+ * This might be finished with e_data_cal_respond_receive_objects().
+ **/
 void
 e_cal_backend_receive_objects (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj)
 {
@@ -1084,7 +1075,8 @@ e_cal_backend_receive_objects (ECalBackend *backend, EDataCal *cal, guint32 opid
  * @calobj: iCalendar object to be sent.
  *
  * Calls the send_objects method on the given backend.
- */
+ * This might be finished with e_data_cal_respond_send_objects().
+ **/
 void
 e_cal_backend_send_objects (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj)
 {
@@ -1107,7 +1099,8 @@ e_cal_backend_send_objects (ECalBackend *backend, EDataCal *cal, guint32 opid, G
  *
  * Queries a calendar backend for attachments present in a calendar object based
  * on its unique identifier and its recurrence ID (if a recurrent appointment).
- */
+ * This might be finished with e_data_cal_respond_get_attachment_uris().
+ **/
 void
 e_cal_backend_get_attachment_uris (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid)
 {
@@ -1130,7 +1123,8 @@ e_cal_backend_get_attachment_uris (ECalBackend *backend, EDataCal *cal, guint32 
  *
  * Returns the icaltimezone* corresponding to the TZID, or NULL if the TZID
  * can't be found.
- */
+ * This might be finished with e_data_cal_respond_get_timezone().
+ **/
 void
 e_cal_backend_get_timezone (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *tzid)
 {
@@ -1151,7 +1145,8 @@ e_cal_backend_get_timezone (ECalBackend *backend, EDataCal *cal, guint32 opid, G
  * @tzobj: The timezone object, in a string.
  *
  * Add a timezone object to the given backend.
- */
+ * This might be finished with e_data_cal_respond_add_timezone().
+ **/
 void
 e_cal_backend_add_timezone (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *tzobject)
 {
