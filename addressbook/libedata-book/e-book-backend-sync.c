@@ -110,29 +110,61 @@ e_book_backend_sync_remove (EBookBackendSync *backend,
 }
 
 /**
- * e_book_backend_sync_get_capabilities:
+ * e_book_backend_sync_get_backend_property:
  * @backend: an #EBookBackendSync
  * @book: an #EDataBook
  * @cancellable: a #GCancellable for the operation
- * @capabilities: a string of comma-separated capabilities for this backend
- * @removed_ids: a pointer to a location to store a list of the contacts actually removed
+ * @prop_name: Property name whose value to retrieve.
+ * @prop_value: Return value of the @prop_name.
  * @error: #GError to set, when something fails
  *
- * Queries for @capabilities of the @backend.
+ * Calls the get_backend_property_sync method on the given backend.
+ *
+ * Returns whether processed this property. Returning FALSE means to pass
+ * the call to the EBookBackend parent class, thus neither @error should be
+ * set in this case.
+ *
+ * Since: 3.2
  **/
-void
-e_book_backend_sync_get_capabilities (EBookBackendSync *backend,
-				      EDataBook *book,
-				      GCancellable *cancellable,
-				      gchar **capabilities,
-				      GError **error)
+gboolean
+e_book_backend_sync_get_backend_property (EBookBackendSync *backend, EDataBook *book, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **error)
 {
-	e_return_data_book_error_if_fail (E_IS_BOOK_BACKEND_SYNC (backend), E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (E_IS_DATA_BOOK (book), E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (capabilities, E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_capabilities_sync, E_DATA_BOOK_STATUS_NOT_SUPPORTED);
+	e_return_data_book_error_val_if_fail (E_IS_BOOK_BACKEND_SYNC (backend), E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_val_if_fail (E_IS_DATA_BOOK (book), E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_val_if_fail (prop_name, E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_val_if_fail (prop_value, E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_val_if_fail (E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_backend_property_sync, E_DATA_BOOK_STATUS_NOT_SUPPORTED);
 
-	(* E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_capabilities_sync) (backend, book, cancellable, capabilities, error);
+	return (* E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_backend_property_sync) (backend, book, cancellable, prop_name, prop_value, error);
+}
+
+/**
+ * e_book_backend_sync_set_backend_property:
+ * @backend: an #EBookBackendSync
+ * @book: an #EDataBook
+ * @cancellable: a #GCancellable for the operation
+ * @prop_name: Property name to set.
+ * @prop_value: New value of the @prop_name.
+ * @error: #GError to set, when something fails
+ *
+ * Calls the set_backend_property_sync method on the given backend.
+ *
+ * Returns whether processed this property. Returning FALSE means to pass
+ * the call to the EBookBackend parent class, thus neither @error should be
+ * set in this case.
+ *
+ * Since: 3.2
+ **/
+gboolean
+e_book_backend_sync_set_backend_property (EBookBackendSync *backend, EDataBook *book, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value, GError **error)
+{
+	e_return_data_book_error_val_if_fail (E_IS_BOOK_BACKEND_SYNC (backend), E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_val_if_fail (E_IS_DATA_BOOK (book), E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_val_if_fail (prop_name, E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_val_if_fail (prop_value, E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_val_if_fail (E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->set_backend_property_sync, E_DATA_BOOK_STATUS_NOT_SUPPORTED);
+
+	return (* E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->set_backend_property_sync) (backend, book, cancellable, prop_name, prop_value, error);
 }
 
 /**
@@ -275,89 +307,8 @@ e_book_backend_sync_authenticate_user (EBookBackendSync *backend,
 	(* E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->authenticate_user_sync) (backend, book, cancellable, credentials, error);
 }
 
-/**
- * e_book_backend_sync_get_required_fields:
- * @backend: an #EBookBackendSync
- * @book: an #EDataBook
- * @cancellable: a #GCancellable for the operation
- * @fields: a pointer to a location to store the fields
- * @error: #GError to set, when something fails
- *
- * Gets a list of the fields required for all contacts in @book. The
- * fields are represented by strings from #e_contact_field_name. The list
- * and its contents must be freed by the caller.
- **/
-void
-e_book_backend_sync_get_required_fields (EBookBackendSync *backend,
-					 EDataBook *book,
-					 GCancellable *cancellable,
-					 GSList **fields,
-					 GError **error)
-{
-	e_return_data_book_error_if_fail (E_IS_BOOK_BACKEND_SYNC (backend), E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (E_IS_DATA_BOOK (book), E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (fields, E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_required_fields_sync, E_DATA_BOOK_STATUS_NOT_SUPPORTED);
-
-	(* E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_required_fields_sync) (backend, book, cancellable, fields, error);
-}
-
-/**
- * e_book_backend_sync_get_supported_fields:
- * @backend: an #EBookBackendSync
- * @book: an #EDataBook
- * @cancellable: a #GCancellable for the operation
- * @fields: a pointer to a location to store the fields
- * @error: #GError to set, when something fails
- *
- * Gets a list of the fields supported for contacts in @book. Other fields
- * may not be stored. The fields are represented by strings from #e_contact_field_name.
- * The list and its contents must be freed by the caller.
- **/
-void
-e_book_backend_sync_get_supported_fields (EBookBackendSync *backend,
-					  EDataBook *book,
-					  GCancellable *cancellable,
-					  GSList **fields,
-					  GError **error)
-{
-	e_return_data_book_error_if_fail (E_IS_BOOK_BACKEND_SYNC (backend), E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (E_IS_DATA_BOOK (book), E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (fields, E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_supported_fields_sync, E_DATA_BOOK_STATUS_NOT_SUPPORTED);
-
-	(* E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_supported_fields_sync) (backend, book, cancellable, fields, error);
-}
-
-/**
- * e_book_backend_sync_get_supported_auth_methods:
- * @backend: an #EBookBackendSync
- * @book: an #EDataBook
- * @cancellable: a #GCancellable for the operation
- * @methods: a pointer to a location to store the methods
- * @error: #GError to set, when something fails
- *
- * Gets a list of the authentication methods supported by @book. The
- * methods are represented by strings. The list and its contents must
- * be freed by the caller.
- **/
-void
-e_book_backend_sync_get_supported_auth_methods (EBookBackendSync *backend,
-						EDataBook *book,
-						GCancellable *cancellable,
-						GSList **methods,
-						GError **error)
-{
-	e_return_data_book_error_if_fail (E_IS_BOOK_BACKEND_SYNC (backend), E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (E_IS_DATA_BOOK (book), E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (methods, E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_supported_auth_methods_sync, E_DATA_BOOK_STATUS_NOT_SUPPORTED);
-
-	(* E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_supported_auth_methods_sync) (backend, book, cancellable, methods, error);
-}
-
 static void
-_e_book_backend_open (EBookBackend *backend,
+book_backend_open (EBookBackend *backend,
 		      EDataBook    *book,
 		      guint32       opid,
 		      GCancellable *cancellable,
@@ -371,7 +322,7 @@ _e_book_backend_open (EBookBackend *backend,
 }
 
 static void
-_e_book_backend_remove (EBookBackend *backend,
+book_backend_remove (EBookBackend *backend,
 			EDataBook    *book,
 			guint32       opid,
 			GCancellable *cancellable)
@@ -384,27 +335,36 @@ _e_book_backend_remove (EBookBackend *backend,
 }
 
 static void
-_e_book_backend_get_capabilities (EBookBackend *backend,
-				  EDataBook    *book,
-				  guint32       opid,
-				  GCancellable *cancellable)
+book_backend_get_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name)
 {
 	GError *error = NULL;
-	gchar *capabilities = NULL;
+	gchar *prop_value = NULL;
 
-	e_book_backend_sync_get_capabilities (E_BOOK_BACKEND_SYNC (backend), book, cancellable, &capabilities, &error);
+	if (e_book_backend_sync_get_backend_property (E_BOOK_BACKEND_SYNC (backend), book, cancellable, prop_name, &prop_value, &error))
+		e_data_book_respond_get_backend_property (book, opid, error, prop_value);
+	else
+		(* E_BOOK_BACKEND_CLASS (e_book_backend_sync_parent_class)->get_backend_property) (backend, book, opid, cancellable, prop_name);
 
-	e_data_book_respond_get_capabilities (book, opid, error, capabilities);
-
-	g_free (capabilities);
+	g_free (prop_value);
 }
 
 static void
-_e_book_backend_create_contact (EBookBackend *backend,
-				EDataBook    *book,
-				guint32       opid,
-				GCancellable *cancellable,
-				const gchar   *vcard)
+book_backend_set_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value)
+{
+	GError *error = NULL;
+
+	if (e_book_backend_sync_set_backend_property (E_BOOK_BACKEND_SYNC (backend), book, cancellable, prop_name, prop_value, &error))
+		e_data_book_respond_set_backend_property (book, opid, error);
+	else
+		(* E_BOOK_BACKEND_CLASS (e_book_backend_sync_parent_class)->set_backend_property) (backend, book, opid, cancellable, prop_name, prop_value);
+}
+
+static void
+book_backend_create_contact (EBookBackend *backend,
+			     EDataBook    *book,
+			     guint32       opid,
+			     GCancellable *cancellable,
+			     const gchar   *vcard)
 {
 	GError *error = NULL;
 	EContact *contact = NULL;
@@ -418,11 +378,11 @@ _e_book_backend_create_contact (EBookBackend *backend,
 }
 
 static void
-_e_book_backend_remove_contacts (EBookBackend *backend,
-				 EDataBook    *book,
-				 guint32       opid,
-				 GCancellable *cancellable,
-				 const GSList *id_list)
+book_backend_remove_contacts (EBookBackend *backend,
+			      EDataBook    *book,
+			      guint32       opid,
+			      GCancellable *cancellable,
+			      const GSList *id_list)
 {
 	GError *error = NULL;
 	GSList *ids = NULL;
@@ -438,11 +398,11 @@ _e_book_backend_remove_contacts (EBookBackend *backend,
 }
 
 static void
-_e_book_backend_modify_contact (EBookBackend *backend,
-				EDataBook    *book,
-				guint32       opid,
-				GCancellable *cancellable,
-				const gchar   *vcard)
+book_backend_modify_contact (EBookBackend *backend,
+			     EDataBook    *book,
+			     guint32       opid,
+			     GCancellable *cancellable,
+			     const gchar   *vcard)
 {
 	GError *error = NULL;
 	EContact *contact = NULL;
@@ -456,11 +416,11 @@ _e_book_backend_modify_contact (EBookBackend *backend,
 }
 
 static void
-_e_book_backend_get_contact (EBookBackend *backend,
-			     EDataBook    *book,
-			     guint32       opid,
-			     GCancellable *cancellable,
-			     const gchar   *id)
+book_backend_get_contact (EBookBackend *backend,
+			  EDataBook    *book,
+			  guint32       opid,
+			  GCancellable *cancellable,
+			  const gchar   *id)
 {
 	GError *error = NULL;
 	gchar *vcard = NULL;
@@ -474,11 +434,11 @@ _e_book_backend_get_contact (EBookBackend *backend,
 }
 
 static void
-_e_book_backend_get_contact_list (EBookBackend *backend,
-				  EDataBook    *book,
-				  guint32       opid,
-				  GCancellable *cancellable,
-				  const gchar   *query)
+book_backend_get_contact_list (EBookBackend *backend,
+			       EDataBook    *book,
+			       guint32       opid,
+			       GCancellable *cancellable,
+			       const gchar   *query)
 {
 	GError *error = NULL;
 	GSList *cards = NULL;
@@ -492,11 +452,11 @@ _e_book_backend_get_contact_list (EBookBackend *backend,
 }
 
 static void
-_e_book_backend_authenticate_user (EBookBackend *backend,
-				   EDataBook    *book,
-				   guint32       opid,
-				   GCancellable *cancellable,
-				   ECredentials *credentials)
+book_backend_authenticate_user (EBookBackend *backend,
+				EDataBook    *book,
+				guint32       opid,
+				GCancellable *cancellable,
+				ECredentials *credentials)
 {
 	GError *error = NULL;
 
@@ -505,61 +465,18 @@ _e_book_backend_authenticate_user (EBookBackend *backend,
 	e_data_book_respond_authenticate_user (book, opid, error);
 }
 
-static void
-_e_book_backend_get_required_fields (EBookBackend *backend,
-				     EDataBook    *book,
-				     guint32       opid,
-				     GCancellable *cancellable)
+static gboolean
+book_backend_sync_get_backend_property (EBookBackendSync *backend, EDataBook *book, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **error)
 {
-	GError *error = NULL;
-	GSList *fields = NULL;
-
-	e_book_backend_sync_get_required_fields (E_BOOK_BACKEND_SYNC (backend), book, cancellable, &fields, &error);
-
-	e_data_book_respond_get_required_fields (book, opid, error, fields);
-
-	if (fields) {
-		g_slist_foreach (fields, (GFunc) g_free, NULL);
-		g_slist_free (fields);
-	}
+	/* to indicate to pass to the EBookBackend parent class */
+	return FALSE;
 }
 
-static void
-_e_book_backend_get_supported_fields (EBookBackend *backend,
-				      EDataBook    *book,
-				      guint32       opid,
-				      GCancellable *cancellable)
+static gboolean
+book_backend_sync_set_backend_property (EBookBackendSync *backend, EDataBook *book, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value, GError **error)
 {
-	GError *error = NULL;
-	GSList *fields = NULL;
-
-	e_book_backend_sync_get_supported_fields (E_BOOK_BACKEND_SYNC (backend), book, cancellable, &fields, &error);
-
-	e_data_book_respond_get_supported_fields (book, opid, error, fields);
-
-	if (fields) {
-		g_slist_foreach (fields, (GFunc) g_free, NULL);
-		g_slist_free (fields);
-	}
-}
-
-static void
-_e_book_backend_get_supported_auth_methods (EBookBackend *backend,
-					    EDataBook    *book,
-					    guint32       opid,
-					    GCancellable *cancellable)
-{
-	GError *error = NULL;
-	GSList *methods = NULL;
-
-	e_book_backend_sync_get_supported_auth_methods (E_BOOK_BACKEND_SYNC (backend), book, cancellable, &methods, &error);
-
-	e_data_book_respond_get_supported_auth_methods (book, opid, error, methods);
-
-	if (methods) {
-		g_slist_foreach (methods, (GFunc) g_free, NULL);
-		g_slist_free (methods);
-	}
+	/* to indicate to pass to the EBookBackend parent class */
+	return FALSE;
 }
 
 static void
@@ -597,19 +514,19 @@ e_book_backend_sync_class_init (EBookBackendSyncClass *klass)
 	parent_class = g_type_class_peek_parent (klass);
 
 	object_class = (GObjectClass *) klass;
-
-	backend_class->open = _e_book_backend_open;
-	backend_class->authenticate_user = _e_book_backend_authenticate_user;
-	backend_class->remove = _e_book_backend_remove;
-	backend_class->get_capabilities = _e_book_backend_get_capabilities;
-	backend_class->create_contact = _e_book_backend_create_contact;
-	backend_class->remove_contacts = _e_book_backend_remove_contacts;
-	backend_class->modify_contact = _e_book_backend_modify_contact;
-	backend_class->get_contact = _e_book_backend_get_contact;
-	backend_class->get_contact_list = _e_book_backend_get_contact_list;
-	backend_class->get_required_fields = _e_book_backend_get_required_fields;
-	backend_class->get_supported_fields = _e_book_backend_get_supported_fields;
-	backend_class->get_supported_auth_methods = _e_book_backend_get_supported_auth_methods;
-
 	object_class->dispose = e_book_backend_sync_dispose;
+
+	backend_class->open			= book_backend_open;
+	backend_class->authenticate_user	= book_backend_authenticate_user;
+	backend_class->remove			= book_backend_remove;
+	backend_class->get_backend_property	= book_backend_get_backend_property;
+	backend_class->set_backend_property	= book_backend_set_backend_property;
+	backend_class->create_contact		= book_backend_create_contact;
+	backend_class->remove_contacts		= book_backend_remove_contacts;
+	backend_class->modify_contact		= book_backend_modify_contact;
+	backend_class->get_contact		= book_backend_get_contact;
+	backend_class->get_contact_list		= book_backend_get_contact_list;
+
+	klass->get_backend_property_sync	= book_backend_sync_get_backend_property;
+	klass->set_backend_property_sync	= book_backend_sync_set_backend_property;
 }

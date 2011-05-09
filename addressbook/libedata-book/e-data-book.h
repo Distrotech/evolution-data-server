@@ -104,6 +104,28 @@ const gchar *e_data_book_status_to_string (EDataBookStatus status);
 		}								\
 	} G_STMT_END
 
+/**
+ * e_return_data_book_error_if_fail:
+ *
+ * Same as e_return_data_book_error_if_fail(), only returns FALSE on a failure
+ *
+ * Since: 3.2
+ **/
+#define e_return_data_book_error_val_if_fail(expr, _code)			\
+	G_STMT_START {								\
+		if (G_LIKELY (expr)) {						\
+		} else {							\
+			g_log (G_LOG_DOMAIN,					\
+				G_LOG_LEVEL_CRITICAL,				\
+				"file %s: line %d (%s): assertion `%s' failed",	\
+				__FILE__, __LINE__, G_STRFUNC, #expr);		\
+			g_set_error (error, E_DATA_BOOK_ERROR, (_code),		\
+				"file %s: line %d (%s): assertion `%s' failed",	\
+				__FILE__, __LINE__, G_STRFUNC, #expr);		\
+			return FALSE;						\
+		}								\
+	} G_STMT_END
+
 GType		e_data_book_get_type				(void);
 EDataBook *	e_data_book_new					(EBookBackend *backend, ESource *source);
 EBookBackend *	e_data_book_get_backend				(EDataBook *book);
@@ -113,14 +135,12 @@ guint		e_data_book_register_gdbus_object		(EDataBook *cal, GDBusConnection *conn
 
 void		e_data_book_respond_open			(EDataBook *book, guint32 opid, GError *error);
 void		e_data_book_respond_remove			(EDataBook *book, guint32 opid, GError *error);
-void		e_data_book_respond_get_capabilities		(EDataBook *book, guint32 opid, GError *error, const gchar *capabilities);
+void		e_data_book_respond_get_backend_property	(EDataBook *book, guint32 opid, GError *error, const gchar *prop_value);
+void		e_data_book_respond_set_backend_property	(EDataBook *book, guint32 opid, GError *error);
 void		e_data_book_respond_create			(EDataBook *book, guint32 opid, GError *error, const EContact *contact);
 void		e_data_book_respond_remove_contacts		(EDataBook *book, guint32 opid, GError *error, const GSList *ids);
 void		e_data_book_respond_modify			(EDataBook *book, guint32 opid, GError *error, const EContact *contact);
 void		e_data_book_respond_authenticate_user		(EDataBook *book, guint32 opid, GError *error);
-void		e_data_book_respond_get_supported_fields	(EDataBook *book, guint32 opid, GError *error, const GSList *fields);
-void		e_data_book_respond_get_required_fields		(EDataBook *book, guint32 opid, GError *error, const GSList *fields);
-void		e_data_book_respond_get_supported_auth_methods	(EDataBook *book, guint32 opid, GError *error, const GSList *fields);
 void		e_data_book_respond_get_contact			(EDataBook *book, guint32 opid, GError *error, const gchar *vcard);
 void		e_data_book_respond_get_contact_list		(EDataBook *book, guint32 opid, GError *error, const GSList *cards);
 
@@ -128,6 +148,8 @@ void		e_data_book_report_error			(EDataBook *book, const gchar *message);
 void		e_data_book_report_readonly			(EDataBook *book, gboolean readonly);
 void		e_data_book_report_online			(EDataBook *book, gboolean is_online);
 void		e_data_book_report_auth_required		(EDataBook *book, const ECredentials *credentials);
+
+gchar *		e_data_book_string_slist_to_comma_string	(const GSList *strings);
 
 G_END_DECLS
 

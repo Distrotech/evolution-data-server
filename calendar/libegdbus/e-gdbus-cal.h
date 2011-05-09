@@ -122,20 +122,11 @@ struct _EGdbusCalIface
 	gboolean (*handle_refresh)			(EGdbusCal *object, GDBusMethodInvocation *invocation);
 	void	 (*refresh_done)			(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 
-	gboolean (*handle_get_cache_dir)		(EGdbusCal *object, GDBusMethodInvocation *invocation);
-	void	 (*get_cache_dir_done)			(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar **out_dirname);
+	gboolean (*handle_get_backend_property)		(EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar *in_prop_name);
+	void	 (*get_backend_property_done)		(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar **out_prop_value);
 
-	gboolean (*handle_get_capabilities)		(EGdbusCal *object, GDBusMethodInvocation *invocation);
-	void	 (*get_capabilities_done)		(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar **out_capabilities);
-
-	gboolean (*handle_get_cal_email_address)	(EGdbusCal *object, GDBusMethodInvocation *invocation);
-	void	 (*get_cal_email_address_done)		(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar **out_cal_address);
-
-	gboolean (*handle_get_alarm_email_address)	(EGdbusCal *object, GDBusMethodInvocation *invocation);
-	void	 (*get_alarm_email_address_done)	(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar **out_alarm_email_address);
-
-	gboolean (*handle_get_default_object)		(EGdbusCal *object, GDBusMethodInvocation *invocation);
-	void	 (*get_default_object_done)		(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar **out_default_object);
+	gboolean (*handle_set_backend_property)		(EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar * const *in_prop_name_value);
+	void	 (*set_backend_property_done)		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 
 	gboolean (*handle_get_object)			(EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar * const *in_uid_rid);
 	void	 (*get_object_done)			(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar **out_object);
@@ -195,25 +186,15 @@ void		e_gdbus_cal_call_refresh			(GDBusProxy *proxy, GCancellable *cancellable, 
 gboolean	e_gdbus_cal_call_refresh_finish			(GDBusProxy *proxy, GAsyncResult *result, GError **error);
 gboolean	e_gdbus_cal_call_refresh_sync			(GDBusProxy *proxy, GCancellable *cancellable, GError **error);
 
-void		e_gdbus_cal_call_get_cache_dir			(GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_cal_call_get_cache_dir_finish		(GDBusProxy *proxy, GAsyncResult *result, gchar **out_dirname, GError **error);
-gboolean	e_gdbus_cal_call_get_cache_dir_sync		(GDBusProxy *proxy, gchar **out_dirname, GCancellable *cancellable, GError **error);
+void		e_gdbus_cal_call_get_backend_property		(GDBusProxy *proxy, const gchar *in_prop_name, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean	e_gdbus_cal_call_get_backend_property_finish	(GDBusProxy *proxy, GAsyncResult *result, gchar **out_prop_value, GError **error);
+gboolean	e_gdbus_cal_call_get_backend_property_sync	(GDBusProxy *proxy, const gchar *in_prop_name, gchar **out_prop_value, GCancellable *cancellable, GError **error);
 
-void		e_gdbus_cal_call_get_capabilities		(GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_cal_call_get_capabilities_finish	(GDBusProxy *proxy, GAsyncResult *result, gchar **out_capabilities, GError **error);
-gboolean	e_gdbus_cal_call_get_capabilities_sync		(GDBusProxy *proxy, gchar **out_capabilities, GCancellable *cancellable, GError **error);
-
-void		e_gdbus_cal_call_get_cal_email_address		(GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_cal_call_get_cal_email_address_finish	(GDBusProxy *proxy, GAsyncResult *result, gchar **out_address, GError **error);
-gboolean	e_gdbus_cal_call_get_cal_email_address_sync	(GDBusProxy *proxy, gchar **out_address, GCancellable *cancellable, GError **error);
-
-void		e_gdbus_cal_call_get_alarm_email_address	(GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_cal_call_get_alarm_email_address_finish	(GDBusProxy *proxy, GAsyncResult *result, gchar **out_address, GError **error);
-gboolean	e_gdbus_cal_call_get_alarm_email_address_sync	(GDBusProxy *proxy, gchar **out_address, GCancellable *cancellable, GError **error);
-
-void		e_gdbus_cal_call_get_default_object		(GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_cal_call_get_default_object_finish	(GDBusProxy *proxy, GAsyncResult *result, gchar **out_object, GError **error);
-gboolean	e_gdbus_cal_call_get_default_object_sync	(GDBusProxy *proxy, gchar **out_object, GCancellable *cancellable, GError **error);
+gchar **	e_gdbus_cal_encode_set_backend_property		(const gchar *in_prop_name, const gchar *in_prop_value);
+gboolean	e_gdbus_cal_decode_set_backend_property		(const gchar * const *in_strv, gchar **out_prop_name, gchar **out_prop_value);
+void		e_gdbus_cal_call_set_backend_property		(GDBusProxy *proxy, const gchar * const *in_prop_name_value, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean	e_gdbus_cal_call_set_backend_property_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
+gboolean	e_gdbus_cal_call_set_backend_property_sync	(GDBusProxy *proxy, const gchar * const *in_prop_name_value, GCancellable *cancellable, GError **error);
 
 gchar **	e_gdbus_cal_encode_get_object			(const gchar *in_uid, const gchar *in_rid);
 gboolean	e_gdbus_cal_decode_get_object			(const gchar * const *in_strv, gchar **out_uid, gchar **out_rid);
@@ -292,15 +273,11 @@ gboolean	e_gdbus_cal_call_close_sync			(GDBusProxy *proxy, GCancellable *cancell
 #define e_gdbus_cal_complete_authenticate_user		e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_remove			e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_refresh			e_gdbus_complete_async_method
-#define e_gdbus_cal_complete_get_cache_dir		e_gdbus_complete_async_method
-#define e_gdbus_cal_complete_get_capabilities		e_gdbus_complete_async_method
-#define e_gdbus_cal_complete_get_cal_email_address	e_gdbus_complete_async_method
-#define e_gdbus_cal_complete_get_alarm_email_address	e_gdbus_complete_async_method
-#define e_gdbus_cal_complete_get_default_object		e_gdbus_complete_async_method
+#define e_gdbus_cal_complete_get_backend_property	e_gdbus_complete_async_method
+#define e_gdbus_cal_complete_set_backend_property	e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_get_object			e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_get_object_list		e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_get_free_busy		e_gdbus_complete_async_method
-#define e_gdbus_cal_complete_discard_alarm		e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_create_object		e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_modify_object		e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_remove_object		e_gdbus_complete_async_method
@@ -318,16 +295,12 @@ void e_gdbus_cal_emit_open_done				(EGdbusCal *object, guint arg_opid, const GEr
 void e_gdbus_cal_emit_authenticate_user_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_remove_done			(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_refresh_done			(EGdbusCal *object, guint arg_opid, const GError *arg_error);
-void e_gdbus_cal_emit_get_cache_dir_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_dirname);
-void e_gdbus_cal_emit_get_capabilities_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_capabilities);
-void e_gdbus_cal_emit_get_cal_email_address_done	(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_address);
-void e_gdbus_cal_emit_get_alarm_email_address_done	(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_address);
-void e_gdbus_cal_emit_get_default_object_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_object);
+void e_gdbus_cal_emit_get_backend_property_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_prop_value);
+void e_gdbus_cal_emit_set_backend_property_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_get_object_done			(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_object);
 void e_gdbus_cal_emit_get_object_list_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar * const *out_objects);
 void e_gdbus_cal_emit_get_free_busy_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_get_free_busy_data		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar * const *out_freebusy);
-void e_gdbus_cal_emit_discard_alarm_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_create_object_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_uid);
 void e_gdbus_cal_emit_modify_object_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_remove_object_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);

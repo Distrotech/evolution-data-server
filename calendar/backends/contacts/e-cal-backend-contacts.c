@@ -790,30 +790,29 @@ create_anniversary (ECalBackendContacts *cbc, EContact *contact)
 
 /* First the empty stubs */
 
-static void
-e_cal_backend_contacts_get_cal_email_address (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **perror)
+static gboolean
+e_cal_backend_contacts_get_backend_property (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **perror)
 {
-	/* A contact backend has no particular email address associated
-	 * with it (although that would be a useful feature some day).
-	 */
-	*address = NULL;
-}
+	gboolean processed = TRUE;
 
-static void
-e_cal_backend_contacts_get_alarm_email_address (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable,
-						gchar **address, GError **perror)
-{
-	/* A contact backend has no particular email address associated
-	 * with it (although that would be a useful feature some day).
-	 */
-	*address = NULL;
-}
+	g_return_val_if_fail (prop_name != NULL, FALSE);
+	g_return_val_if_fail (prop_value != NULL, FALSE);
 
-static void
-e_cal_backend_contacts_get_capabilities (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable,
-					gchar **capabilities, GError **perror)
-{
-	*capabilities = NULL;
+	if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAPABILITIES)) {
+		*prop_value = NULL;
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS) ||
+		   g_str_equal (prop_name, CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS)) {
+		/* A contact backend has no particular email address associated
+		 * with it (although that would be a useful feature some day).
+		 */
+		*prop_value = NULL;
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_DEFAULT_OBJECT)) {
+		g_propagate_error (perror, EDC_ERROR (UnsupportedMethod));
+	} else {
+		processed = FALSE;
+	}
+
+	return processed;
 }
 
 static void
@@ -821,13 +820,6 @@ e_cal_backend_contacts_remove (ECalBackendSync *backend, EDataCal *cal, GCancell
 {
 	/* WRITE ME */
 	g_propagate_error (perror, EDC_ERROR (PermissionDenied));
-}
-
-static void
-e_cal_backend_contacts_get_default_object (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable,
-					   gchar **object, GError **perror)
-{
-	g_propagate_error (perror, EDC_ERROR (UnsupportedMethod));
 }
 
 static void
@@ -1197,22 +1189,18 @@ e_cal_backend_contacts_class_init (ECalBackendContactsClass *class)
 
 	object_class->finalize = e_cal_backend_contacts_finalize;
 
-	sync_class->get_cal_email_address_sync = e_cal_backend_contacts_get_cal_email_address;
-	sync_class->get_alarm_email_address_sync = e_cal_backend_contacts_get_alarm_email_address;
-	sync_class->get_capabilities_sync = e_cal_backend_contacts_get_capabilities;
-	sync_class->open_sync = e_cal_backend_contacts_open;
-	sync_class->remove_sync = e_cal_backend_contacts_remove;
-	sync_class->create_object_sync = e_cal_backend_contacts_create_object;
-	sync_class->receive_objects_sync = e_cal_backend_contacts_receive_objects;
-	sync_class->send_objects_sync = e_cal_backend_contacts_send_objects;
-	sync_class->get_default_object_sync = e_cal_backend_contacts_get_default_object;
-	sync_class->get_object_sync = e_cal_backend_contacts_get_object;
-	sync_class->get_object_list_sync = e_cal_backend_contacts_get_object_list;
-	sync_class->add_timezone_sync = e_cal_backend_contacts_add_timezone;
-	sync_class->get_free_busy_sync = e_cal_backend_contacts_get_free_busy;
+	sync_class->get_backend_property_sync	= e_cal_backend_contacts_get_backend_property;
+	sync_class->open_sync			= e_cal_backend_contacts_open;
+	sync_class->remove_sync			= e_cal_backend_contacts_remove;
+	sync_class->create_object_sync		= e_cal_backend_contacts_create_object;
+	sync_class->receive_objects_sync	= e_cal_backend_contacts_receive_objects;
+	sync_class->send_objects_sync		= e_cal_backend_contacts_send_objects;
+	sync_class->get_object_sync		= e_cal_backend_contacts_get_object;
+	sync_class->get_object_list_sync	= e_cal_backend_contacts_get_object_list;
+	sync_class->add_timezone_sync		= e_cal_backend_contacts_add_timezone;
+	sync_class->get_free_busy_sync		= e_cal_backend_contacts_get_free_busy;
 
-	backend_class->start_view = e_cal_backend_contacts_start_view;
-	backend_class->set_online = e_cal_backend_contacts_set_online;
-
-	backend_class->internal_get_timezone = e_cal_backend_contacts_internal_get_timezone;
+	backend_class->start_view		= e_cal_backend_contacts_start_view;
+	backend_class->set_online		= e_cal_backend_contacts_set_online;
+	backend_class->internal_get_timezone	= e_cal_backend_contacts_internal_get_timezone;
 }

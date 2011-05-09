@@ -90,6 +90,28 @@ const gchar *e_data_cal_status_to_string (EDataCalCallStatus status);
 		}								\
 	} G_STMT_END
 
+/**
+ * e_return_data_cal_error_val_if_fail:
+ *
+ * Same as e_return_data_cal_error_if_fail(), only returns FALSE on a failure
+ *
+ * Since: 3.2
+ **/
+#define e_return_data_cal_error_val_if_fail(expr, _code)			\
+	G_STMT_START {								\
+		if (G_LIKELY (expr)) {						\
+		} else {							\
+			g_log (G_LOG_DOMAIN,					\
+				G_LOG_LEVEL_CRITICAL,				\
+				"file %s: line %d (%s): assertion `%s' failed",	\
+				__FILE__, __LINE__, G_STRFUNC, #expr);		\
+			g_set_error (error, E_DATA_CAL_ERROR, (_code),		\
+				"file %s: line %d (%s): assertion `%s' failed",	\
+				__FILE__, __LINE__, G_STRFUNC, #expr);		\
+			return FALSE;						\
+		}								\
+	} G_STMT_END
+
 typedef struct _EDataCalPrivate EDataCalPrivate;
 
 struct _EDataCal {
@@ -112,10 +134,8 @@ void		e_data_cal_respond_open				(EDataCal *cal, guint32 opid, GError *error);
 void		e_data_cal_respond_authenticate_user		(EDataCal *cal, guint32 opid, GError *error);
 void		e_data_cal_respond_remove			(EDataCal *cal, guint32 opid, GError *error);
 void		e_data_cal_respond_refresh			(EDataCal *cal, guint32 opid, GError *error);
-void		e_data_cal_respond_get_capabilities		(EDataCal *cal, guint32 opid, GError *error, const gchar *capabilities);
-void		e_data_cal_respond_get_cal_email_address	(EDataCal *cal, guint32 opid, GError *error, const gchar *address);
-void		e_data_cal_respond_get_alarm_email_address	(EDataCal *cal, guint32 opid, GError *error, const gchar *address);
-void		e_data_cal_respond_get_default_object		(EDataCal *cal, guint32 opid, GError *error, const gchar *object);
+void		e_data_cal_respond_get_backend_property		(EDataCal *cal, guint32 opid, GError *error, const gchar *prop_value);
+void		e_data_cal_respond_set_backend_property		(EDataCal *cal, guint32 opid, GError *error);
 void		e_data_cal_respond_get_object			(EDataCal *cal, guint32 opid, GError *error, const gchar *object);
 void		e_data_cal_respond_get_object_list		(EDataCal *cal, guint32 opid, GError *error, const GSList *objects);
 void		e_data_cal_respond_get_free_busy		(EDataCal *cal, guint32 opid, GError *error);

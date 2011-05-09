@@ -9,12 +9,29 @@
 
 static gint running_async = 0;
 
+static GSList *
+get_known_prop_names (void)
+{
+	GSList *prop_names = NULL;
+
+	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_LOADED);
+	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_ONLINE);
+	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_READONLY);
+	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_CACHE_DIR);
+	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_CAPABILITIES);
+	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS);
+	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS);
+	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_DEFAULT_OBJECT);
+
+	return prop_names;
+}
+
 typedef struct _ExtraValues {
 	gpointer async_data;
 
+	GSList *todo_prop_names;
+	GHashTable *retrieved_props;
 	const gchar *cache_dir;
-	gchar *cal_address;
-	gchar *alarm_email_address;
 	icalcomponent *default_object;
 } ExtraValues;
 
@@ -26,28 +43,77 @@ extra_values_free (ExtraValues *evals)
 
 	if (evals->default_object)
 		icalcomponent_free (evals->default_object);
-	g_free (evals->cal_address);
-	g_free (evals->alarm_email_address);
+	g_slist_free (evals->todo_prop_names);
+	g_hash_table_destroy (evals->retrieved_props);
 	g_free (evals);
 }
 
 static void
-print_values (const GSList *values, const ExtraValues *evals, EClient *client)
+print_with_prefix (const gchar *str, const gchar *prefix)
 {
+	const gchar *p = str, *n;
+	while (n = strchr (p, '\n'), p) {
+		if (!n) {
+			g_print ("%s%s\n", prefix, p);
+			break;
+		} else {
+			g_print ("%s%.*s\n", prefix, (gint) (n - p), p);
+			n++;
+		}
+
+		p = n;
+	}
+}
+
+static void
+print_each_property (gpointer prop_name, gpointer prop_value, gpointer user_data)
+{
+	g_return_if_fail (prop_name != NULL);
+
+	if (prop_value == NULL) {
+		g_print ("\t   %s: NULL\n", (const gchar *) prop_name);
+		return;
+	}
+
+	g_print ("\t   %s: ", (const gchar *) prop_name);
+
+	if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAPABILITIES)) {
+		GSList *values = e_client_util_parse_comma_strings (prop_value), *v;
+
+		
+		for (v = values; v; v = v->next) {
+			if (v != values)
+				g_print (", ");
+
+			g_print ("'%s'", (const gchar *) v->data);
+		}
+
+		e_client_util_free_string_slist (values);
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_DEFAULT_OBJECT)) {
+		g_print ("\n");
+		print_with_prefix (prop_value, "\t\t");
+	} else {
+		g_print ("'%s'", (const gchar *) prop_value);
+	}
+
+	g_print ("\n");
+}
+
+static void
+print_values (const ExtraValues *evals, EClient *client)
+{
+	const GSList *values;
+
 	g_return_if_fail (evals != NULL);
 
-	g_print ("\treadonly:%s online:%s\n", e_client_is_readonly (client) ? "yes" : "no", e_client_is_online (client) ? "yes" : "no");
-	g_print ("\tcal address: %s%s%s\n", evals->cal_address ? "'" : "", evals->cal_address ? evals->cal_address : "none", evals->cal_address ? "'" : "");
-	g_print ("\talarm email address: %s%s%s\n", evals->alarm_email_address ? "'" : "", evals->alarm_email_address ? evals->alarm_email_address : "none", evals->alarm_email_address ? "'" : "");
+	g_print ("\treadonly:%s\n", e_client_is_readonly (client) ? "yes" : "no");
+	g_print ("\tonline:%s\n", e_client_is_online (client) ? "yes" : "no");
 	g_print ("\tcache dir: %s%s%s\n", evals->cache_dir ? "'" : "", evals->cache_dir ? evals->cache_dir : "none", evals->cache_dir ? "'" : "");
 	g_print ("\tcapabilities: ");
+	values = e_client_get_capabilities (client);
 	if (!values) {
 		g_print ("NULL");
-		if (e_client_get_capabilities (client))
-			g_print (", but client has %d capabilities", g_slist_length ((GSList *) e_client_get_capabilities (client)));
 	} else {
-		gint client_caps = g_slist_length ((GSList *) e_client_get_capabilities (client)), my_caps = g_slist_length ((GSList *) values);
-
 		while (values) {
 			const gchar *cap = values->data;
 
@@ -60,31 +126,18 @@ print_values (const GSList *values, const ExtraValues *evals, EClient *client)
 			if (values)
 				g_print (", ");
 		}
-
-		if (client_caps != my_caps) {
-			g_print ("\n\t * has different count of capabilities in EClient (%d) and returned (%d)", client_caps, my_caps);
-		}
-
 	}
 	g_print ("\n");
+
 	g_print ("\tdefault object: %s\n", evals->default_object ? "" : "none");
 	if (evals->default_object) {
 		gchar *comp_str = icalcomponent_as_ical_string_r (evals->default_object);
-		const gchar *p = comp_str, *n;
-		while (n = strchr (p, '\n'), p) {
-			if (!n) {
-				g_print ("\t   %s\n", p);
-				break;
-			} else {
-				g_print ("\t   %.*s\n", (gint) (n - p), p);
-				n++;
-			}
-
-			p = n;
-		}
-
+		print_with_prefix (comp_str, "\t   ");
 		g_free (comp_str);
 	}
+
+	g_print ("\tbackend properties:\n");
+	g_hash_table_foreach (evals->retrieved_props, print_each_property, NULL);
 }
 
 static void
@@ -130,7 +183,7 @@ identify_source (ESource *source, ECalClientSourceType source_type)
 }
 
 static void
-identify_cal_client (ECalClient *cal_client)
+identify_client (ECalClient *cal_client)
 {
 	g_return_if_fail (cal_client != NULL);
 	g_return_if_fail (E_IS_CAL_CLIENT (cal_client));
@@ -171,10 +224,10 @@ continue_next_source (gpointer async_data)
 }
 
 static void
-client_got_values_async (GObject *source_object, GAsyncResult *result, gpointer user_data)
+client_got_backend_property_async (GObject *source_object, GAsyncResult *result, gpointer user_data)
 {
 	ExtraValues *evals = user_data;
-	GSList *values = NULL;
+	gchar *prop_value = NULL;
 	GError *error = NULL;
 	ECalClient *cal_client;
 
@@ -184,33 +237,38 @@ client_got_values_async (GObject *source_object, GAsyncResult *result, gpointer 
 
 	cal_client = E_CAL_CLIENT (source_object);
 
-	if (!e_cal_client_get_capabilities_finish (cal_client, result, &values, &error)) {
-		identify_cal_client (cal_client);
-		report_error ("get capabilities finish", &error);
-	} else {
+	if (!e_client_get_backend_property_finish (E_CLIENT (cal_client), result, &prop_value, &error)) {
+		identify_client (cal_client);
+		report_error ("get backend property finish", &error);
+	}
+
+	g_hash_table_insert (evals->retrieved_props, evals->todo_prop_names->data, prop_value);
+	evals->todo_prop_names = g_slist_remove (evals->todo_prop_names, evals->todo_prop_names->data);
+
+	if (!evals->todo_prop_names) {
+		evals->cache_dir = e_cal_client_get_local_attachment_store (cal_client);
+
 		/* to cache them, as it can be fetched with idle as well */
 		e_client_get_capabilities (E_CLIENT (source_object));
 
-		evals->cache_dir = e_cal_client_get_local_attachment_store (cal_client);
+		identify_client (cal_client);
+		print_values (evals, E_CLIENT (source_object));
 
-		identify_cal_client (cal_client);
-		print_values (values, evals, E_CLIENT (source_object));
+		g_object_unref (source_object);
 
-		e_client_util_free_string_slist (values);
+		continue_next_source (evals->async_data);
+		extra_values_free (evals);
+	} else {
+		e_client_get_backend_property (E_CLIENT (cal_client), evals->todo_prop_names->data, NULL, client_got_backend_property_async, evals);
 	}
-
-	g_object_unref (source_object);
-
-	continue_next_source (evals->async_data);
-	extra_values_free (evals);
 }
 
 static void
-client_got_alarm_email_address_async (GObject *source_object, GAsyncResult *result, gpointer evals_data)
+client_set_backend_property_async (GObject *source_object, GAsyncResult *result, gpointer user_data)
 {
-	ExtraValues *evals = evals_data;
-	ECalClient *cal_client;
+	ExtraValues *evals = user_data;
 	GError *error = NULL;
+	ECalClient *cal_client;
 
 	g_return_if_fail (source_object != NULL);
 	g_return_if_fail (E_IS_CAL_CLIENT (source_object));
@@ -218,41 +276,15 @@ client_got_alarm_email_address_async (GObject *source_object, GAsyncResult *resu
 
 	cal_client = E_CAL_CLIENT (source_object);
 
-	if (!e_cal_client_get_alarm_email_address_finish (cal_client, result, &evals->alarm_email_address, &error)) {
-		identify_cal_client (cal_client);
-		report_error ("get alarm email address finish", &error);
-		g_object_unref (source_object);
-		continue_next_source (evals->async_data);
-		extra_values_free (evals);
-		return;
+	if (!e_client_set_backend_property_finish (E_CLIENT (cal_client), result, &error)) {
+		/* it may fail on the set_backend_property */
+		g_clear_error (&error);
+	} else {
+		identify_client (cal_client);
+		g_printerr ("   Might fail on set_backend_property, but reported success\n");
 	}
 
-	e_cal_client_get_capabilities (cal_client, NULL, client_got_values_async, evals);
-}
-
-static void
-client_got_cal_address_async (GObject *source_object, GAsyncResult *result, gpointer evals_data)
-{
-	ExtraValues *evals = evals_data;
-	ECalClient *cal_client;
-	GError *error = NULL;
-
-	g_return_if_fail (source_object != NULL);
-	g_return_if_fail (E_IS_CAL_CLIENT (source_object));
-	g_return_if_fail (evals != NULL);
-
-	cal_client = E_CAL_CLIENT (source_object);
-
-	if (!e_cal_client_get_cal_email_address_finish (cal_client, result, &evals->cal_address, &error)) {
-		identify_cal_client (cal_client);
-		report_error ("get cal address finish", &error);
-		g_object_unref (source_object);
-		continue_next_source (evals->async_data);
-		extra_values_free (evals);
-		return;
-	}
-
-	e_cal_client_get_alarm_email_address (cal_client, NULL, client_got_alarm_email_address_async, evals);
+	e_client_get_backend_property (E_CLIENT (cal_client), evals->todo_prop_names->data, NULL, client_got_backend_property_async, evals);
 }
 
 static void
@@ -269,11 +301,11 @@ client_got_default_object_async (GObject *source_object, GAsyncResult *result, g
 	cal_client = E_CAL_CLIENT (source_object);
 
 	if (!e_cal_client_get_default_object_finish (cal_client, result, &evals->default_object, &error)) {
-		identify_cal_client (cal_client);
+		identify_client (cal_client);
 		report_error ("get default object finish", &error);
 	}
 
-	e_cal_client_get_cal_email_address (cal_client, NULL, client_got_cal_address_async, evals);
+	e_client_set_backend_property (E_CLIENT (cal_client), "*unknown*property*", "*value*", NULL, client_set_backend_property_async, evals);
 }
 
 static void
@@ -290,7 +322,7 @@ client_opened_async (GObject *source_object, GAsyncResult *result, gpointer asyn
 	cal_client = E_CAL_CLIENT (source_object);
 
 	if (!e_client_open_finish (E_CLIENT (source_object), result, &error)) {
-		identify_cal_client (cal_client);
+		identify_client (cal_client);
 		report_error ("client open finish", &error);
 		g_object_unref (source_object);
 		continue_next_source (async_data);
@@ -299,6 +331,8 @@ client_opened_async (GObject *source_object, GAsyncResult *result, gpointer asyn
 
 	evals = g_new0 (ExtraValues, 1);
 	evals->async_data = async_data;
+	evals->todo_prop_names = get_known_prop_names ();
+	evals->retrieved_props = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, g_free);
 	
 	e_cal_client_get_default_object (cal_client, NULL, client_got_default_object_async, evals);
 }
@@ -308,7 +342,7 @@ check_source_sync (ESource *source, ECalClientSourceType source_type)
 {
 	ECalClient *cal_client;
 	GError *error = NULL;
-	GSList *values = NULL;
+	GSList *properties, *p;
 	ExtraValues evals = { 0 };
 
 	g_return_if_fail (source != NULL);
@@ -327,32 +361,38 @@ check_source_sync (ESource *source, ECalClientSourceType source_type)
 		return;
 	}
 
-	if (!e_cal_client_get_capabilities_sync (cal_client, &values, NULL, &error)) {
-		report_error ("get capabilities sync", &error);
-		g_object_unref (cal_client);
-		return;
-	}
-
-	if (!e_cal_client_get_cal_email_address_sync (cal_client, &evals.cal_address, NULL, &error)) {
-		report_error ("get cal address sync", &error);
-	}
-
-	if (!e_cal_client_get_alarm_email_address_sync (cal_client, &evals.alarm_email_address, NULL, &error)) {
-		report_error ("get alarm email address sync", &error);
-	}
-
 	if (!e_cal_client_get_default_object_sync (cal_client, &evals.default_object, NULL, &error)) {
 		report_error ("get default object sync", &error);
 	}
 
+	if (!e_client_set_backend_property_sync (E_CLIENT (cal_client), "*unknown*property*", "*value*", NULL, &error)) {
+		g_clear_error (&error);
+	} else {
+		identify_client (cal_client);
+		g_printerr ("   Might fail on set_backend_property, but reported success\n");
+	}
+
+	evals.retrieved_props = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, g_free);
+
+	properties = get_known_prop_names ();
+	for (p = properties; p != NULL; p = p->next) {
+		gchar *prop_value = NULL;
+
+		if (!e_client_get_backend_property_sync (E_CLIENT (cal_client), p->data, &prop_value, NULL, &error)) {
+			identify_client (cal_client);
+			report_error ("get backend property sync", &error);
+		} else {
+			g_hash_table_insert (evals.retrieved_props, p->data, prop_value);
+		}
+	}
+	g_slist_free (properties);
+
 	evals.cache_dir = e_cal_client_get_local_attachment_store (cal_client);
 
-	print_values (values, &evals, E_CLIENT (cal_client));
+	print_values (&evals, E_CLIENT (cal_client));
 
-	g_free (evals.cal_address);
-	g_free (evals.alarm_email_address);
+	g_hash_table_destroy (evals.retrieved_props);
 	icalcomponent_free (evals.default_object);
-	e_client_util_free_string_slist (values);
 	g_object_unref (cal_client);
 }
 

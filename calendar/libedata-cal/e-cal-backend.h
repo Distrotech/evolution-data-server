@@ -43,6 +43,15 @@ G_BEGIN_DECLS
 #define E_IS_CAL_BACKEND_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), E_TYPE_CAL_BACKEND))
 #define E_CAL_BACKEND_GET_CLASS(obj)  (E_CAL_BACKEND_CLASS (G_OBJECT_GET_CLASS (obj)))
 
+#define CAL_BACKEND_PROPERTY_LOADED			"loaded"
+#define CAL_BACKEND_PROPERTY_ONLINE			"online"
+#define CAL_BACKEND_PROPERTY_READONLY			"readonly"
+#define CAL_BACKEND_PROPERTY_CACHE_DIR			"cache-dir"
+#define CAL_BACKEND_PROPERTY_CAPABILITIES		"capabilities"
+#define CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS		"cal-email-address"
+#define CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS	"alarm-email-address"
+#define CAL_BACKEND_PROPERTY_DEFAULT_OBJECT		"default-object"
+
 struct _ECalBackendCache;
 
 typedef struct _ECalBackendPrivate ECalBackendPrivate;
@@ -57,16 +66,15 @@ struct _ECalBackendClass {
 	GObjectClass parent_class;
 
 	/* Virtual methods */
+        void	(* get_backend_property)	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name);
+        void	(* set_backend_property)	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value);
+
 	void	(* open)			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, gboolean only_if_exists);
 	void	(* authenticate_user)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, ECredentials *credentials);
 	void	(* remove)			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
 	void	(* set_online)			(ECalBackend *backend, gboolean is_online);
 
 	void	(* refresh)			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
-        void	(* get_capabilities)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
-	void	(* get_cal_email_address)	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
-	void	(* get_alarm_email_address)	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
-	void	(* get_default_object)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
 	void	(* get_object)			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid);
 	void	(* get_object_list)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *sexp);
 	void	(* get_free_busy)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const GSList *users, time_t start, time_t end);
@@ -110,15 +118,14 @@ void		e_cal_backend_foreach_view		(ECalBackend *backend, gboolean (* callback) (
 
 void		e_cal_backend_set_notification_proxy	(ECalBackend *backend, ECalBackend *proxy);
 
+void		e_cal_backend_get_backend_property	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name);
+void		e_cal_backend_set_backend_property	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value);
+
 void		e_cal_backend_set_online		(ECalBackend *backend, gboolean is_online);
 void		e_cal_backend_open			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, gboolean only_if_exists);
 void		e_cal_backend_authenticate_user		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, ECredentials *credentials);
 void		e_cal_backend_remove			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
 void		e_cal_backend_refresh			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
-void		e_cal_backend_get_capabilities		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
-void		e_cal_backend_get_cal_email_address	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
-void		e_cal_backend_get_alarm_email_address	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
-void		e_cal_backend_get_default_object	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
 void		e_cal_backend_get_object		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid);
 void		e_cal_backend_get_object_list		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *sexp);
 void		e_cal_backend_get_free_busy		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const GSList *users, time_t start, time_t end);

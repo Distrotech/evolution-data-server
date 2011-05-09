@@ -52,6 +52,11 @@
 #include "e-gdbus-book-factory.h"
 #include "e-gdbus-book-view.h"
 
+#define BOOK_BACKEND_PROPERTY_CAPABILITIES		"capabilities"
+#define BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS		"required-fields"
+#define BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS		"supported-fields"
+#define BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS	"supported-auth-methods"
+
 static gchar ** flatten_stringlist (GList *list);
 static GList *array_to_stringlist (gchar **list);
 static EList *array_to_elist (gchar **list);
@@ -714,7 +719,8 @@ e_book_commit_contact_async (EBook *book,
  *
  * Returns: %TRUE if successful, %FALSE otherwise.
  *
- * Deprecated: 3.2: Use e_book_client_get_required_fields_sync() instead.
+ * Deprecated: 3.2: Use e_client_get_backend_property_sync() on
+ * an #EBookClient object with #BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS instead.
  **/
 gboolean
 e_book_get_required_fields (EBook *book,
@@ -722,14 +728,17 @@ e_book_get_required_fields (EBook *book,
                             GError **error)
 {
 	GError *err = NULL;
-	gchar **list = NULL;
+	gchar **list = NULL, *list_str = NULL;
 
 	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
 
 	e_return_error_if_fail (
 		book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
 
-	e_gdbus_book_call_get_required_fields_sync (book->priv->gdbus_book, &list, NULL, &err);
+	e_gdbus_book_call_get_backend_property_sync (book->priv->gdbus_book, BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS, &list_str, NULL, &err);
+
+	list = g_strsplit (list_str, ",", -1);
+	g_free (list_str);
 
 	if (list) {
 		*fields = array_to_stringlist (list);
@@ -743,7 +752,7 @@ e_book_get_required_fields (EBook *book,
 static void
 get_required_fields_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 {
-	gchar **fields = NULL;
+	gchar **fields = NULL, *fields_str = NULL;
 	GError *err = NULL, *error = NULL;
 	AsyncData *data = user_data;
 	EBookEListAsyncCallback excb = data->excallback;
@@ -752,7 +761,10 @@ get_required_fields_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user
 	#endif
 	EList *efields = NULL;
 
-	e_gdbus_book_call_get_required_fields_finish (G_DBUS_PROXY (gdbus_book), res, &fields, &error);
+	e_gdbus_book_call_get_backend_property_finish (G_DBUS_PROXY (gdbus_book), res, &fields_str, &error);
+
+	fields = g_strsplit (fields_str, ",", -1);
+	g_free (fields_str);
 
 	efields = array_to_elist (fields);
 
@@ -805,7 +817,7 @@ e_book_async_get_required_fields (EBook *book,
 	data->callback = cb;
 	data->closure = closure;
 
-	e_gdbus_book_call_get_required_fields (book->priv->gdbus_book, NULL, get_required_fields_reply, data);
+	e_gdbus_book_call_get_backend_property (book->priv->gdbus_book, BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS, NULL, get_required_fields_reply, data);
 
 	return TRUE;
 }
@@ -824,7 +836,8 @@ e_book_async_get_required_fields (EBook *book,
  *
  * Since: 2.32
  *
- * Deprecated: 3.2: Use e_book_client_get_required_fields() and e_book_client_get_required_fields_finish() instead.
+ * Deprecated: 3.2: Use e_client_get_backend_property() and e_client_get_backend_property_finish()
+ * on an #EBookClient object with #BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS instead.
  **/
 gboolean
 e_book_get_required_fields_async (EBook *book,
@@ -843,7 +856,7 @@ e_book_get_required_fields_async (EBook *book,
 	data->excallback = cb;
 	data->closure = closure;
 
-	e_gdbus_book_call_get_required_fields (book->priv->gdbus_book, NULL, get_required_fields_reply, data);
+	e_gdbus_book_call_get_backend_property (book->priv->gdbus_book, BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS, NULL, get_required_fields_reply, data);
 
 	return TRUE;
 }
@@ -861,7 +874,8 @@ e_book_get_required_fields_async (EBook *book,
  *
  * Returns: %TRUE if successful, %FALSE otherwise
  *
- * Deprecated: 3.2: Use e_book_client_get_supported_fields_sync() instead.
+ * Deprecated: 3.2: Use e_client_get_backend_property_sync() on
+ * an #EBookClient object with #BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS instead.
  **/
 gboolean
 e_book_get_supported_fields  (EBook *book,
@@ -869,15 +883,17 @@ e_book_get_supported_fields  (EBook *book,
                               GError **error)
 {
 	GError *err = NULL;
-	gchar **list = NULL;
+	gchar **list = NULL, *list_str = NULL;
 
 	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
 
 	e_return_error_if_fail (
 		book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
 
-	e_gdbus_book_call_get_supported_fields_sync (book->priv->gdbus_book, &list, NULL, &err);
+	e_gdbus_book_call_get_backend_property_sync (book->priv->gdbus_book, BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS, &list_str, NULL, &err);
 
+	list = g_strsplit (list_str, ",", -1);
+	g_free (list_str);
 	if (list) {
 		*fields = array_to_stringlist (list);
 		g_strfreev (list);
@@ -890,7 +906,7 @@ e_book_get_supported_fields  (EBook *book,
 static void
 get_supported_fields_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 {
-	gchar **fields = NULL;
+	gchar **fields = NULL, *fields_str = NULL;
 	GError *err = NULL, *error = NULL;
 	AsyncData *data = user_data;
 	EBookEListAsyncCallback excb = data->excallback;
@@ -899,7 +915,10 @@ get_supported_fields_reply (GObject *gdbus_book, GAsyncResult *res, gpointer use
 	#endif
 	EList *efields;
 
-	e_gdbus_book_call_get_supported_fields_finish (G_DBUS_PROXY (gdbus_book), res, &fields, &error);
+	e_gdbus_book_call_get_backend_property_finish (G_DBUS_PROXY (gdbus_book), res, &fields_str, &error);
+
+	fields = g_strsplit (fields_str, ",", -1);
+	g_free (fields_str);
 
 	efields = array_to_elist (fields);
 
@@ -953,7 +972,7 @@ e_book_async_get_supported_fields (EBook *book,
 	data->callback = cb;
 	data->closure = closure;
 
-	e_gdbus_book_call_get_supported_fields (book->priv->gdbus_book, NULL, get_supported_fields_reply, data);
+	e_gdbus_book_call_get_backend_property (book->priv->gdbus_book, BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS, NULL, get_supported_fields_reply, data);
 
 	return TRUE;
 }
@@ -973,7 +992,8 @@ e_book_async_get_supported_fields (EBook *book,
  *
  * Since: 2.32
  *
- * Deprecated: 3.2: Use e_book_client_get_supported_fields() and e_book_client_get_supported_fields_finish() instead.
+ * Deprecated: 3.2: Use e_client_get_backend_property() and e_client_get_backend_property_finish()
+ * on an #EBookClient object with #BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS instead.
  **/
 gboolean
 e_book_get_supported_fields_async (EBook *book,
@@ -992,7 +1012,7 @@ e_book_get_supported_fields_async (EBook *book,
 	data->excallback = cb;
 	data->closure = closure;
 
-	e_gdbus_book_call_get_supported_fields (book->priv->gdbus_book, NULL, get_supported_fields_reply, data);
+	e_gdbus_book_call_get_backend_property (book->priv->gdbus_book, BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS, NULL, get_supported_fields_reply, data);
 
 	return TRUE;
 }
@@ -1009,7 +1029,8 @@ e_book_get_supported_fields_async (EBook *book,
  *
  * Returns: %TRUE if successful, %FALSE otherwise
  *
- * Deprecated: 3.2: Use e_book_client_get_supported_auth_methods_sync() instead.
+ * Deprecated: 3.2: Use e_client_get_backend_property_sync() on
+ * an #EBookClient object with #BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS instead.
  **/
 gboolean
 e_book_get_supported_auth_methods (EBook *book,
@@ -1017,6 +1038,7 @@ e_book_get_supported_auth_methods (EBook *book,
                                    GError **error)
 {
 	GError *err = NULL;
+	gchar *list_str = NULL;
 	gchar **list = NULL;
 
 	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
@@ -1024,7 +1046,10 @@ e_book_get_supported_auth_methods (EBook *book,
 	e_return_error_if_fail (
 		book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
 
-	e_gdbus_book_call_get_supported_auth_methods_sync (book->priv->gdbus_book, &list, NULL, &err);
+	e_gdbus_book_call_get_backend_property_sync (book->priv->gdbus_book, BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS, &list_str, NULL, &err);
+
+	list = g_strsplit (list_str, ",", -1);
+	g_free (list_str);
 
 	if (list) {
 		*auth_methods = array_to_stringlist (list);
@@ -1038,7 +1063,7 @@ e_book_get_supported_auth_methods (EBook *book,
 static void
 get_supported_auth_methods_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 {
-	gchar **methods = NULL;
+	gchar **methods = NULL, *methods_str = NULL;
 	GError *err = NULL, *error = NULL;
 	AsyncData *data = user_data;
 	EBookEListAsyncCallback excb = data->excallback;
@@ -1047,7 +1072,10 @@ get_supported_auth_methods_reply (GObject *gdbus_book, GAsyncResult *res, gpoint
 	#endif
 	EList *emethods;
 
-	e_gdbus_book_call_get_supported_auth_methods_finish (G_DBUS_PROXY (gdbus_book), res, &methods, &error);
+	e_gdbus_book_call_get_backend_property_finish (G_DBUS_PROXY (gdbus_book), res, &methods_str, &error);
+
+	methods = g_strsplit (methods_str, ",", -1);
+	g_free (methods_str);
 
 	emethods = array_to_elist (methods);
 
@@ -1100,7 +1128,7 @@ e_book_async_get_supported_auth_methods (EBook *book,
 	data->callback = cb;
 	data->closure = closure;
 
-	e_gdbus_book_call_get_supported_auth_methods (book->priv->gdbus_book, NULL, get_supported_auth_methods_reply, data);
+	e_gdbus_book_call_get_backend_property (book->priv->gdbus_book, BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS, NULL, get_supported_auth_methods_reply, data);
 
 	return TRUE;
 }
@@ -1119,7 +1147,8 @@ e_book_async_get_supported_auth_methods (EBook *book,
  *
  * Since: 2.32
  *
- * Deprecated: 3.2: Use e_book_client_get_supported_auth_methods() and e_book_client_get_supported_auth_methods_finish() instead.
+ * Deprecated: 3.2: Use e_client_get_backend_property() and e_client_get_backend_property_finish()
+ * on an #EBookClient object with #BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS instead.
  **/
 gboolean
 e_book_get_supported_auth_methods_async (EBook *book,
@@ -1138,7 +1167,7 @@ e_book_get_supported_auth_methods_async (EBook *book,
 	data->excallback = cb;
 	data->closure = closure;
 
-	e_gdbus_book_call_get_supported_auth_methods (book->priv->gdbus_book, NULL, get_supported_auth_methods_reply, data);
+	e_gdbus_book_call_get_backend_property (book->priv->gdbus_book, BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS, NULL, get_supported_auth_methods_reply, data);
 
 	return TRUE;
 }
@@ -2873,7 +2902,7 @@ e_book_get_source (EBook *book)
  *
  * Returns: The capabilities list
  *
- * Deprecated: 3.2: Use e_client_get_capabilities() or e_book_client_get_capabilities_sync() on an #EBookClient object instead.
+ * Deprecated: 3.2: Use e_client_get_capabilities() on an #EBookClient object.
  */
 const gchar *
 e_book_get_static_capabilities (EBook *book,
@@ -2887,7 +2916,7 @@ e_book_get_static_capabilities (EBook *book,
 	if (!book->priv->cap_queried) {
 		gchar *cap = NULL;
 
-		if (!e_gdbus_book_call_get_capabilities_sync (book->priv->gdbus_book, &cap, NULL, error)) {
+		if (!e_gdbus_book_call_get_backend_property_sync (book->priv->gdbus_book, BOOK_BACKEND_PROPERTY_CAPABILITIES, &cap, NULL, error)) {
 			return NULL;
 		}
 

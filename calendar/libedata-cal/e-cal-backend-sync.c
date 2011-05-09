@@ -21,14 +21,24 @@ struct _ECalBackendSyncPrivate {
 	gboolean mutex_lock;
 };
 
-#define LOCK_WRAPPER(func, args) G_STMT_START {				\
-	gboolean locked = backend->priv->mutex_lock;			\
-	g_return_if_fail (E_CAL_BACKEND_SYNC_GET_CLASS (backend)->func);\
-	if (locked)							\
-		g_mutex_lock (backend->priv->sync_mutex);		\
-	(* E_CAL_BACKEND_SYNC_GET_CLASS (backend)->func) args;		\
-	if (locked)							\
-		g_mutex_unlock (backend->priv->sync_mutex);		\
+#define LOCK_WRAPPER(func, args) G_STMT_START {									\
+	gboolean locked = backend->priv->mutex_lock;								\
+	e_return_data_cal_error_if_fail (E_CAL_BACKEND_SYNC_GET_CLASS (backend)->func, NotSupported);		\
+	if (locked)												\
+		g_mutex_lock (backend->priv->sync_mutex);							\
+	(* E_CAL_BACKEND_SYNC_GET_CLASS (backend)->func) args;							\
+	if (locked)												\
+		g_mutex_unlock (backend->priv->sync_mutex);							\
+	} G_STMT_END
+
+#define LOCK_WRAPPER_RET_VAL(func, args) G_STMT_START {								\
+	gboolean locked = backend->priv->mutex_lock;								\
+	e_return_data_cal_error_val_if_fail (E_CAL_BACKEND_SYNC_GET_CLASS (backend)->func, NotSupported);	\
+	if (locked)												\
+		g_mutex_lock (backend->priv->sync_mutex);							\
+	res = (* E_CAL_BACKEND_SYNC_GET_CLASS (backend)->func) args;						\
+	if (locked)												\
+		g_mutex_unlock (backend->priv->sync_mutex);							\
 	} G_STMT_END
 
 /**
@@ -126,79 +136,65 @@ e_cal_backend_sync_refresh  (ECalBackendSync *backend, EDataCal *cal, GCancellab
 }
 
 /**
- * e_cal_backend_sync_get_capabilities:
+ * e_cal_backend_sync_get_backend_property:
  * @backend: An ECalBackendSync object.
  * @cal: An EDataCal object.
  * @cancellable: a #GCancellable for the operation
- * @capabilities: Return value for comma-separated list of capabilities.
+ * @prop_name: Property name whose value to retrieve.
+ * @prop_value: Return value of the @prop_name.
  * @error: Out parameter for a #GError.
  *
- * Calls the get_capabilities_sync method on the given backend.
- */
-void
-e_cal_backend_sync_get_capabilities (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **capabilities, GError **error)
+ * Calls the get_backend_property_sync method on the given backend.
+ *
+ * Returns whether processed this property. Returning FALSE means to pass
+ * the call to the ECalBackend parent class, thus neither @error should be
+ * set in this case.
+ *
+ * Since: 3.2
+ **/
+gboolean
+e_cal_backend_sync_get_backend_property (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **error)
 {
-	e_return_data_cal_error_if_fail (backend && E_IS_CAL_BACKEND_SYNC (backend), InvalidArg);
-	e_return_data_cal_error_if_fail (capabilities, InvalidArg);
+	gboolean res = FALSE;
 
-	LOCK_WRAPPER (get_capabilities_sync, (backend, cal, cancellable, capabilities, error));
+	e_return_data_cal_error_val_if_fail (backend && E_IS_CAL_BACKEND_SYNC (backend), InvalidArg);
+	e_return_data_cal_error_val_if_fail (prop_name, InvalidArg);
+	e_return_data_cal_error_val_if_fail (prop_value, InvalidArg);
+
+	LOCK_WRAPPER_RET_VAL (get_backend_property_sync, (backend, cal, cancellable, prop_name, prop_value, error));
+
+	return res;
 }
 
 /**
- * e_cal_backend_sync_get_cal_email_address:
+ * e_cal_backend_sync_set_backend_property:
  * @backend: An ECalBackendSync object.
  * @cal: An EDataCal object.
  * @cancellable: a #GCancellable for the operation
- * @address: Return value for the address.
+ * @prop_name: Property name to set.
+ * @prop_value: New value of the @prop_name.
  * @error: Out parameter for a #GError.
  *
- * Calls the get_cal_email_address_sync method on the given backend.
- */
-void
-e_cal_backend_sync_get_cal_email_address  (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **error)
-{
-	e_return_data_cal_error_if_fail (backend && E_IS_CAL_BACKEND_SYNC (backend), InvalidArg);
-	e_return_data_cal_error_if_fail (address, InvalidArg);
-
-	LOCK_WRAPPER (get_cal_email_address_sync, (backend, cal, cancellable, address, error));
-}
-
-/**
- * e_cal_backend_sync_get_alarm_email_address:
- * @backend: An ECalBackendSync object.
- * @cal: An EDataCal object.
- * @cancellable: a #GCancellable for the operation
- * @address: Return value for the address.
- * @error: Out parameter for a #GError.
+ * Calls the set_backend_property_sync method on the given backend.
  *
- * Calls the get_alarm_email_address_sync method on the given backend.
- */
-void
-e_cal_backend_sync_get_alarm_email_address  (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **error)
-{
-	e_return_data_cal_error_if_fail (backend && E_IS_CAL_BACKEND_SYNC (backend), InvalidArg);
-	e_return_data_cal_error_if_fail (address, InvalidArg);
-
-	LOCK_WRAPPER (get_alarm_email_address_sync, (backend, cal, cancellable, address, error));
-}
-
-/**
- * e_cal_backend_sync_get_default_object:
- * @backend: An ECalBackendSync object.
- * @cal: An EDataCal object.
- * @cancellable: a #GCancellable for the operation
- * @calobj: Placeholder for returned object.
- * @error: Out parameter for a #GError.
+ * Returns whether processed this property. Returning FALSE means to pass
+ * the call to the ECalBackend parent class, thus neither @error should be
+ * set in this case.
  *
- * Calls the get_default_object_sync method on the given backend.
- */
-void
-e_cal_backend_sync_get_default_object (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **calobj, GError **error)
+ * Since: 3.2
+ **/
+gboolean
+e_cal_backend_sync_set_backend_property (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value, GError **error)
 {
-	e_return_data_cal_error_if_fail (backend && E_IS_CAL_BACKEND_SYNC (backend), InvalidArg);
-	e_return_data_cal_error_if_fail (calobj, InvalidArg);
+	gboolean res = FALSE;
 
-	LOCK_WRAPPER (get_default_object_sync, (backend, cal, cancellable, calobj, error));
+	e_return_data_cal_error_val_if_fail (backend && E_IS_CAL_BACKEND_SYNC (backend), InvalidArg);
+	e_return_data_cal_error_val_if_fail (prop_name, InvalidArg);
+	e_return_data_cal_error_val_if_fail (prop_value, InvalidArg);
+
+	LOCK_WRAPPER_RET_VAL (set_backend_property_sync, (backend, cal, cancellable, prop_name, prop_value, error));
+
+	return res;
 }
 
 /**
@@ -510,55 +506,28 @@ cal_backend_refresh (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancell
 }
 
 static void
-cal_backend_get_capabilities (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
+cal_backend_get_backend_property (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name)
 {
 	GError *error = NULL;
-	gchar *capabilities = NULL;
+	gchar *prop_value = NULL;
 
-	e_cal_backend_sync_get_capabilities (E_CAL_BACKEND_SYNC (backend), cal, cancellable, &capabilities, &error);
+	if (e_cal_backend_sync_get_backend_property (E_CAL_BACKEND_SYNC (backend), cal, cancellable, prop_name, &prop_value, &error))
+		e_data_cal_respond_get_backend_property (cal, opid, error, prop_value);
+	else
+		(* E_CAL_BACKEND_CLASS (e_cal_backend_sync_parent_class)->get_backend_property) (backend, cal, opid, cancellable, prop_name);
 
-	e_data_cal_respond_get_capabilities (cal, opid, error, capabilities);
-
-	g_free (capabilities);
+	g_free (prop_value);
 }
 
 static void
-cal_backend_get_cal_email_address (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
+cal_backend_set_backend_property (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value)
 {
 	GError *error = NULL;
-	gchar *address = NULL;
 
-	e_cal_backend_sync_get_cal_email_address (E_CAL_BACKEND_SYNC (backend), cal, cancellable, &address, &error);
-
-	e_data_cal_respond_get_cal_email_address (cal, opid, error, address);
-
-	g_free (address);
-}
-
-static void
-cal_backend_get_alarm_email_address (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
-{
-	GError *error = NULL;
-	gchar *address = NULL;
-
-	e_cal_backend_sync_get_alarm_email_address (E_CAL_BACKEND_SYNC (backend), cal, cancellable, &address, &error);
-
-	e_data_cal_respond_get_alarm_email_address (cal, opid, error, address);
-
-	g_free (address);
-}
-
-static void
-cal_backend_get_default_object (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
-{
-	GError *error = NULL;
-	gchar *calobj = NULL;
-
-	e_cal_backend_sync_get_default_object (E_CAL_BACKEND_SYNC (backend), cal, cancellable, &calobj, &error);
-
-	e_data_cal_respond_get_default_object (cal, opid, error, calobj);
-
-	g_free (calobj);
+	if (e_cal_backend_sync_set_backend_property (E_CAL_BACKEND_SYNC (backend), cal, cancellable, prop_name, prop_value, &error))
+		e_data_cal_respond_set_backend_property (cal, opid, error);
+	else
+		(* E_CAL_BACKEND_CLASS (e_cal_backend_sync_parent_class)->set_backend_property) (backend, cal, opid, cancellable, prop_name, prop_value);
 }
 
 static void
@@ -799,6 +768,20 @@ cal_backend_internal_get_timezone (ECalBackend *backend, const gchar *tzid)
 	return zone;
 }
 
+static gboolean
+cal_backend_sync_get_backend_property (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **error)
+{
+	/* to indicate to pass to the ECalBackend parent class */
+	return FALSE;
+}
+
+static gboolean
+cal_backend_sync_set_backend_property (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value, GError **error)
+{
+	/* to indicate to pass to the ECalBackend parent class */
+	return FALSE;
+}
+
 static void
 e_cal_backend_sync_init (ECalBackendSync *backend)
 {
@@ -841,10 +824,8 @@ e_cal_backend_sync_class_init (ECalBackendSyncClass *klass)
 	backend_class->authenticate_user	= cal_backend_authenticate_user;
 	backend_class->remove			= cal_backend_remove;
 	backend_class->refresh			= cal_backend_refresh;
-	backend_class->get_capabilities		= cal_backend_get_capabilities;
-	backend_class->get_cal_email_address	= cal_backend_get_cal_email_address;
-	backend_class->get_alarm_email_address	= cal_backend_get_alarm_email_address;
-	backend_class->get_default_object	= cal_backend_get_default_object;
+	backend_class->get_backend_property	= cal_backend_get_backend_property;
+	backend_class->set_backend_property	= cal_backend_set_backend_property;
 	backend_class->get_object		= cal_backend_get_object;
 	backend_class->get_object_list		= cal_backend_get_object_list;
 	backend_class->get_free_busy		= cal_backend_get_free_busy;
@@ -857,4 +838,7 @@ e_cal_backend_sync_class_init (ECalBackendSyncClass *klass)
 	backend_class->get_timezone		= cal_backend_get_timezone;
 	backend_class->add_timezone		= cal_backend_add_timezone;
 	backend_class->internal_get_timezone	= cal_backend_internal_get_timezone;
+
+	klass->get_backend_property_sync	= cal_backend_sync_get_backend_property;
+	klass->set_backend_property_sync	= cal_backend_sync_set_backend_property;
 }

@@ -41,6 +41,15 @@ G_BEGIN_DECLS
 #define E_IS_BOOK_BACKEND_CLASS(k)  (G_TYPE_CHECK_CLASS_TYPE ((k), E_TYPE_BOOK_BACKEND))
 #define E_BOOK_BACKEND_GET_CLASS(k) (G_TYPE_INSTANCE_GET_CLASS ((k), E_TYPE_BOOK_BACKEND, EBookBackendClass))
 
+#define BOOK_BACKEND_PROPERTY_LOADED			"loaded"
+#define BOOK_BACKEND_PROPERTY_ONLINE			"online"
+#define BOOK_BACKEND_PROPERTY_READONLY			"readonly"
+#define BOOK_BACKEND_PROPERTY_CACHE_DIR			"cache-dir"
+#define BOOK_BACKEND_PROPERTY_CAPABILITIES		"capabilities"
+#define BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS		"required-fields"
+#define BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS		"supported-fields"
+#define BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS	"supported-auth-methods"
+
 typedef struct _EBookBackendPrivate EBookBackendPrivate;
 
 struct _EBookBackend {
@@ -52,10 +61,12 @@ struct _EBookBackendClass {
 	GObjectClass parent_class;
 
 	/* Virtual methods */
+        void	(* get_backend_property)	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name);
+        void	(* set_backend_property)	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value);
+
 	void	(* open)			(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, gboolean only_if_exists);
 	void	(* authenticate_user)		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, ECredentials *credentials);
 	void	(* remove)			(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
-        void	(* get_capabilities)		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
 	void	(* set_online)			(EBookBackend *backend, gboolean is_online);
 
 	void	(* create_contact)		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *vcard);
@@ -63,9 +74,6 @@ struct _EBookBackendClass {
 	void	(* modify_contact)		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *vcard);
 	void	(* get_contact)			(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *id);
 	void	(* get_contact_list)		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *query);
-	void	(* get_required_fields)		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
-	void	(* get_supported_fields)	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
-	void	(* get_supported_auth_methods)	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
 
 	void	(* start_book_view)		(EBookBackend *backend, EDataBookView *book_view);
 	void	(* stop_book_view)		(EBookBackend *backend, EDataBookView *book_view);
@@ -90,18 +98,17 @@ gboolean	e_book_backend_is_readonly	(EBookBackend *backend);
 gboolean	e_book_backend_is_removed	(EBookBackend *backend);
 void		e_book_backend_set_online	(EBookBackend *backend, gboolean is_online);
 
+void		e_book_backend_get_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name);
+void		e_book_backend_set_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value);
+
 void		e_book_backend_open		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, gboolean only_if_exists);
 void		e_book_backend_authenticate_user(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, ECredentials *credentials);
 void		e_book_backend_remove		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
-void		e_book_backend_get_capabilities (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
 void		e_book_backend_create_contact	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *vcard);
 void		e_book_backend_remove_contacts	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const GSList *id_list);
 void		e_book_backend_modify_contact	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *vcard);
 void		e_book_backend_get_contact	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *id);
 void		e_book_backend_get_contact_list	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *query);
-void		e_book_backend_get_supported_fields (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
-void		e_book_backend_get_required_fields  (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
-void		e_book_backend_get_supported_auth_methods (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
 
 void		e_book_backend_start_book_view	(EBookBackend *backend, EDataBookView *view);
 void		e_book_backend_stop_book_view	(EBookBackend *backend, EDataBookView *view);
@@ -128,4 +135,3 @@ void		e_book_backend_set_is_removed	(EBookBackend *backend, gboolean is_removed)
 G_END_DECLS
 
 #endif /* __E_BOOK_BACKEND_H__ */
-

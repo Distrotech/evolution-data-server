@@ -62,10 +62,8 @@ typedef enum {
 	OP_ADD_CONTACT,
 	OP_REMOVE_CONTACTS,
 	OP_MODIFY_CONTACT,
-	OP_GET_CAPABILITIES,
-	OP_GET_REQUIRED_FIELDS,
-	OP_GET_SUPPORTED_FIELDS,
-	OP_GET_SUPPORTED_AUTH_METHODS,
+	OP_GET_BACKEND_PROPERTY,
+	OP_SET_BACKEND_PROPERTY,
 	OP_GET_BOOK_VIEW,
 	OP_CANCEL_OPERATION,
 	OP_CANCEL_ALL,
@@ -95,12 +93,15 @@ typedef struct {
 		gchar *query;
 		/* OP_CANCEL_OPERATION */
 		guint opid;
+		/* OP_GET_BACKEND_PROPERTY */
+		gchar *prop_name;
+		/* OP_SET_BACKEND_PROPERTY */
+		struct _sbp {
+			gchar *prop_name;
+			gchar *prop_value;
+		} sbp;
 
 		/* - OP_REMOVE */
-		/* - OP_GET_CAPABILITIES */
-		/* - OP_GET_REQUIRED_FIELDS */
-		/* - OP_GET_SUPPORTED_FIELDS */
-		/* - OP_GET_SUPPORTED_AUTH_METHODS */
 		/* - OP_CANCEL_ALL */
 		/* - OP_CLOSE */
 	} d;
@@ -164,17 +165,14 @@ operation_thread (gpointer data, gpointer user_data)
 	case OP_REMOVE:
 		e_book_backend_remove (backend, op->book, op->id, op->cancellable);
 		break;
-	case OP_GET_CAPABILITIES:
-		e_book_backend_get_capabilities (backend, op->book, op->id, op->cancellable);
+	case OP_GET_BACKEND_PROPERTY:
+		e_book_backend_get_backend_property (backend, op->book, op->id, op->cancellable, op->d.prop_name);
+		g_free (op->d.prop_name);
 		break;
-	case OP_GET_REQUIRED_FIELDS:
-		e_book_backend_get_required_fields (backend, op->book, op->id, op->cancellable);
-		break;
-	case OP_GET_SUPPORTED_FIELDS:
-		e_book_backend_get_supported_fields (backend, op->book, op->id, op->cancellable);
-		break;
-	case OP_GET_SUPPORTED_AUTH_METHODS:
-		e_book_backend_get_supported_auth_methods (backend, op->book, op->id, op->cancellable);
+	case OP_SET_BACKEND_PROPERTY:
+		e_book_backend_set_backend_property (backend, op->book, op->id, op->cancellable, op->d.sbp.prop_name, op->d.sbp.prop_value);
+		g_free (op->d.sbp.prop_name);
+		g_free (op->d.sbp.prop_value);
 		break;
 	case OP_GET_BOOK_VIEW:
 		if (op->d.query) {
@@ -436,31 +434,37 @@ data_book_return_error (GDBusMethodInvocation *invocation, const GError *perror,
 	g_error_free (error);
 }
 
-
-static void
-return_error_and_list (EGdbusBook *gdbus_object, void (* complete_func) (EGdbusBook *object, guint opid, const GError *error, const gchar * const *out_array), guint32 opid, GError *error, const gchar *error_prefix, const GSList *list)
+/* takes a list of strings and converts it to a comma-separated string of values;
+   free returned pointer with g_free() */
+gchar *
+e_data_book_string_slist_to_comma_string (const GSList *strings)
 {
-	g_return_if_fail (error_prefix != NULL);
-	g_return_if_fail (complete_func != NULL);
+	GString *tmp;
+	gchar *res;
+	const GSList *l;
 
-	if (error) {
-		g_prefix_error (&error, "%s", error_prefix);
-		complete_func (gdbus_object, opid, error, NULL);
-		g_error_free (error);
-	} else {
-		gchar **array;
-		const GSList *l;
-		gint i = 0;
+	tmp = g_string_new ("");
+	for (l = strings; l != NULL; l = l->next) {
+		const gchar *str = l->data;
 
-		array = g_new0 (gchar *, g_slist_length ((GSList *) list) + 1);
-		for (l = list; l != NULL; l = l->next) {
-			array[i++] = e_util_utf8_make_valid (l->data);
+		if (!str)
+			continue;
+
+		if (strchr (str, ',')) {
+			g_warning ("%s: String cannot contain comma; skipping value '%s'\n", G_STRFUNC, str);
+			continue;
 		}
 
-		complete_func (gdbus_object, opid, NULL, (const gchar * const *) array);
-
-		g_strfreev (array);
+		if (tmp->len)
+			g_string_append_c (tmp, ',');
+		g_string_append (tmp, str);
 	}
+
+	res = e_util_utf8_make_valid (tmp->str);
+
+	g_string_free (tmp, TRUE);
+
+	return res;
 }
 
 static gboolean
@@ -621,52 +625,28 @@ impl_Book_removeContacts (EGdbusBook *object, GDBusMethodInvocation *invocation,
 }
 
 static gboolean
-impl_Book_getCapabilities (EGdbusBook *object, GDBusMethodInvocation *invocation, EDataBook *book)
+impl_Book_getBackendProperty (EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar *in_prop_name, EDataBook *book)
 {
 	OperationData *op;
 
-	op = op_new (OP_GET_CAPABILITIES, book);
+	op = op_new (OP_GET_BACKEND_PROPERTY, book);
+	op->d.prop_name = g_strdup (in_prop_name);
 
-	e_gdbus_book_complete_get_capabilities (book->priv->gdbus_object, invocation, op->id);
+	e_gdbus_book_complete_get_backend_property (book->priv->gdbus_object, invocation, op->id);
 	e_operation_pool_push (ops_pool, op);
 
 	return TRUE;
 }
 
 static gboolean
-impl_Book_getSupportedFields (EGdbusBook *object, GDBusMethodInvocation *invocation, EDataBook *book)
+impl_Book_setBackendProperty (EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar * const *in_prop_name_value, EDataBook *book)
 {
 	OperationData *op;
 
-	op = op_new (OP_GET_SUPPORTED_FIELDS, book);
+	op = op_new (OP_SET_BACKEND_PROPERTY, book);
+	g_return_val_if_fail (e_gdbus_book_decode_set_backend_property (in_prop_name_value, &op->d.sbp.prop_name, &op->d.sbp.prop_value), FALSE);
 
-	e_gdbus_book_complete_get_supported_fields (book->priv->gdbus_object, invocation, op->id);
-	e_operation_pool_push (ops_pool, op);
-
-	return TRUE;
-}
-
-static gboolean
-impl_Book_getRequiredFields (EGdbusBook *object, GDBusMethodInvocation *invocation, EDataBook *book)
-{
-	OperationData *op;
-
-	op = op_new (OP_GET_REQUIRED_FIELDS, book);
-
-	e_gdbus_book_complete_get_required_fields (book->priv->gdbus_object, invocation, op->id);
-	e_operation_pool_push (ops_pool, op);
-
-	return TRUE;
-}
-
-static gboolean
-impl_Book_getSupportedAuthMethods (EGdbusBook *object, GDBusMethodInvocation *invocation, EDataBook *book)
-{
-	OperationData *op;
-
-	op = op_new (OP_GET_SUPPORTED_AUTH_METHODS, book);
-
-	e_gdbus_book_complete_get_supported_auth_methods (book->priv->gdbus_object, invocation, op->id);
+	e_gdbus_book_complete_set_backend_property (book->priv->gdbus_object, invocation, op->id);
 	e_operation_pool_push (ops_pool, op);
 
 	return TRUE;
@@ -770,21 +750,35 @@ e_data_book_respond_remove (EDataBook *book, guint opid, GError *error)
 }
 
 void
-e_data_book_respond_get_capabilities (EDataBook *book, guint32 opid, GError *error, const gchar *capabilities)
+e_data_book_respond_get_backend_property (EDataBook *book, guint32 opid, GError *error, const gchar *prop_value)
 {
-	gchar *gdbus_capabilities = NULL;
+	gchar *gdbus_prop_value = NULL;
 
 	op_complete (book, opid);
 
 	/* Translators: This is prefix to a detailed error message */
-	g_prefix_error (&error, "%s", _("Cannot get capabilities: "));
+	g_prefix_error (&error, "%s", _("Cannot get backend property: "));
 
-	e_gdbus_book_emit_get_capabilities_done (book->priv->gdbus_object, opid, error, e_util_ensure_gdbus_string (capabilities, &gdbus_capabilities));
+	e_gdbus_book_emit_get_backend_property_done (book->priv->gdbus_object, opid, error, e_util_ensure_gdbus_string (prop_value, &gdbus_prop_value));
 
 	if (error)
 		g_error_free (error);
 
-	g_free (gdbus_capabilities);
+	g_free (gdbus_prop_value);
+}
+
+void
+e_data_book_respond_set_backend_property (EDataBook *book, guint32 opid, GError *error)
+{
+	op_complete (book, opid);
+
+	/* Translators: This is prefix to a detailed error message */
+	g_prefix_error (&error, "%s", _("Cannot set backend property: "));
+
+	e_gdbus_book_emit_set_backend_property_done (book->priv->gdbus_object, opid, error);
+
+	if (error)
+		g_error_free (error);
 }
 
 void
@@ -808,8 +802,25 @@ e_data_book_respond_get_contact (EDataBook *book, guint32 opid, GError *error, c
 void
 e_data_book_respond_get_contact_list (EDataBook *book, guint32 opid, GError *error, const GSList *cards)
 {
-	/* Translators: This is prefix to a detailed error message */
-	return_error_and_list (book->priv->gdbus_object, e_gdbus_book_emit_get_contact_list_done, opid, error, _("Cannot get contact list: %s"), cards);
+	if (error) {
+		/* Translators: This is prefix to a detailed error message */
+		g_prefix_error (&error, "%s", _("Cannot get contact list: "));
+		e_gdbus_book_emit_get_contact_list_done (book->priv->gdbus_object, opid, error, NULL);
+		g_error_free (error);
+	} else {
+		gchar **array;
+		const GSList *l;
+		gint i = 0;
+
+		array = g_new0 (gchar *, g_slist_length ((GSList *) cards) + 1);
+		for (l = cards; l != NULL; l = l->next) {
+			array[i++] = e_util_utf8_make_valid (l->data);
+		}
+
+		e_gdbus_book_emit_get_contact_list_done (book->priv->gdbus_object, opid, NULL, (const gchar * const *) array);
+
+		g_strfreev (array);
+	}
 }
 
 void
@@ -886,27 +897,6 @@ e_data_book_respond_remove_contacts (EDataBook *book, guint32 opid, GError *erro
 		e_book_backend_notify_complete (e_data_book_get_backend (book));
 	}
 
-}
-
-void
-e_data_book_respond_get_supported_fields (EDataBook *book, guint32 opid, GError *error, const GSList *fields)
-{
-	/* Translators: This is prefix to a detailed error message */
-	return_error_and_list (book->priv->gdbus_object, e_gdbus_book_emit_get_supported_fields_done, opid, error, _("Cannot get supported fields: %s"), fields);
-}
-
-void
-e_data_book_respond_get_required_fields (EDataBook *book, guint32 opid, GError *error, const GSList *fields)
-{
-	/* Translators: This is prefix to a detailed error message */
-	return_error_and_list (book->priv->gdbus_object, e_gdbus_book_emit_get_required_fields_done, opid, error, _("Cannot get required fields: %s"), fields);
-}
-
-void
-e_data_book_respond_get_supported_auth_methods (EDataBook *book, guint32 opid, GError *error, const GSList *auth_methods)
-{
-	/* Translators: This is prefix to a detailed error message */
-	return_error_and_list (book->priv->gdbus_object, e_gdbus_book_emit_get_supported_auth_methods_done, opid, error, _("Cannot get supported authentication methods: %s"), auth_methods);
 }
 
 void
@@ -996,10 +986,8 @@ e_data_book_init (EDataBook *ebook)
 	g_signal_connect (gdbus_object, "handle-add-contact", G_CALLBACK (impl_Book_addContact), ebook);
 	g_signal_connect (gdbus_object, "handle-remove-contacts", G_CALLBACK (impl_Book_removeContacts), ebook);
 	g_signal_connect (gdbus_object, "handle-modify-contact", G_CALLBACK (impl_Book_modifyContact), ebook);
-	g_signal_connect (gdbus_object, "handle-get-capabilities", G_CALLBACK (impl_Book_getCapabilities), ebook);
-	g_signal_connect (gdbus_object, "handle-get-required-fields", G_CALLBACK (impl_Book_getRequiredFields), ebook);
-	g_signal_connect (gdbus_object, "handle-get-supported-fields", G_CALLBACK (impl_Book_getSupportedFields), ebook);
-	g_signal_connect (gdbus_object, "handle-get-supported-auth-methods", G_CALLBACK (impl_Book_getSupportedAuthMethods), ebook);
+	g_signal_connect (gdbus_object, "handle-get-backend-property", G_CALLBACK (impl_Book_getBackendProperty), ebook);
+	g_signal_connect (gdbus_object, "handle-set-backend-property", G_CALLBACK (impl_Book_setBackendProperty), ebook);
 	g_signal_connect (gdbus_object, "handle-get-view", G_CALLBACK (impl_Book_getBookView), ebook);
 	g_signal_connect (gdbus_object, "handle-cancel-operation", G_CALLBACK (impl_Book_cancelOperation), ebook);
 	g_signal_connect (gdbus_object, "handle-cancel-all", G_CALLBACK (impl_Book_cancelAll), ebook);

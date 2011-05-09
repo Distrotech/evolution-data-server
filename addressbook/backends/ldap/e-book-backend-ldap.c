@@ -4923,55 +4923,6 @@ e_book_backend_ldap_authenticate_user (EBookBackend *backend,
 }
 
 static void
-e_book_backend_ldap_get_required_fields (EBookBackend *backend,
-					  EDataBook    *book,
-					  guint32       opid,
-					  GCancellable *cancellable)
-{
-	GSList *fields = NULL;
-
-	/*FIMEME we should look at mandatory attributs in the schema
-	  and return all those fields here */
-	fields = g_slist_append (fields, (gchar *)e_contact_field_name (E_CONTACT_FILE_AS));
-	fields = g_slist_append (fields, (gchar *)e_contact_field_name (E_CONTACT_FULL_NAME));
-	fields = g_slist_append (fields, (gchar *)e_contact_field_name (E_CONTACT_FAMILY_NAME));
-
-	e_data_book_respond_get_required_fields (book,
-						  opid,
-						  EDB_ERROR (SUCCESS),
-						  fields);
-	g_slist_free (fields);
-}
-
-static void
-e_book_backend_ldap_get_supported_fields (EBookBackend *backend,
-					  EDataBook    *book,
-					  guint32       opid,
-					  GCancellable *cancellable)
-{
-	EBookBackendLDAP *bl = E_BOOK_BACKEND_LDAP (backend);
-
-	e_data_book_respond_get_supported_fields (book,
-						  opid,
-						  EDB_ERROR (SUCCESS),
-						  bl->priv->supported_fields);
-}
-
-static void
-e_book_backend_ldap_get_supported_auth_methods (EBookBackend *backend,
-						EDataBook    *book,
-						guint32       opid,
-						GCancellable *cancellable)
-{
-	EBookBackendLDAP *bl = E_BOOK_BACKEND_LDAP (backend);
-
-	e_data_book_respond_get_supported_auth_methods (book,
-							opid,
-							EDB_ERROR (SUCCESS),
-							bl->priv->supported_auth_methods);
-}
-
-static void
 ldap_cancel_op (gpointer key, gpointer value, gpointer data)
 {
 	EBookBackendLDAP *bl = data;
@@ -5155,12 +5106,52 @@ e_book_backend_ldap_remove (EBookBackend *backend, EDataBook *book, guint32 opid
 }
 
 static void
-e_book_backend_ldap_get_capabilities (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)
+e_book_backend_ldap_get_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name)
 {
-	if (can_browse (backend) || E_BOOK_BACKEND_LDAP (backend)->priv->marked_for_offline)
-		e_data_book_respond_get_capabilities (book, opid, NULL, "net,anon-access,contact-lists,do-initial-query");
-	else
-		e_data_book_respond_get_capabilities (book, opid, NULL, "net,anon-access,contact-lists");
+	g_return_if_fail (prop_name != NULL);
+
+	if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_CAPABILITIES)) {
+		if (can_browse (backend) || E_BOOK_BACKEND_LDAP (backend)->priv->marked_for_offline)
+			e_data_book_respond_get_backend_property (book, opid, NULL, "net,anon-access,contact-lists,do-initial-query");
+		else
+			e_data_book_respond_get_backend_property (book, opid, NULL, "net,anon-access,contact-lists");
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS)) {
+		gchar *fields_str;
+		GSList *fields = NULL;
+
+		/*FIMEME we should look at mandatory attributs in the schema
+		  and return all those fields here */
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_FILE_AS));
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_FULL_NAME));
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_FAMILY_NAME));
+
+		fields_str = e_data_book_string_slist_to_comma_string (fields);
+
+		e_data_book_respond_get_backend_property (book, opid, NULL, fields_str);
+
+		g_slist_free (fields);
+		g_free (fields_str);
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS)) {
+		EBookBackendLDAP *bl = E_BOOK_BACKEND_LDAP (backend);
+		gchar *str;
+
+		str = e_data_book_string_slist_to_comma_string (bl->priv->supported_fields);
+
+		e_data_book_respond_get_backend_property (book, opid, NULL, str);
+
+		g_free (str);
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS)) {
+		EBookBackendLDAP *bl = E_BOOK_BACKEND_LDAP (backend);
+		gchar *str;
+
+		str = e_data_book_string_slist_to_comma_string (bl->priv->supported_auth_methods);
+
+		e_data_book_respond_get_backend_property (book, opid, NULL, str);
+
+		g_free (str);
+	} else {
+		E_BOOK_BACKEND_CLASS (e_book_backend_ldap_parent_class)->get_backend_property (backend, book, opid, cancellable, prop_name);
+	}
 }
 
 #if 0
@@ -5363,22 +5354,19 @@ e_book_backend_ldap_class_init (EBookBackendLDAPClass *klass)
 	parent_class = E_BOOK_BACKEND_CLASS (klass);
 
 	/* Set the virtual methods. */
-	parent_class->open				= e_book_backend_ldap_open;
-	parent_class->remove				= e_book_backend_ldap_remove;
-	parent_class->get_capabilities			= e_book_backend_ldap_get_capabilities;
+	parent_class->open			= e_book_backend_ldap_open;
+	parent_class->remove			= e_book_backend_ldap_remove;
+	parent_class->get_backend_property	= e_book_backend_ldap_get_backend_property;
 
-	parent_class->create_contact			= e_book_backend_ldap_create_contact;
-	parent_class->remove_contacts			= e_book_backend_ldap_remove_contacts;
-	parent_class->modify_contact			= e_book_backend_ldap_modify_contact;
-	parent_class->get_contact			= e_book_backend_ldap_get_contact;
-	parent_class->get_contact_list			= e_book_backend_ldap_get_contact_list;
-	parent_class->start_book_view			= e_book_backend_ldap_start_book_view;
-	parent_class->stop_book_view			= e_book_backend_ldap_stop_book_view;
-	parent_class->authenticate_user			= e_book_backend_ldap_authenticate_user;
-	parent_class->get_required_fields		= e_book_backend_ldap_get_required_fields;
-	parent_class->get_supported_fields		= e_book_backend_ldap_get_supported_fields;
-	parent_class->get_supported_auth_methods	= e_book_backend_ldap_get_supported_auth_methods;
-	parent_class->set_online			= e_book_backend_ldap_set_online;
+	parent_class->create_contact		= e_book_backend_ldap_create_contact;
+	parent_class->remove_contacts		= e_book_backend_ldap_remove_contacts;
+	parent_class->modify_contact		= e_book_backend_ldap_modify_contact;
+	parent_class->get_contact		= e_book_backend_ldap_get_contact;
+	parent_class->get_contact_list		= e_book_backend_ldap_get_contact_list;
+	parent_class->start_book_view		= e_book_backend_ldap_start_book_view;
+	parent_class->stop_book_view		= e_book_backend_ldap_stop_book_view;
+	parent_class->authenticate_user		= e_book_backend_ldap_authenticate_user;
+	parent_class->set_online		= e_book_backend_ldap_set_online;
 
 	object_class->dispose = e_book_backend_ldap_dispose;
 }

@@ -452,31 +452,34 @@ create_weather (ECalBackendWeather *cbw, WeatherInfo *report, gboolean is_foreca
 	return cal_comp;
 }
 
-static void
-e_cal_backend_weather_get_cal_email_address (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **perror)
+static gboolean
+e_cal_backend_weather_get_backend_property (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **perror)
 {
-	/* Weather has no particular email addresses associated with it */
-	*address = NULL;
-}
+	gboolean processed = TRUE;
 
-static void
-e_cal_backend_weather_get_alarm_email_address (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **perror)
-{
-	/* Weather has no particular email addresses associated with it */
-	*address = NULL;
-}
+	g_return_val_if_fail (prop_name != NULL, FALSE);
+	g_return_val_if_fail (prop_value != NULL, FALSE);
 
-static void
-e_cal_backend_weather_get_capabilities (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **capabilities, GError **perror)
-{
-	*capabilities = g_strdup (CAL_STATIC_CAPABILITY_NO_ALARM_REPEAT ","
-				  CAL_STATIC_CAPABILITY_NO_AUDIO_ALARMS  ","
-				  CAL_STATIC_CAPABILITY_NO_DISPLAY_ALARMS  ","
-				  CAL_STATIC_CAPABILITY_NO_PROCEDURE_ALARMS  ","
-				  CAL_STATIC_CAPABILITY_NO_TASK_ASSIGNMENT  ","
-				  CAL_STATIC_CAPABILITY_NO_THISANDFUTURE  ","
-				  CAL_STATIC_CAPABILITY_NO_THISANDPRIOR ","
-				  CAL_STATIC_CAPABILITY_REFRESH_SUPPORTED);
+	if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAPABILITIES)) {
+		*prop_value = g_strdup (CAL_STATIC_CAPABILITY_NO_ALARM_REPEAT ","
+					CAL_STATIC_CAPABILITY_NO_AUDIO_ALARMS ","
+					CAL_STATIC_CAPABILITY_NO_DISPLAY_ALARMS ","
+					CAL_STATIC_CAPABILITY_NO_PROCEDURE_ALARMS ","
+					CAL_STATIC_CAPABILITY_NO_TASK_ASSIGNMENT ","
+					CAL_STATIC_CAPABILITY_NO_THISANDFUTURE ","
+					CAL_STATIC_CAPABILITY_NO_THISANDPRIOR ","
+					CAL_STATIC_CAPABILITY_REFRESH_SUPPORTED);
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS) ||
+		   g_str_equal (prop_name, CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS)) {
+		/* Weather has no particular email addresses associated with it */
+		*prop_value = NULL;
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_DEFAULT_OBJECT)) {
+		g_propagate_error (perror, EDC_ERROR (UnsupportedMethod));
+	} else {
+		processed = FALSE;
+	}
+
+	return processed;
 }
 
 static void
@@ -566,12 +569,6 @@ static void
 e_cal_backend_weather_receive_objects (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *calobj, GError **perror)
 {
 	g_propagate_error (perror, EDC_ERROR (PermissionDenied));
-}
-
-static void
-e_cal_backend_weather_get_default_object (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **object, GError **perror)
-{
-	g_propagate_error (perror, EDC_ERROR (UnsupportedMethod));
 }
 
 static void
@@ -870,20 +867,17 @@ e_cal_backend_weather_class_init (ECalBackendWeatherClass *class)
 
 	object_class->finalize = e_cal_backend_weather_finalize;
 
-	sync_class->get_cal_email_address_sync = e_cal_backend_weather_get_cal_email_address;
-	sync_class->get_alarm_email_address_sync = e_cal_backend_weather_get_alarm_email_address;
-	sync_class->get_capabilities_sync = e_cal_backend_weather_get_capabilities;
-	sync_class->open_sync = e_cal_backend_weather_open;
-	sync_class->refresh_sync = e_cal_backend_weather_refresh;
-	sync_class->remove_sync = e_cal_backend_weather_remove;
-	sync_class->receive_objects_sync = e_cal_backend_weather_receive_objects;
-	sync_class->get_default_object_sync = e_cal_backend_weather_get_default_object;
-	sync_class->get_object_sync = e_cal_backend_weather_get_object;
-	sync_class->get_object_list_sync = e_cal_backend_weather_get_object_list;
-	sync_class->add_timezone_sync = e_cal_backend_weather_add_timezone;
-	sync_class->get_free_busy_sync = e_cal_backend_weather_get_free_busy;
-	backend_class->start_view = e_cal_backend_weather_start_view;
-	backend_class->set_online = e_cal_backend_weather_set_online;
+	sync_class->get_backend_property_sync	= e_cal_backend_weather_get_backend_property;
+	sync_class->open_sync			= e_cal_backend_weather_open;
+	sync_class->refresh_sync		= e_cal_backend_weather_refresh;
+	sync_class->remove_sync			= e_cal_backend_weather_remove;
+	sync_class->receive_objects_sync	= e_cal_backend_weather_receive_objects;
+	sync_class->get_object_sync		= e_cal_backend_weather_get_object;
+	sync_class->get_object_list_sync	= e_cal_backend_weather_get_object_list;
+	sync_class->add_timezone_sync		= e_cal_backend_weather_add_timezone;
+	sync_class->get_free_busy_sync		= e_cal_backend_weather_get_free_busy;
 
-	backend_class->internal_get_timezone = e_cal_backend_weather_internal_get_timezone;
+	backend_class->start_view		= e_cal_backend_weather_start_view;
+	backend_class->set_online		= e_cal_backend_weather_set_online;
+	backend_class->internal_get_timezone	= e_cal_backend_weather_internal_get_timezone;
 }

@@ -23,6 +23,7 @@ libedataserver_1_2_la_SOURCES =		\
 	e-account.c			\
 	e-categories.c			\
 	e-client.c			\
+	e-client-private.h		\
 	e-credentials.c			\
 	e-flag.c			\
 	e-gdbus-templates.h		\

@@ -59,6 +59,12 @@
 #include "e-gdbus-cal-view.h"
 #include "e-gdbus-cal-factory.h"
 
+#define CAL_BACKEND_PROPERTY_CACHE_DIR			"cache-dir"
+#define CAL_BACKEND_PROPERTY_CAPABILITIES		"capabilities"
+#define CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS		"cal-email-address"
+#define CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS	"alarm-email-address"
+#define CAL_BACKEND_PROPERTY_DEFAULT_OBJECT		"default-object"
+
 static guint active_cals = 0, cal_connection_closed_id = 0;
 static EGdbusCalFactory *cal_factory_proxy = NULL;
 static GStaticRecMutex cal_factory_proxy_lock = G_STATIC_REC_MUTEX_INIT;
@@ -1077,8 +1083,8 @@ set_local_attachment_store (ECal *ecal)
 	gchar *cache_dir = NULL;
 	GError *error = NULL;
 
-	e_gdbus_cal_call_get_cache_dir_sync (
-		ecal->priv->gdbus_cal, &cache_dir, NULL, &error);
+	e_gdbus_cal_call_get_backend_property_sync (
+		ecal->priv->gdbus_cal, CAL_BACKEND_PROPERTY_CACHE_DIR, &cache_dir, NULL, &error);
 
 	if (error == NULL)
 		ecal->priv->local_attachment_store = cache_dir;
@@ -1995,7 +2001,8 @@ e_cal_is_read_only (ECal *ecal, gboolean *read_only, GError **error)
  * Returns: TRUE if the operation was successful, FALSE if there
  * was an error.
  *
- * Deprecated: 3.2: Use e_cal_client_get_cal_email_address_sync() instead.
+ * Deprecated: 3.2: Use e_client_get_backend_property_sync()
+ * with #CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS instead.
  **/
 gboolean
 e_cal_get_cal_address (ECal *ecal, gchar **cal_address, GError **error)
@@ -2016,7 +2023,7 @@ e_cal_get_cal_address (ECal *ecal, gchar **cal_address, GError **error)
 			E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 		}
 
-		if (!e_gdbus_cal_call_get_cal_email_address_sync (priv->gdbus_cal, &priv->cal_address, NULL, error)) {
+		if (!e_gdbus_cal_call_get_backend_property_sync (priv->gdbus_cal, CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS, &priv->cal_address, NULL, error)) {
 			UNLOCK_CACHE ();
 			E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_DBUS_EXCEPTION, error);
 		}
@@ -2039,7 +2046,8 @@ e_cal_get_cal_address (ECal *ecal, gchar **cal_address, GError **error)
  * Returns: TRUE if the operation was successful, FALSE if there was
  * an error while contacting the backend.
  *
- * Deprecated: 3.2: Use e_cal_client_get_alarm_email_address_sync() instead.
+ * Deprecated: 3.2: Use e_client_get_backend_property_sync()
+ * with #CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS instead.
  */
 gboolean
 e_cal_get_alarm_email_address (ECal *ecal, gchar **alarm_address, GError **error)
@@ -2056,7 +2064,7 @@ e_cal_get_alarm_email_address (ECal *ecal, gchar **alarm_address, GError **error
 		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
-	if (!e_gdbus_cal_call_get_alarm_email_address_sync (priv->gdbus_cal, alarm_address, NULL, error)) {
+	if (!e_gdbus_cal_call_get_backend_property_sync (priv->gdbus_cal, CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS, alarm_address, NULL, error)) {
 		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_DBUS_EXCEPTION, error);
 	}
 
@@ -2109,7 +2117,7 @@ load_capabilities (ECal *ecal, GError **error)
 		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_OK, error);
 	}
 
-	if (!e_gdbus_cal_call_get_capabilities_sync (priv->gdbus_cal, &priv->capabilities, NULL, error)) {
+	if (!e_gdbus_cal_call_get_backend_property_sync (priv->gdbus_cal, CAL_BACKEND_PROPERTY_CAPABILITIES, &priv->capabilities, NULL, error)) {
 		UNLOCK_CACHE ();
 		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_DBUS_EXCEPTION, error);
 	}
@@ -2344,7 +2352,7 @@ e_cal_get_default_object (ECal *ecal, icalcomponent **icalcomp, GError **error)
 		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
-	if (!e_gdbus_cal_call_get_default_object_sync (priv->gdbus_cal, &object, NULL, error)) {
+	if (!e_gdbus_cal_call_get_backend_property_sync (priv->gdbus_cal, CAL_BACKEND_PROPERTY_DEFAULT_OBJECT, &object, NULL, error)) {
 		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_DBUS_EXCEPTION, error);
 	}
 

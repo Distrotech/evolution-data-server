@@ -8,6 +8,8 @@
 
 #include <config.h>
 
+#include <glib/gi18n-lib.h>
+
 #include <libedataserver/e-data-server-util.h>
 
 #include "e-data-book-view.h"
@@ -65,6 +67,38 @@ book_backend_set_default_cache_dir (EBookBackend *backend)
 	g_free (filename);
 
 	g_free (mangled_uri);
+}
+
+static void
+book_backend_get_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
+	g_return_if_fail (book != NULL);
+	g_return_if_fail (prop_name != NULL);
+
+	if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_LOADED)) {
+		e_data_book_respond_get_backend_property (book, opid, NULL, e_book_backend_is_loaded (backend) ? "TRUE" : "FALSE");
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_ONLINE)) {
+		e_data_book_respond_get_backend_property (book, opid, NULL, backend->priv->online ? "TRUE" : "FALSE");
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_READONLY)) {
+		e_data_book_respond_get_backend_property (book, opid, NULL, e_book_backend_is_readonly (backend) ? "TRUE" : "FALSE");
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_CACHE_DIR)) {
+		e_data_book_respond_get_backend_property (book, opid, NULL, e_book_backend_get_cache_dir (backend));
+	} else {
+		e_data_book_respond_get_backend_property (book, opid, e_data_book_create_error_fmt (E_DATA_BOOK_STATUS_NOT_SUPPORTED, _("Unknown book property '%s'"), prop_name), NULL);
+	}
+}
+
+static void
+book_backend_set_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
+	g_return_if_fail (book != NULL);
+	g_return_if_fail (prop_name != NULL);
+
+	e_data_book_respond_set_backend_property (book, opid, e_data_book_create_error_fmt (E_DATA_BOOK_STATUS_NOT_SUPPORTED, _("Cannot change value of book property '%s'"), prop_name));
 }
 
 static void
@@ -141,17 +175,20 @@ book_backend_finalize (GObject *object)
 }
 
 static void
-e_book_backend_class_init (EBookBackendClass *class)
+e_book_backend_class_init (EBookBackendClass *klass)
 {
 	GObjectClass *object_class;
 
-	g_type_class_add_private (class, sizeof (EBookBackendPrivate));
+	g_type_class_add_private (klass, sizeof (EBookBackendPrivate));
 
-	object_class = G_OBJECT_CLASS (class);
+	object_class = G_OBJECT_CLASS (klass);
 	object_class->set_property = book_backend_set_property;
 	object_class->get_property = book_backend_get_property;
 	object_class->dispose = book_backend_dispose;
 	object_class->finalize = book_backend_finalize;
+
+	klass->get_backend_property = book_backend_get_backend_property;
+	klass->set_backend_property = book_backend_set_backend_property;
 
 	g_object_class_install_property (
 		object_class,
@@ -515,78 +552,6 @@ e_book_backend_authenticate_user (EBookBackend *backend,
 	(* E_BOOK_BACKEND_GET_CLASS (backend)->authenticate_user) (backend, book, opid, cancellable, credentials);
 }
 
-/**
- * e_book_backend_get_required_fields:
- * @backend: an #EBookBackend
- * @book: an #EDataBook
- * @cancellable: a #GCancellable for the operation
- * @opid: the ID to use for this operation
- *
- * Executes a 'get required fields' request specified by @opid on @book
- * using @backend.
- * This might be finished with e_data_book_respond_get_required_fields().
- **/
-void
-e_book_backend_get_required_fields (EBookBackend *backend,
-				     EDataBook    *book,
-				     guint32       opid,
-				     GCancellable *cancellable)
-{
-	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
-	g_return_if_fail (E_IS_DATA_BOOK (book));
-	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->get_required_fields);
-
-	(* E_BOOK_BACKEND_GET_CLASS (backend)->get_required_fields) (backend, book, opid, cancellable);
-}
-
-/**
- * e_book_backend_get_supported_fields:
- * @backend: an #EBookBackend
- * @book: an #EDataBook
- * @opid: the ID to use for this operation
- * @cancellable: a #GCancellable for the operation
- *
- * Executes a 'get supported fields' request specified by @opid on @book
- * using @backend.
- * This might be finished with e_data_book_respond_get_supported_fields().
- **/
-void
-e_book_backend_get_supported_fields (EBookBackend *backend,
-				     EDataBook    *book,
-				     guint32       opid,
-				     GCancellable *cancellable)
-{
-	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
-	g_return_if_fail (E_IS_DATA_BOOK (book));
-	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->get_supported_fields);
-
-	(* E_BOOK_BACKEND_GET_CLASS (backend)->get_supported_fields) (backend, book, opid, cancellable);
-}
-
-/**
- * e_book_backend_get_supported_auth_methods:
- * @backend: an #EBookBackend
- * @book: an #EDataBook
- * @opid: the ID to use for this operation
- * @cancellable: a #GCancellable for the operation
- *
- * Executes a 'get supported auth methods' request specified by @opid on @book
- * using @backend.
- * This might be finished with e_data_book_respond_get_supported_auth_methods().
- **/
-void
-e_book_backend_get_supported_auth_methods (EBookBackend *backend,
-					   EDataBook    *book,
-					   guint32       opid,
-					   GCancellable *cancellable)
-{
-	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
-	g_return_if_fail (E_IS_DATA_BOOK (book));
-	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->get_supported_auth_methods);
-
-	(* E_BOOK_BACKEND_GET_CLASS (backend)->get_supported_auth_methods) (backend, book, opid, cancellable);
-}
-
 static void
 last_client_gone (EBookBackend *backend)
 {
@@ -723,22 +688,58 @@ e_book_backend_foreach_view (EBookBackend *backend, gboolean (* callback) (EData
 }
 
 /**
- * e_book_backend_get_capabilities:
+ * e_book_backend_get_book_backend_property:
  * @backend: an #EBookBackend
  * @book: an #EDataBook
  * @opid: the ID to use for this operation
  * @cancellable: a #GCancellable for the operation
+ * @prop_name: property name to get value of; cannot be NULL
  *
- * Gets the capabilities offered by this @backend.
- * This might be finished with e_data_book_respond_get_capabilities().
+ * Calls the get_backend_property method on the given backend.
+ * This might be finished with e_data_book_respond_get_backend_property().
+ * Default implementation takes care of common properties and returns
+ * an 'unsupported' error for any unknown properties. The subclass may
+ * always call this default implementation for properties which fetching
+ * it doesn't overwrite.
+ *
+ * Since: 3.2
  **/
 void
-e_book_backend_get_capabilities (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)
+e_book_backend_get_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name)
 {
 	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
-	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->get_capabilities);
+	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->get_backend_property);
 
-	E_BOOK_BACKEND_GET_CLASS (backend)->get_capabilities (backend, book, opid, cancellable);
+	E_BOOK_BACKEND_GET_CLASS (backend)->get_backend_property (backend, book, opid, cancellable, prop_name);
+}
+
+/**
+ * e_book_backend_set_backend_property:
+ * @backend: an #EBookBackend
+ * @book: an #EDataBook
+ * @opid: the ID to use for this operation
+ * @cancellable: a #GCancellable for the operation
+ * @prop_name: property name to change; cannot be NULL
+ * @prop_value: value to set to @prop_name; cannot be NULL
+ *
+ * Calls the set_backend_property method on the given backend.
+ * This might be finished with e_data_book_respond_set_backend_property().
+ * Default implementation simply returns an 'unsupported' error.
+ * The subclass may always call this default implementation for properties
+ * which fetching it doesn't overwrite.
+ *
+ * Since: 3.2
+ **/
+void
+e_book_backend_set_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
+	g_return_if_fail (prop_name != NULL);
+	g_return_if_fail (prop_value != NULL);
+	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->set_backend_property != NULL);
+
+	E_BOOK_BACKEND_GET_CLASS (backend)->set_backend_property (backend, book, opid, cancellable, prop_name, prop_value);
 }
 
 /**

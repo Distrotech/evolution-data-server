@@ -22,9 +22,8 @@
  */
 
 #include <config.h>
-#include <libxml/parser.h>
-#include <libxml/parserInternals.h>
-#include <libxml/xmlmemory.h>
+
+#include <glib/gi18n-lib.h>
 
 #include <libedataserver/e-data-server-util.h>
 
@@ -186,6 +185,38 @@ cal_backend_set_kind (ECalBackend *backend,
 }
 
 static void
+cal_backend_get_backend_property (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (E_IS_CAL_BACKEND (backend));
+	g_return_if_fail (cal != NULL);
+	g_return_if_fail (prop_name != NULL);
+
+	if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_LOADED)) {
+		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_is_loaded (backend) ? "TRUE" : "FALSE");
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_ONLINE)) {
+		e_data_cal_respond_get_backend_property (cal, opid, NULL, backend->priv->online ? "TRUE" : "FALSE");
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_READONLY)) {
+		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_is_readonly (backend) ? "TRUE" : "FALSE");
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CACHE_DIR)) {
+		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_get_cache_dir (backend));
+	} else {
+		e_data_cal_respond_get_backend_property (cal, opid, e_data_cal_create_error_fmt (NotSupported, _("Unknown calendar property '%s'"), prop_name), NULL);
+	}
+}
+
+static void
+cal_backend_set_backend_property (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (E_IS_CAL_BACKEND (backend));
+	g_return_if_fail (cal != NULL);
+	g_return_if_fail (prop_name != NULL);
+
+	e_data_cal_respond_set_backend_property (cal, opid, e_data_cal_create_error_fmt (NotSupported, _("Cannot change value of calendar property '%s'"), prop_name));
+}
+
+static void
 cal_backend_set_property (GObject *object,
                           guint property_id,
                           const GValue *value,
@@ -286,17 +317,20 @@ cal_backend_constructed (GObject *object)
 }
 
 static void
-e_cal_backend_class_init (ECalBackendClass *class)
+e_cal_backend_class_init (ECalBackendClass *klass)
 {
 	GObjectClass *object_class;
 
-	g_type_class_add_private (class, sizeof (ECalBackendPrivate));
+	g_type_class_add_private (klass, sizeof (ECalBackendPrivate));
 
-	object_class = G_OBJECT_CLASS (class);
+	object_class = G_OBJECT_CLASS (klass);
 	object_class->set_property = cal_backend_set_property;
 	object_class->get_property = cal_backend_get_property;
 	object_class->finalize = cal_backend_finalize;
 	object_class->constructed = cal_backend_constructed;
+
+	klass->get_backend_property = cal_backend_get_backend_property;
+	klass->set_backend_property = cal_backend_set_backend_property;
 
 	g_object_class_install_property (
 		object_class,
@@ -345,7 +379,7 @@ e_cal_backend_class_init (ECalBackendClass *class)
 
 	signals[LAST_CLIENT_GONE] = g_signal_new (
 		"last_client_gone",
-		G_TYPE_FROM_CLASS (class),
+		G_TYPE_FROM_CLASS (klass),
 		G_SIGNAL_RUN_FIRST,
 		G_STRUCT_OFFSET (ECalBackendClass, last_client_gone),
 		NULL, NULL,
@@ -539,25 +573,61 @@ e_cal_backend_set_cache_dir (ECalBackend *backend,
 	g_object_notify (G_OBJECT (backend), "cache-dir");
 }
 
-
 /**
- * e_cal_backend_get_capabilities:
+ * e_cal_backend_get_backend_property:
  * @backend: an #ECalBackend
  * @cal: an #EDataCal
  * @opid: the ID to use for this operation
  * @cancellable: a #GCancellable for the operation
+ * @prop_name: property name to get value of; cannot be NULL
  *
- * Calls the get_capabilities method on the given backend.
- * This might be finished with e_data_cal_respond_get_capabilities().
+ * Calls the get_backend_property method on the given backend.
+ * This might be finished with e_data_cal_respond_get_backend_property().
+ * Default implementation takes care of common properties and returns
+ * an 'unsupported' error for any unknown properties. The subclass may
+ * always call this default implementation for properties which fetching
+ * it doesn't overwrite.
+ *
+ * Since: 3.2
  **/
 void
-e_cal_backend_get_capabilities (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
+e_cal_backend_get_backend_property (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name)
 {
 	g_return_if_fail (backend != NULL);
 	g_return_if_fail (E_IS_CAL_BACKEND (backend));
-	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->get_capabilities != NULL);
+	g_return_if_fail (prop_name != NULL);
+	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->get_backend_property != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->get_capabilities) (backend, cal, opid, cancellable);
+	(* E_CAL_BACKEND_GET_CLASS (backend)->get_backend_property) (backend, cal, opid, cancellable, prop_name);
+}
+
+/**
+ * e_cal_backend_set_backend_property:
+ * @backend: an #ECalBackend
+ * @cal: an #EDataCal
+ * @opid: the ID to use for this operation
+ * @cancellable: a #GCancellable for the operation
+ * @prop_name: property name to change; cannot be NULL
+ * @prop_value: value to set to @prop_name; cannot be NULL
+ *
+ * Calls the set_backend_property method on the given backend.
+ * This might be finished with e_data_cal_respond_set_backend_property().
+ * Default implementation simply returns an 'unsupported' error.
+ * The subclass may always call this default implementation for properties
+ * which fetching it doesn't overwrite.
+ *
+ * Since: 3.2
+ **/
+void
+e_cal_backend_set_backend_property (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (E_IS_CAL_BACKEND (backend));
+	g_return_if_fail (prop_name != NULL);
+	g_return_if_fail (prop_value != NULL);
+	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->set_backend_property != NULL);
+
+	(* E_CAL_BACKEND_GET_CLASS (backend)->set_backend_property) (backend, cal, opid, cancellable, prop_name, prop_value);
 }
 
 static void
@@ -836,67 +906,6 @@ e_cal_backend_refresh (ECalBackend *backend, EDataCal *cal, guint32 opid, GCance
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->refresh != NULL);
 
 	(* E_CAL_BACKEND_GET_CLASS (backend)->refresh) (backend, cal, opid, cancellable);
-}
-
-/**
- * e_cal_backend_get_cal_email_address:
- * @backend: an #ECalBackend
- * @cal: an #EDataCal
- * @opid: the ID to use for this operation
- * @cancellable: a #GCancellable for the operation
- *
- * Queries the cal address associated with a calendar backend, which
- * must already have an open calendar.
- * This might be finished with e_data_cal_respond_get_cal_email_address().
- **/
-void
-e_cal_backend_get_cal_email_address (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
-{
-	g_return_if_fail (backend != NULL);
-	g_return_if_fail (E_IS_CAL_BACKEND (backend));
-	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->get_cal_email_address != NULL);
-
-	(* E_CAL_BACKEND_GET_CLASS (backend)->get_cal_email_address) (backend, cal, opid, cancellable);
-}
-
-/**
- * e_cal_backend_get_alarm_email_address:
- * @backend: an #ECalBackend
- * @cal: an #EDataCal
- * @opid: the ID to use for this operation
- * @cancellable: a #GCancellable for the operation
- *
- * Calls the get_alarm_email_address method on the given backend.
- * This might be finished with e_data_cal_respond_get_alarm_email_address().
- **/
-void
-e_cal_backend_get_alarm_email_address (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
-{
-	g_return_if_fail (backend != NULL);
-	g_return_if_fail (E_IS_CAL_BACKEND (backend));
-	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->get_alarm_email_address != NULL);
-
-	(* E_CAL_BACKEND_GET_CLASS (backend)->get_alarm_email_address) (backend, cal, opid, cancellable);
-}
-
-/**
- * e_cal_backend_get_default_object:
- * @backend: an #ECalBackend
- * @cal: an #EDataCal
- * @opid: the ID to use for this operation
- * @cancellable: a #GCancellable for the operation
- *
- * Calls the get_default_object method on the given backend.
- * This might be finished with e_data_cal_respond_get_default_object().
- **/
-void
-e_cal_backend_get_default_object (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable)
-{
-	g_return_if_fail (backend != NULL);
-	g_return_if_fail (E_IS_CAL_BACKEND (backend));
-	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->get_default_object != NULL);
-
-	(* E_CAL_BACKEND_GET_CLASS (backend)->get_default_object) (backend, cal, opid, cancellable);
 }
 
 /**

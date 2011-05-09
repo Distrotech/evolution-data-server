@@ -49,16 +49,10 @@ enum
 	__REMOVE_DONE_SIGNAL,
 	__REFRESH_METHOD,
 	__REFRESH_DONE_SIGNAL,
-	__GET_CACHE_DIR_METHOD,
-	__GET_CACHE_DIR_DONE_SIGNAL,
-	__GET_CAPABILITIES_METHOD,
-	__GET_CAPABILITIES_DONE_SIGNAL,
-	__GET_CAL_EMAIL_ADDRESS_METHOD,
-	__GET_CAL_EMAIL_ADDRESS_DONE_SIGNAL,
-	__GET_ALARM_EMAIL_ADDRESS_METHOD,
-	__GET_ALARM_EMAIL_ADDRESS_DONE_SIGNAL,
-	__GET_DEFAULT_OBJECT_METHOD,
-	__GET_DEFAULT_OBJECT_DONE_SIGNAL,
+	__GET_BACKEND_PROPERTY_METHOD,
+	__GET_BACKEND_PROPERTY_DONE_SIGNAL,
+	__SET_BACKEND_PROPERTY_METHOD,
+	__SET_BACKEND_PROPERTY_DONE_SIGNAL,
 	__GET_OBJECT_METHOD,
 	__GET_OBJECT_DONE_SIGNAL,
 	__GET_OBJECT_LIST_METHOD,
@@ -141,11 +135,8 @@ E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, 
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, authenticate_user)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, remove)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, refresh)
-E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME, get_cache_dir)
-E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME, get_capabilities)
-E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME, get_cal_email_address)
-E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME, get_alarm_email_address)
-E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME, get_default_object)
+E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME, get_backend_property)
+E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, set_backend_property)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME, get_object)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRV	(GDBUS_CAL_INTERFACE_NAME, get_object_list)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, get_free_busy)
@@ -180,11 +171,8 @@ e_gdbus_cal_default_init (EGdbusCalIface *iface)
 	E_INIT_GDBUS_METHOD_ASYNC_STRV__VOID	(EGdbusCalIface, "authenticateUser",		authenticate_user, __AUTHENTICATE_USER_METHOD, __AUTHENTICATE_USER_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_VOID__VOID	(EGdbusCalIface, "remove",			remove, __REMOVE_METHOD, __REMOVE_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_VOID__VOID	(EGdbusCalIface, "refresh",			refresh, __REFRESH_METHOD, __REFRESH_DONE_SIGNAL)
-	E_INIT_GDBUS_METHOD_ASYNC_VOID__STRING	(EGdbusCalIface, "getCacheDir",			get_cache_dir, __GET_CACHE_DIR_METHOD, __GET_CACHE_DIR_DONE_SIGNAL)
-	E_INIT_GDBUS_METHOD_ASYNC_VOID__STRING	(EGdbusCalIface, "getCapabilities",		get_capabilities, __GET_CAPABILITIES_METHOD, __GET_CAPABILITIES_DONE_SIGNAL)
-	E_INIT_GDBUS_METHOD_ASYNC_VOID__STRING	(EGdbusCalIface, "getCalEmailAddress",		get_cal_email_address, __GET_CAL_EMAIL_ADDRESS_METHOD, __GET_CAL_EMAIL_ADDRESS_DONE_SIGNAL)
-	E_INIT_GDBUS_METHOD_ASYNC_VOID__STRING	(EGdbusCalIface, "getAlarmEmailAddress",	get_alarm_email_address, __GET_ALARM_EMAIL_ADDRESS_METHOD, __GET_ALARM_EMAIL_ADDRESS_DONE_SIGNAL)
-	E_INIT_GDBUS_METHOD_ASYNC_VOID__STRING	(EGdbusCalIface, "getDefaultObject",		get_default_object, __GET_DEFAULT_OBJECT_METHOD, __GET_DEFAULT_OBJECT_DONE_SIGNAL)
+	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRING(EGdbusCalIface, "getBackendProperty",		get_backend_property, __GET_BACKEND_PROPERTY_METHOD, __GET_BACKEND_PROPERTY_DONE_SIGNAL)
+	E_INIT_GDBUS_METHOD_ASYNC_STRV__VOID	(EGdbusCalIface, "setBackendProperty",		set_backend_property, __SET_BACKEND_PROPERTY_METHOD, __SET_BACKEND_PROPERTY_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRV__STRING	(EGdbusCalIface, "getObject",			get_object, __GET_OBJECT_METHOD, __GET_OBJECT_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRV	(EGdbusCalIface, "getObjectList",		get_object_list, __GET_OBJECT_LIST_METHOD, __GET_OBJECT_LIST_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRV__VOID	(EGdbusCalIface, "getFreeBusy",			get_free_busy, __GET_FREE_BUSY_METHOD, __GET_FREE_BUSY_DONE_SIGNAL)
@@ -312,103 +300,57 @@ e_gdbus_cal_call_refresh_sync (GDBusProxy *proxy, GCancellable *cancellable, GEr
 }
 
 void
-e_gdbus_cal_call_get_cache_dir (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_gdbus_cal_call_get_backend_property (GDBusProxy *proxy, const gchar *in_prop_name, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	e_gdbus_proxy_call_void ("getCacheDir", e_gdbus_cal_call_get_cache_dir, E_GDBUS_ASYNC_OP_KEEPER (proxy), cancellable, callback, user_data);
+	e_gdbus_proxy_call_string ("getBackendProperty", e_gdbus_cal_call_get_backend_property, E_GDBUS_ASYNC_OP_KEEPER (proxy), in_prop_name, cancellable, callback, user_data);
 }
 
 gboolean
-e_gdbus_cal_call_get_cache_dir_finish (GDBusProxy *proxy, GAsyncResult *result, gchar **out_dirname, GError **error)
+e_gdbus_cal_call_get_backend_property_finish (GDBusProxy *proxy, GAsyncResult *result, gchar **out_prop_value, GError **error)
 {
-	return e_gdbus_proxy_finish_call_string (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, out_dirname, error, e_gdbus_cal_call_get_cache_dir);
+	return e_gdbus_proxy_finish_call_string (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, out_prop_value, error, e_gdbus_cal_call_get_backend_property);
 }
 
 gboolean
-e_gdbus_cal_call_get_cache_dir_sync (GDBusProxy *proxy, gchar **out_dirname, GCancellable *cancellable, GError **error)
+e_gdbus_cal_call_get_backend_property_sync (GDBusProxy *proxy, const gchar *in_prop_name, gchar **out_prop_value, GCancellable *cancellable, GError **error)
 {
-	return e_gdbus_proxy_call_sync_void__string (proxy, out_dirname, cancellable, error,
-		e_gdbus_cal_call_get_cache_dir,
-		e_gdbus_cal_call_get_cache_dir_finish);
+	return e_gdbus_proxy_call_sync_string__string (proxy, in_prop_name, out_prop_value, cancellable, error,
+		e_gdbus_cal_call_get_backend_property,
+		e_gdbus_cal_call_get_backend_property_finish);
+}
+
+/* free returned pointer with g_strfreev() */
+gchar **
+e_gdbus_cal_encode_set_backend_property (const gchar *in_prop_name, const gchar *in_prop_value)
+{
+	return encode_string_string (in_prop_name, in_prop_value);
+}
+
+/* free out_prop_name and out_prop_value with g_free() */
+gboolean
+e_gdbus_cal_decode_set_backend_property (const gchar * const *in_strv, gchar **out_prop_name, gchar **out_prop_value)
+{
+	return decode_string_string (in_strv, out_prop_name, out_prop_value);
 }
 
 void
-e_gdbus_cal_call_get_capabilities (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_gdbus_cal_call_set_backend_property (GDBusProxy *proxy, const gchar * const *in_prop_name_value, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	e_gdbus_proxy_call_void ("getCapabilities", e_gdbus_cal_call_get_capabilities, E_GDBUS_ASYNC_OP_KEEPER (proxy), cancellable, callback, user_data);
+	e_gdbus_proxy_call_strv ("setBackendProperty", e_gdbus_cal_call_set_backend_property, E_GDBUS_ASYNC_OP_KEEPER (proxy), in_prop_name_value, cancellable, callback, user_data);
 }
 
 gboolean
-e_gdbus_cal_call_get_capabilities_finish (GDBusProxy *proxy, GAsyncResult *result, gchar **out_capabilities, GError **error)
+e_gdbus_cal_call_set_backend_property_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error)
 {
-	return e_gdbus_proxy_finish_call_string (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, out_capabilities, error, e_gdbus_cal_call_get_capabilities);
+	return e_gdbus_proxy_finish_call_void (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, error, e_gdbus_cal_call_set_backend_property);
 }
 
 gboolean
-e_gdbus_cal_call_get_capabilities_sync (GDBusProxy *proxy, gchar **out_capabilities, GCancellable *cancellable, GError **error)
+e_gdbus_cal_call_set_backend_property_sync (GDBusProxy *proxy, const gchar * const *in_prop_name_value, GCancellable *cancellable, GError **error)
 {
-	return e_gdbus_proxy_call_sync_void__string (proxy, out_capabilities, cancellable, error,
-		e_gdbus_cal_call_get_capabilities,
-		e_gdbus_cal_call_get_capabilities_finish);
-}
-
-void
-e_gdbus_cal_call_get_cal_email_address (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_gdbus_proxy_call_void ("getCalEmailAddress", e_gdbus_cal_call_get_cal_email_address, E_GDBUS_ASYNC_OP_KEEPER (proxy), cancellable, callback, user_data);
-}
-
-gboolean
-e_gdbus_cal_call_get_cal_email_address_finish (GDBusProxy *proxy, GAsyncResult *result, gchar **out_address, GError **error)
-{
-	return e_gdbus_proxy_finish_call_string (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, out_address, error, e_gdbus_cal_call_get_cal_email_address);
-}
-
-gboolean
-e_gdbus_cal_call_get_cal_email_address_sync (GDBusProxy *proxy, gchar **out_address, GCancellable *cancellable, GError **error)
-{
-	return e_gdbus_proxy_call_sync_void__string (proxy, out_address, cancellable, error,
-		e_gdbus_cal_call_get_cal_email_address,
-		e_gdbus_cal_call_get_cal_email_address_finish);
-}
-
-void
-e_gdbus_cal_call_get_alarm_email_address (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_gdbus_proxy_call_void ("getAlarmEmailAddress", e_gdbus_cal_call_get_alarm_email_address, E_GDBUS_ASYNC_OP_KEEPER (proxy), cancellable, callback, user_data);
-}
-
-gboolean
-e_gdbus_cal_call_get_alarm_email_address_finish (GDBusProxy *proxy, GAsyncResult *result, gchar **out_address, GError **error)
-{
-	return e_gdbus_proxy_finish_call_string (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, out_address, error, e_gdbus_cal_call_get_alarm_email_address);
-}
-
-gboolean
-e_gdbus_cal_call_get_alarm_email_address_sync (GDBusProxy *proxy, gchar **out_address, GCancellable *cancellable, GError **error)
-{
-	return e_gdbus_proxy_call_sync_void__string (proxy, out_address, cancellable, error,
-		e_gdbus_cal_call_get_alarm_email_address,
-		e_gdbus_cal_call_get_alarm_email_address_finish);
-}
-
-void
-e_gdbus_cal_call_get_default_object (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_gdbus_proxy_call_void ("getDefaultObject", e_gdbus_cal_call_get_default_object, E_GDBUS_ASYNC_OP_KEEPER (proxy), cancellable, callback, user_data);
-}
-
-gboolean
-e_gdbus_cal_call_get_default_object_finish (GDBusProxy *proxy, GAsyncResult *result, gchar **out_object, GError **error)
-{
-	return e_gdbus_proxy_finish_call_string (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, out_object, error, e_gdbus_cal_call_get_default_object);
-}
-
-gboolean
-e_gdbus_cal_call_get_default_object_sync (GDBusProxy *proxy, gchar **out_object, GCancellable *cancellable, GError **error)
-{
-	return e_gdbus_proxy_call_sync_void__string (proxy, out_object, cancellable, error,
-		e_gdbus_cal_call_get_default_object,
-		e_gdbus_cal_call_get_default_object_finish);
+	return e_gdbus_proxy_call_sync_strv__void (proxy, in_prop_name_value, cancellable, error,
+		e_gdbus_cal_call_set_backend_property,
+		e_gdbus_cal_call_set_backend_property_finish);
 }
 
 /* free returned pointer with g_strfreev() */
@@ -911,11 +853,8 @@ DECLARE_EMIT_DONE_SIGNAL_0 (open,			__OPEN_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_0 (authenticate_user,		__AUTHENTICATE_USER_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_0 (remove,			__REMOVE_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_0 (refresh,			__REFRESH_DONE_SIGNAL)
-DECLARE_EMIT_DONE_SIGNAL_1 (get_cache_dir,		__GET_CACHE_DIR_DONE_SIGNAL, const gchar *)
-DECLARE_EMIT_DONE_SIGNAL_1 (get_capabilities,		__GET_CAPABILITIES_DONE_SIGNAL, const gchar *)
-DECLARE_EMIT_DONE_SIGNAL_1 (get_cal_email_address,	__GET_CAL_EMAIL_ADDRESS_DONE_SIGNAL, const gchar *)
-DECLARE_EMIT_DONE_SIGNAL_1 (get_alarm_email_address,	__GET_ALARM_EMAIL_ADDRESS_DONE_SIGNAL, const gchar *)
-DECLARE_EMIT_DONE_SIGNAL_1 (get_default_object,		__GET_DEFAULT_OBJECT_DONE_SIGNAL, const gchar *)
+DECLARE_EMIT_DONE_SIGNAL_1 (get_backend_property,	__GET_BACKEND_PROPERTY_DONE_SIGNAL, const gchar *)
+DECLARE_EMIT_DONE_SIGNAL_0 (set_backend_property,	__SET_BACKEND_PROPERTY_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_1 (get_object,			__GET_OBJECT_DONE_SIGNAL, const gchar *)
 DECLARE_EMIT_DONE_SIGNAL_1 (get_object_list,		__GET_OBJECT_LIST_DONE_SIGNAL, const gchar * const *)
 DECLARE_EMIT_DONE_SIGNAL_0 (get_free_busy,		__GET_FREE_BUSY_DONE_SIGNAL)
@@ -972,15 +911,11 @@ E_DECLARE_GDBUS_ASYNC_METHOD_1			(cal, open, only_if_exists, "b")
 E_DECLARE_GDBUS_ASYNC_METHOD_1			(cal, authenticateUser, credentials, "as")
 E_DECLARE_GDBUS_ASYNC_METHOD_0			(cal, remove)
 E_DECLARE_GDBUS_ASYNC_METHOD_0			(cal, refresh)
-E_DECLARE_GDBUS_ASYNC_METHOD_0_WITH_RETURN	(cal, getCacheDir, dirname, "s")
-E_DECLARE_GDBUS_ASYNC_METHOD_0_WITH_RETURN	(cal, getCapabilities, capabilities, "s")
-E_DECLARE_GDBUS_ASYNC_METHOD_0_WITH_RETURN	(cal, getCalEmailAddress, address, "s")
-E_DECLARE_GDBUS_ASYNC_METHOD_0_WITH_RETURN	(cal, getAlarmEmailAddress, address, "s")
-E_DECLARE_GDBUS_ASYNC_METHOD_0_WITH_RETURN	(cal, getDefaultObject, object, "s")
+E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(cal, getBackendProperty, propname, "s", propvalue, "s")
+E_DECLARE_GDBUS_ASYNC_METHOD_1			(cal, setBackendProperty, propnamevalue, "as")
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(cal, getObject, uid_rid, "as", object, "s")
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(cal, getObjectList, sexp, "s", objects, "as")
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(cal, getFreeBusy, start_stop_users, "as", freebusy, "as")
-E_DECLARE_GDBUS_ASYNC_METHOD_1			(cal, discardAlarm, uid_auid, "as")
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(cal, createObject, object, "s", uid, "s")
 E_DECLARE_GDBUS_ASYNC_METHOD_1			(cal, modifyObject, object_mod, "as")
 E_DECLARE_GDBUS_ASYNC_METHOD_1			(cal, removeObject, uid_rid_mod, "as")
@@ -1001,15 +936,11 @@ static const GDBusMethodInfo * const e_gdbus_cal_method_info_pointers[] =
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, authenticateUser),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, remove),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, refresh),
-	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getCacheDir),
-	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getCapabilities),
-	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getCalEmailAddress),
-	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getAlarmEmailAddress),
-	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getDefaultObject),
+	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getBackendProperty),
+	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, setBackendProperty),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getObject),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getObjectList),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getFreeBusy),
-	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, discardAlarm),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, createObject),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, modifyObject),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, removeObject),
@@ -1037,15 +968,11 @@ static const GDBusSignalInfo * const e_gdbus_cal_signal_info_pointers[] =
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, authenticateUser_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, remove_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, refresh_done),
-	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, getCacheDir_done),
-	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, getCapabilities_done),
-	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, getCalEmailAddress_done),
-	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, getAlarmEmailAddress_done),
-	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, getDefaultObject_done),
+	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, getBackendProperty_done),
+	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, setBackendProperty_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, getObject_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, getObjectList_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, getFreeBusy_done),
-	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, discardAlarm_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, createObject_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, modifyObject_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, removeObject_done),
@@ -1264,11 +1191,8 @@ e_gdbus_cal_proxy_init (EGdbusCalProxy *proxy)
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (authenticate_user);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (remove);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (refresh);
-	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRING (get_cache_dir);
-	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRING (get_capabilities);
-	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRING (get_cal_email_address);
-	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRING (get_alarm_email_address);
-	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRING (get_default_object);
+	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRING (get_backend_property);
+	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (set_backend_property);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRING (get_object);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRV   (get_object_list);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRV   (get_free_busy);

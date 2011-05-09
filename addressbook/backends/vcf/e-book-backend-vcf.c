@@ -549,37 +549,6 @@ e_book_backend_vcf_authenticate_user (EBookBackendSync *backend,
 	/* Success */
 }
 
-static void
-e_book_backend_vcf_get_required_fields (EBookBackendSync *backend,
-					EDataBook *book,
-					GCancellable *cancellable,
-					GSList **fields_out,
-					GError **perror)
-{
-	GSList *fields = NULL;
-
-	fields = g_slist_append (fields , g_strdup (e_contact_field_name (E_CONTACT_FILE_AS)));
-	*fields_out = fields;
-}
-
-static void
-e_book_backend_vcf_get_supported_fields (EBookBackendSync *backend,
-					 EDataBook *book,
-					 GCancellable *cancellable,
-					 GSList **fields_out,
-					 GError **perror)
-{
-	GSList *fields = NULL;
-	gint i;
-
-	/* XXX we need a way to say "we support everything", since the
-	   vcf backend does */
-	for (i = 0; i < E_CONTACT_FIELD_LAST; i++)
-		fields = g_slist_append (fields, (gchar *)e_contact_field_name (i));
-
-	*fields_out = fields;
-}
-
 #ifdef CREATE_DEFAULT_VCARD
 # include <libedata-book/ximian-vcard.h>
 #endif
@@ -667,10 +636,36 @@ e_book_backend_vcf_open (EBookBackendSync        *backend,
 	g_free (uri);
 }
 
-static void
-e_book_backend_vcf_get_capabilities (EBookBackendSync *backend, EDataBook *book, GCancellable *cancellable, gchar **capabilities, GError **error)
+static gboolean
+e_book_backend_vcf_get_backend_property (EBookBackendSync *backend, EDataBook *book, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **error)
 {
-	*capabilities = g_strdup ("local,do-initial-query,contact-lists");
+	gboolean processed = TRUE;
+
+	g_return_val_if_fail (prop_name != NULL, FALSE);
+	g_return_val_if_fail (prop_value != NULL, FALSE);
+
+	if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_CAPABILITIES)) {
+		*prop_value = g_strdup ("local,do-initial-query,contact-lists");
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS)) {
+		*prop_value = g_strdup (e_contact_field_name (E_CONTACT_FILE_AS));
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS)) {
+		GSList *fields = NULL;
+		gint i;
+
+		/* XXX we need a way to say "we support everything", since the
+		   vcf backend does */
+		for (i = 1; i < E_CONTACT_FIELD_LAST; i++)
+			fields = g_slist_append (fields, (gpointer) e_contact_field_name (i));
+
+		*prop_value = e_data_book_string_slist_to_comma_string (fields);
+		g_slist_free (fields);
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS)) {
+		*prop_value = NULL;
+	} else {
+		processed = FALSE;
+	}
+
+	return processed;
 }
 
 static void
@@ -741,15 +736,13 @@ e_book_backend_vcf_class_init (EBookBackendVCFClass *klass)
 	backend_class->set_online		= e_book_backend_vcf_set_online;
 
 	sync_class->open_sync			= e_book_backend_vcf_open;
-	sync_class->get_capabilities_sync	= e_book_backend_vcf_get_capabilities;
+	sync_class->get_backend_property_sync	= e_book_backend_vcf_get_backend_property;
 	sync_class->create_contact_sync		= e_book_backend_vcf_create_contact;
 	sync_class->remove_contacts_sync	= e_book_backend_vcf_remove_contacts;
 	sync_class->modify_contact_sync		= e_book_backend_vcf_modify_contact;
 	sync_class->get_contact_sync		= e_book_backend_vcf_get_contact;
 	sync_class->get_contact_list_sync	= e_book_backend_vcf_get_contact_list;
 	sync_class->authenticate_user_sync	= e_book_backend_vcf_authenticate_user;
-	sync_class->get_required_fields_sync	= e_book_backend_vcf_get_required_fields;
-	sync_class->get_supported_fields_sync	= e_book_backend_vcf_get_supported_fields;
 
 	object_class->dispose = e_book_backend_vcf_dispose;
 }

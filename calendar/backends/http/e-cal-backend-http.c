@@ -155,31 +155,36 @@ e_cal_backend_http_finalize (GObject *object)
 
 /* Calendar backend methods */
 
-static void
-e_cal_backend_http_get_cal_email_address (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **perror)
+static gboolean
+e_cal_backend_http_get_backend_property (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **perror)
 {
-	/* A HTTP backend has no particular email address associated
-	 * with it (although that would be a useful feature some day).
-	 */
-	*address = NULL;
-}
+	gboolean processed = TRUE;
 
-static void
-e_cal_backend_http_get_alarm_email_address (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **perror)
-{
-	/* A HTTP backend has no particular email address associated
-	 * with it (although that would be a useful feature some day).
-	 */
-	*address = NULL;
-}
+	g_return_val_if_fail (prop_name != NULL, FALSE);
+	g_return_val_if_fail (prop_value != NULL, FALSE);
 
-static void
-e_cal_backend_http_get_capabilities (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **capabilities, GError **perror)
-{
-	*capabilities = g_strdup (
-		CAL_STATIC_CAPABILITY_NO_EMAIL_ALARMS ","
-		CAL_STATIC_CAPABILITY_REFRESH_SUPPORTED
-		);
+	if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAPABILITIES)) {
+		*prop_value = g_strdup (CAL_STATIC_CAPABILITY_NO_EMAIL_ALARMS ","
+					CAL_STATIC_CAPABILITY_REFRESH_SUPPORTED);
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS) ||
+		   g_str_equal (prop_name, CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS)) {
+		/* A HTTP backend has no particular email address associated
+		 * with it (although that would be a useful feature some day).
+		 */
+		*prop_value = NULL;
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_DEFAULT_OBJECT)) {
+		icalcomponent *icalcomp;
+		icalcomponent_kind kind;
+
+		kind = e_cal_backend_get_kind (E_CAL_BACKEND (backend));
+		icalcomp = e_cal_util_new_component (kind);
+		*prop_value = icalcomponent_as_ical_string_r (icalcomp);
+		icalcomponent_free (icalcomp);
+	} else {
+		processed = FALSE;
+	}
+
+	return processed;
 }
 
 static gchar *
@@ -862,18 +867,6 @@ e_cal_backend_http_set_online (ECalBackend *backend, gboolean is_online)
 		e_cal_backend_notify_online (backend, priv->is_online);
 }
 
-static void
-e_cal_backend_http_get_default_object (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **object, GError **perror)
-{
-	icalcomponent *icalcomp;
-	icalcomponent_kind kind;
-
-	kind = e_cal_backend_get_kind (E_CAL_BACKEND (backend));
-	icalcomp = e_cal_util_new_component (kind);
-	*object = icalcomponent_as_ical_string_r (icalcomp);
-	icalcomponent_free (icalcomp);
-}
-
 /* Get_object_component handler for the http backend */
 static void
 e_cal_backend_http_get_object (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *uid, const gchar *rid, gchar **object, GError **error)
@@ -1304,26 +1297,22 @@ e_cal_backend_http_class_init (ECalBackendHttpClass *class)
 	object_class->dispose = e_cal_backend_http_dispose;
 	object_class->finalize = e_cal_backend_http_finalize;
 
-	sync_class->get_cal_email_address_sync = e_cal_backend_http_get_cal_email_address;
-	sync_class->get_alarm_email_address_sync = e_cal_backend_http_get_alarm_email_address;
-	sync_class->get_capabilities_sync = e_cal_backend_http_get_capabilities;
-	sync_class->open_sync = e_cal_backend_http_open;
-	sync_class->authenticate_user_sync = e_cal_backend_http_authenticate_user;
-	sync_class->refresh_sync = e_cal_backend_http_refresh;
-	sync_class->remove_sync = e_cal_backend_http_remove;
-	sync_class->create_object_sync = e_cal_backend_http_create_object;
-	sync_class->modify_object_sync = e_cal_backend_http_modify_object;
-	sync_class->remove_object_sync = e_cal_backend_http_remove_object;
-	sync_class->receive_objects_sync = e_cal_backend_http_receive_objects;
-	sync_class->send_objects_sync = e_cal_backend_http_send_objects;
-	sync_class->get_default_object_sync = e_cal_backend_http_get_default_object;
-	sync_class->get_object_sync = e_cal_backend_http_get_object;
-	sync_class->get_object_list_sync = e_cal_backend_http_get_object_list;
-	sync_class->add_timezone_sync = e_cal_backend_http_add_timezone;
-	sync_class->get_free_busy_sync = e_cal_backend_http_get_free_busy;
+	sync_class->get_backend_property_sync	= e_cal_backend_http_get_backend_property;
+	sync_class->open_sync			= e_cal_backend_http_open;
+	sync_class->authenticate_user_sync	= e_cal_backend_http_authenticate_user;
+	sync_class->refresh_sync		= e_cal_backend_http_refresh;
+	sync_class->remove_sync			= e_cal_backend_http_remove;
+	sync_class->create_object_sync		= e_cal_backend_http_create_object;
+	sync_class->modify_object_sync		= e_cal_backend_http_modify_object;
+	sync_class->remove_object_sync		= e_cal_backend_http_remove_object;
+	sync_class->receive_objects_sync	= e_cal_backend_http_receive_objects;
+	sync_class->send_objects_sync		= e_cal_backend_http_send_objects;
+	sync_class->get_object_sync		= e_cal_backend_http_get_object;
+	sync_class->get_object_list_sync	= e_cal_backend_http_get_object_list;
+	sync_class->add_timezone_sync		= e_cal_backend_http_add_timezone;
+	sync_class->get_free_busy_sync		= e_cal_backend_http_get_free_busy;
 
-	backend_class->start_view = e_cal_backend_http_start_view;
-	backend_class->set_online = e_cal_backend_http_set_online;
-
-	backend_class->internal_get_timezone = e_cal_backend_http_internal_get_timezone;
+	backend_class->start_view		= e_cal_backend_http_start_view;
+	backend_class->set_online		= e_cal_backend_http_set_online;
+	backend_class->internal_get_timezone	= e_cal_backend_http_internal_get_timezone;
 }

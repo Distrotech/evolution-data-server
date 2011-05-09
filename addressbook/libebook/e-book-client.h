@@ -29,6 +29,8 @@
 #include <libedataserver/e-source-list.h>
 #include <libebook/e-book-view.h>
 
+G_BEGIN_DECLS
+
 #define E_TYPE_BOOK_CLIENT		(e_book_client_get_type ())
 #define E_BOOK_CLIENT(o)		(G_TYPE_CHECK_INSTANCE_CAST ((o), E_TYPE_BOOK_CLIENT, EBookClient))
 #define E_BOOK_CLIENT_CLASS(k)		(G_TYPE_CHECK_CLASS_CAST ((k), E_TYPE_BOOK_CLIENT, EBookClientClass))
@@ -36,7 +38,14 @@
 #define E_IS_BOOK_CLIENT_CLASS(k)	(G_TYPE_CHECK_CLASS_TYPE ((k), E_TYPE_BOOK_CLIENT))
 #define E_BOOK_CLIENT_GET_CLASS(obj)	(G_TYPE_INSTANCE_GET_CLASS ((obj), E_TYPE_BOOK_CLIENT, EBookClientClass))
 
-G_BEGIN_DECLS
+#define BOOK_BACKEND_PROPERTY_LOADED			"loaded"
+#define BOOK_BACKEND_PROPERTY_ONLINE			"online"
+#define BOOK_BACKEND_PROPERTY_READONLY			"readonly"
+#define BOOK_BACKEND_PROPERTY_CACHE_DIR			"cache-dir"
+#define BOOK_BACKEND_PROPERTY_CAPABILITIES		"capabilities"
+#define BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS		"required-fields"
+#define BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS		"supported-fields"
+#define BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS	"supported-auth-methods"
 
 #define E_BOOK_CLIENT_ERROR e_book_client_error_quark ()
 
@@ -89,22 +98,6 @@ gboolean	e_book_client_set_self				(EBookClient *client, EContact *contact, GErr
 gboolean	e_book_client_is_self				(EContact *contact);
 
 /* Addressbook methods */
-void		e_book_client_get_capabilities			(EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_book_client_get_capabilities_finish		(EBookClient *client, GAsyncResult *result, GSList **capabilities, GError **error);
-gboolean	e_book_client_get_capabilities_sync		(EBookClient *client, GSList **capabilities, GCancellable *cancellable, GError **error);
-
-void		e_book_client_get_required_fields		(EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_book_client_get_required_fields_finish	(EBookClient *client, GAsyncResult *result, GSList **fields, GError **error);
-gboolean	e_book_client_get_required_fields_sync		(EBookClient *client, GSList **fields, GCancellable *cancellable, GError **error);
-
-void		e_book_client_get_supported_fields		(EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_book_client_get_supported_fields_finish	(EBookClient *client, GAsyncResult *result, GSList **fields, GError **error);
-gboolean	e_book_client_get_supported_fields_sync		(EBookClient *client, GSList **fields, GCancellable *cancellable, GError **error);
-
-void		e_book_client_get_supported_auth_methods	(EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_book_client_get_supported_auth_methods_finish	(EBookClient *client, GAsyncResult *result, GSList **auth_methods, GError **error);
-gboolean	e_book_client_get_supported_auth_methods_sync	(EBookClient *client, GSList **auth_methods, GCancellable *cancellable, GError **error);
-
 void		e_book_client_add_contact			(EBookClient *client, /* const */ EContact *contact, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_book_client_add_contact_finish		(EBookClient *client, GAsyncResult *result, gchar **added_uid, GError **error);
 gboolean	e_book_client_add_contact_sync			(EBookClient *client, /* const */ EContact *contact, gchar **added_uid, GCancellable *cancellable, GError **error);

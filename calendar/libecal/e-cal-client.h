@@ -30,6 +30,8 @@
 #include <libecal/e-cal-util.h>
 #include <libecal/e-cal-view.h>
 
+G_BEGIN_DECLS
+
 #define E_TYPE_CAL_CLIENT		(e_cal_client_get_type ())
 #define E_CAL_CLIENT(o)			(G_TYPE_CHECK_INSTANCE_CAST ((o), E_TYPE_CAL_CLIENT, ECalClient))
 #define E_CAL_CLIENT_CLASS(k)		(G_TYPE_CHECK_CLASS_CAST ((k), E_TYPE_CAL_CLIENT, ECalClientClass))
@@ -37,7 +39,14 @@
 #define E_IS_CAL_CLIENT_CLASS(k)	(G_TYPE_CHECK_CLASS_TYPE ((k), E_TYPE_CAL_CLIENT))
 #define E_CAL_CLIENT_GET_CLASS(obj)	(G_TYPE_INSTANCE_GET_CLASS ((obj), E_TYPE_CAL_CLIENT, ECalClientClass))
 
-G_BEGIN_DECLS
+#define CAL_BACKEND_PROPERTY_LOADED			"loaded"
+#define CAL_BACKEND_PROPERTY_ONLINE			"online"
+#define CAL_BACKEND_PROPERTY_READONLY			"readonly"
+#define CAL_BACKEND_PROPERTY_CACHE_DIR			"cache-dir"
+#define CAL_BACKEND_PROPERTY_CAPABILITIES		"capabilities"
+#define CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS		"cal-email-address"
+#define CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS	"alarm-email-address"
+#define CAL_BACKEND_PROPERTY_DEFAULT_OBJECT		"default-object"
 
 typedef enum {
 	E_CAL_CLIENT_SOURCE_TYPE_EVENT,
@@ -117,18 +126,6 @@ void		e_cal_client_generate_instances_for_object	(ECalClient *client, icalcompon
 gchar *		e_cal_client_get_component_as_string		(ECalClient *client, icalcomponent *icalcomp);
 
 /* Calendar methods */
-void		e_cal_client_get_capabilities			(ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_cal_client_get_capabilities_finish		(ECalClient *client, GAsyncResult *result, GSList **capabilities, GError **error);
-gboolean	e_cal_client_get_capabilities_sync		(ECalClient *client, GSList **capabilities, GCancellable *cancellable, GError **error);
-
-void		e_cal_client_get_cal_email_address		(ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_cal_client_get_cal_email_address_finish	(ECalClient *client, GAsyncResult *result, gchar **address, GError **error);
-gboolean	e_cal_client_get_cal_email_address_sync		(ECalClient *client, gchar **address, GCancellable *cancellable, GError **error);
-
-void		e_cal_client_get_alarm_email_address		(ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_cal_client_get_alarm_email_address_finish	(ECalClient *client, GAsyncResult *result, gchar **address, GError **error);
-gboolean	e_cal_client_get_alarm_email_address_sync	(ECalClient *client, gchar **address, GCancellable *cancellable, GError **error);
-
 void		e_cal_client_get_default_object			(ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_cal_client_get_default_object_finish		(ECalClient *client, GAsyncResult *result, icalcomponent **icalcomp, GError **error);
 gboolean	e_cal_client_get_default_object_sync		(ECalClient *client, icalcomponent **icalcomp, GCancellable *cancellable, GError **error);

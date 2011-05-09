@@ -142,17 +142,11 @@ struct _EGdbusBookIface
 	gboolean (*handle_modify_contact)	(EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar *in_vcard);
 	void	 (*modify_contact_done)		(EGdbusBook *object, guint arg_opid, const GError *arg_error);
 
-	gboolean (*handle_get_capabilities)	(EGdbusBook *object, GDBusMethodInvocation *invocation);
-	void	 (*get_capabilities_done)	(EGdbusBook *object, guint arg_opid, const GError *arg_error, gchar **out_capabilities);
+	gboolean (*handle_get_backend_property)	(EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar *in_prop_name);
+	void	 (*get_backend_property_done)	(EGdbusBook *object, guint arg_opid, const GError *arg_error, gchar **out_prop_value);
 
-	gboolean (*handle_get_required_fields)	(EGdbusBook *object, GDBusMethodInvocation *invocation);
-	void	 (*get_required_fields_done)	(EGdbusBook *object, guint arg_opid, const GError *arg_error, gchar ***out_fields);
-
-	gboolean (*handle_get_supported_fields)	(EGdbusBook *object, GDBusMethodInvocation *invocation);
-	void	 (*get_supported_fields_done)	(EGdbusBook *object, guint arg_opid, const GError *arg_error, gchar ***out_fields);
-
-	gboolean (*handle_get_supported_auth_methods) (EGdbusBook *object, GDBusMethodInvocation *invocation);
-	void	 (*get_supported_auth_methods_done) (EGdbusBook *object, guint arg_opid, const GError *arg_error, gchar ***out_auth_methods);
+	gboolean (*handle_set_backend_property)	(EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar *in_prop_name_value);
+	void	 (*set_backend_property_done)	(EGdbusBook *object, guint arg_opid, const GError *arg_error);
 
 	gboolean (*handle_get_view)		(EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar *in_query);
 	void	 (*get_view_done)		(EGdbusBook *object, guint arg_opid, const GError *arg_error, gchar **out_view);
@@ -198,21 +192,15 @@ void		e_gdbus_book_call_modify_contact (GDBusProxy *proxy, const gchar *in_vcard
 gboolean	e_gdbus_book_call_modify_contact_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error);
 gboolean	e_gdbus_book_call_modify_contact_sync (GDBusProxy *proxy, const gchar *in_vcard, GCancellable *cancellable, GError **error);
 
-void		e_gdbus_book_call_get_capabilities (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_book_call_get_capabilities_finish (GDBusProxy *proxy, GAsyncResult *result, gchar **out_capabilities, GError **error);
-gboolean	e_gdbus_book_call_get_capabilities_sync (GDBusProxy *proxy, gchar **out_capabilities, GCancellable *cancellable, GError **error);
+void		e_gdbus_book_call_get_backend_property (GDBusProxy *proxy, const gchar *in_prop_name, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean	e_gdbus_book_call_get_backend_property_finish (GDBusProxy *proxy, GAsyncResult *result, gchar **out_prop_value, GError **error);
+gboolean	e_gdbus_book_call_get_backend_property_sync (GDBusProxy *proxy, const gchar *prop_name, gchar **out_prop_value, GCancellable *cancellable, GError **error);
 
-void		e_gdbus_book_call_get_required_fields (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_book_call_get_required_fields_finish (GDBusProxy *proxy, GAsyncResult *result, gchar ***out_fields, GError **error);
-gboolean	e_gdbus_book_call_get_required_fields_sync (GDBusProxy *proxy, gchar ***out_fields, GCancellable *cancellable, GError **error);
-
-void		e_gdbus_book_call_get_supported_fields (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_book_call_get_supported_fields_finish (GDBusProxy *proxy, GAsyncResult *result, gchar ***out_fields, GError **error);
-gboolean	e_gdbus_book_call_get_supported_fields_sync (GDBusProxy *proxy, gchar ***out_fields, GCancellable *cancellable, GError **error);
-
-void		e_gdbus_book_call_get_supported_auth_methods (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_book_call_get_supported_auth_methods_finish (GDBusProxy *proxy, GAsyncResult *result, gchar ***out_auth_methods, GError **error);
-gboolean	e_gdbus_book_call_get_supported_auth_methods_sync (GDBusProxy *proxy, gchar ***out_auth_methods, GCancellable *cancellable, GError **error);
+gchar **	e_gdbus_book_encode_set_backend_property (const gchar *in_prop_name, const gchar *in_prop_value);
+gboolean	e_gdbus_book_decode_set_backend_property (const gchar * const *in_strv, gchar **out_prop_name, gchar **out_prop_value);
+void		e_gdbus_book_call_set_backend_property (GDBusProxy *proxy, const gchar * const *in_prop_name_value, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean	e_gdbus_book_call_set_backend_property_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error);
+gboolean	e_gdbus_book_call_set_backend_property_sync (GDBusProxy *proxy, const gchar * const *prop_name_value, GCancellable *cancellable, GError **error);
 
 void		e_gdbus_book_call_get_view (GDBusProxy *proxy, const gchar *in_query, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_gdbus_book_call_get_view_finish (GDBusProxy *proxy, GAsyncResult *result, gchar **out_view_path, GError **error);
@@ -239,10 +227,8 @@ gboolean	e_gdbus_book_call_close_sync (GDBusProxy *proxy, GCancellable *cancella
 #define e_gdbus_book_complete_add_contact			e_gdbus_complete_async_method
 #define e_gdbus_book_complete_remove_contacts			e_gdbus_complete_async_method
 #define e_gdbus_book_complete_modify_contact			e_gdbus_complete_async_method
-#define e_gdbus_book_complete_get_capabilities			e_gdbus_complete_async_method
-#define e_gdbus_book_complete_get_required_fields		e_gdbus_complete_async_method
-#define e_gdbus_book_complete_get_supported_fields		e_gdbus_complete_async_method
-#define e_gdbus_book_complete_get_supported_auth_methods	e_gdbus_complete_async_method
+#define e_gdbus_book_complete_get_backend_property		e_gdbus_complete_async_method
+#define e_gdbus_book_complete_set_backend_property		e_gdbus_complete_async_method
 #define e_gdbus_book_complete_get_view				e_gdbus_complete_async_method
 #define e_gdbus_book_complete_cancel_operation			e_gdbus_complete_sync_method_void
 #define e_gdbus_book_complete_cancel_all			e_gdbus_complete_sync_method_void
@@ -256,10 +242,8 @@ void e_gdbus_book_emit_get_contact_list_done		(EGdbusBook *object, guint arg_opi
 void e_gdbus_book_emit_add_contact_done			(EGdbusBook *object, guint arg_opid, const GError *arg_error, const gchar *out_uid);
 void e_gdbus_book_emit_remove_contacts_done		(EGdbusBook *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_book_emit_modify_contact_done		(EGdbusBook *object, guint arg_opid, const GError *arg_error);
-void e_gdbus_book_emit_get_capabilities_done		(EGdbusBook *object, guint arg_opid, const GError *arg_error, const gchar *out_capabilities);
-void e_gdbus_book_emit_get_required_fields_done		(EGdbusBook *object, guint arg_opid, const GError *arg_error, const gchar * const *out_fields);
-void e_gdbus_book_emit_get_supported_fields_done	(EGdbusBook *object, guint arg_opid, const GError *arg_error, const gchar * const *out_fields);
-void e_gdbus_book_emit_get_supported_auth_methods_done	(EGdbusBook *object, guint arg_opid, const GError *arg_error, const gchar * const *out_auth_methods);
+void e_gdbus_book_emit_get_backend_property_done	(EGdbusBook *object, guint arg_opid, const GError *arg_error, const gchar *out_prop_value);
+void e_gdbus_book_emit_set_backend_property_done	(EGdbusBook *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_book_emit_get_view_done			(EGdbusBook *object, guint arg_opid, const GError *arg_error, const gchar *out_view);
 
 /* D-Bus Signal Emission Helpers */

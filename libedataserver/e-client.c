@@ -31,6 +31,7 @@
 #include "e-operation-pool.h"
 
 #include "e-client.h"
+#include "e-client-private.h"
 
 struct _EClientPrivate
 {
@@ -532,7 +533,7 @@ e_client_set_capabilities (EClient *client, const gchar *capabilities)
 
 	g_slist_foreach (client->priv->capabilities, (GFunc) g_free, NULL);
 	g_slist_free (client->priv->capabilities);
-	client->priv->capabilities = e_client_util_parse_capabilities (capabilities);
+	client->priv->capabilities = e_client_util_parse_comma_strings (capabilities);
 
 	g_static_rec_mutex_unlock (&client->priv->prop_mutex);
 
@@ -648,8 +649,8 @@ e_client_is_opened (EClient *client)
  * @opid: asynchronous operation ID
  *
  * Cancels particular asynchronous operation. The @opid is returned from
- * an asynchronous function, like e_client_open(). The function does nothing
- * if the asynchronous operation doesn't exist any more.
+ * an e_client_register_op(). The function does nothing if the asynchronous
+ * operation doesn't exist any more.
  *
  * Since: 3.2
  */
@@ -830,6 +831,195 @@ e_client_emit_backend_died (EClient *client)
 	g_return_if_fail (E_IS_CLIENT (client));
 
 	g_signal_emit (client, signals[BACKEND_DIED], 0);
+}
+
+/**
+ * e_client_get_backend_property:
+ * @client: an #EClient
+ * @prop_name: property name, whose value to retrieve; cannot be %NULL
+ * @cancellable: a #GCancellable; can be %NULL
+ * @callback: callback to call when a result is ready
+ * @user_data: user data for the @callback
+ *
+ * Queries @client's backend for a property of name @prop_name.
+ * The call is finished by e_client_get_backend_property_finish()
+ * from the @callback.
+ *
+ * Since: 3.2
+ **/
+void
+e_client_get_backend_property (EClient *client, const gchar *prop_name, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	EClientClass *klass;
+
+	g_return_if_fail (callback != NULL);
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (client->priv != NULL);
+	g_return_if_fail (prop_name != NULL);
+
+	klass = E_CLIENT_GET_CLASS (client);
+	g_return_if_fail (klass != NULL);
+	g_return_if_fail (klass->get_backend_property != NULL);
+
+	klass->get_backend_property (client, prop_name, cancellable, callback, user_data);
+}
+
+/**
+ * e_client_get_backend_property_finish:
+ * @client: an #EClient
+ * @result: a #GAsyncResult
+ * @prop_value: (out): Retrieved backend property value; cannot be %NULL
+ * @error: (out): a #GError to set an error, if any
+ *
+ * Finishes previous call of e_client_get_backend_property().
+ *
+ * Returns: %TRUE if successful, %FALSE otherwise.
+ *
+ * Since: 3.2
+ **/
+gboolean
+e_client_get_backend_property_finish (EClient *client, GAsyncResult *result, gchar **prop_value, GError **error)
+{
+	EClientClass *klass;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_CLIENT (client), FALSE);
+	g_return_val_if_fail (client->priv != NULL, FALSE);
+	g_return_val_if_fail (prop_value != NULL, FALSE);
+
+	klass = E_CLIENT_GET_CLASS (client);
+	g_return_val_if_fail (klass != NULL, FALSE);
+	g_return_val_if_fail (klass->get_backend_property_finish != NULL, FALSE);
+
+	return klass->get_backend_property_finish (client, result, prop_value, error);
+}
+
+/**
+ * e_client_get_backend_property_sync:
+ * @client: an #EClient
+ * @prop_name: property name, whose value to retrieve; cannot be %NULL
+ * @prop_value: (out): Retrieved backend property value; cannot be %NULL
+ * @cancellable: a #GCancellable; can be %NULL
+ * @error: (out): a #GError to set an error, if any
+ *
+ * Queries @client's backend for a property of name @prop_name.
+ *
+ * Returns: %TRUE if successful, %FALSE otherwise.
+ *
+ * Since: 3.2
+ **/
+gboolean
+e_client_get_backend_property_sync (EClient *client, const gchar *prop_name, gchar **prop_value, GCancellable *cancellable, GError **error)
+{
+	EClientClass *klass;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_CLIENT (client), FALSE);
+	g_return_val_if_fail (client->priv != NULL, FALSE);
+	g_return_val_if_fail (prop_name != NULL, FALSE);
+	g_return_val_if_fail (prop_value != NULL, FALSE);
+
+	klass = E_CLIENT_GET_CLASS (client);
+	g_return_val_if_fail (klass != NULL, FALSE);
+	g_return_val_if_fail (klass->get_backend_property_sync != NULL, FALSE);
+
+	return klass->get_backend_property_sync (client, prop_name, prop_value, cancellable, error);
+}
+
+/**
+ * e_client_set_backend_property:
+ * @client: an #EClient
+ * @prop_name: property name, whose value to change; cannot be %NULL
+ * @prop_value: property value, to set; cannot be %NULL
+ * @cancellable: a #GCancellable; can be %NULL
+ * @callback: callback to call when a result is ready
+ * @user_data: user data for the @callback
+ *
+ * Sets @client's backend property of name @prop_name
+ * to value @prop_value. The call is finished
+ * by e_client_set_backend_property_finish() from the @callback.
+ *
+ * Since: 3.2
+ **/
+void
+e_client_set_backend_property (EClient *client, const gchar *prop_name, const gchar *prop_value, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	EClientClass *klass;
+
+	g_return_if_fail (callback != NULL);
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (client->priv != NULL);
+	g_return_if_fail (prop_name != NULL);
+	g_return_if_fail (prop_value != NULL);
+
+	klass = E_CLIENT_GET_CLASS (client);
+	g_return_if_fail (klass != NULL);
+	g_return_if_fail (klass->set_backend_property != NULL);
+
+	klass->set_backend_property (client, prop_name, prop_value, cancellable, callback, user_data);
+}
+
+/**
+ * e_client_set_backend_property_finish:
+ * @client: an #EClient
+ * @result: a #GAsyncResult
+ * @error: (out): a #GError to set an error, if any
+ *
+ * Finishes previous call of e_client_set_backend_property().
+ *
+ * Returns: %TRUE if successful, %FALSE otherwise.
+ *
+ * Since: 3.2
+ **/
+gboolean
+e_client_set_backend_property_finish (EClient *client, GAsyncResult *result, GError **error)
+{
+	EClientClass *klass;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_CLIENT (client), FALSE);
+	g_return_val_if_fail (client->priv != NULL, FALSE);
+
+	klass = E_CLIENT_GET_CLASS (client);
+	g_return_val_if_fail (klass != NULL, FALSE);
+	g_return_val_if_fail (klass->set_backend_property_finish != NULL, FALSE);
+
+	return klass->set_backend_property_finish (client, result, error);
+}
+
+/**
+ * e_client_set_backend_property_sync:
+ * @client: an #EClient
+ * @prop_name: property name, whose value to change; cannot be %NULL
+ * @prop_value: property value, to set; cannot be %NULL
+ * @cancellable: a #GCancellable; can be %NULL
+ * @error: (out): a #GError to set an error, if any
+ *
+ * Sets @client's backend property of name @prop_name
+ * to value @prop_value.
+ *
+ * Returns: %TRUE if successful, %FALSE otherwise.
+ *
+ * Since: 3.2
+ **/
+gboolean
+e_client_set_backend_property_sync (EClient *client, const gchar *prop_name, const gchar *prop_value, GCancellable *cancellable, GError **error)
+{
+	EClientClass *klass;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_CLIENT (client), FALSE);
+	g_return_val_if_fail (client->priv != NULL, FALSE);
+	g_return_val_if_fail (prop_name != NULL, FALSE);
+	g_return_val_if_fail (prop_value != NULL, FALSE);
+
+	klass = E_CLIENT_GET_CLASS (client);
+	g_return_val_if_fail (klass != NULL, FALSE);
+	g_return_val_if_fail (klass->set_backend_property_sync != NULL, FALSE);
+
+	return klass->set_backend_property_sync (client, prop_name, prop_value, cancellable, error);
 }
 
 /**
@@ -1159,40 +1349,40 @@ e_client_util_free_object_slist (GSList *objects)
 }
 
 /**
- * e_client_util_parse_capabilities:
- * @capabilitites: string of capabilities
+ * e_client_util_parse_comma_strings:
+ * @strings: string of comma-separated values
  *
- * Parse comma-separated list of capabilities into #GSList.
+ * Parses comma-separated list of values into #GSList.
  *
- * Reeturns: Newly allocated #GSList of newly allocated strings
- * corresponding to capabilities as parsed from @capabilities.
+ * Returns: Newly allocated #GSList of newly allocated strings
+ * corresponding to values parsed from @strings.
  * Free returned pointer with e_client_util_free_string_slist().
  *
  * Since: 3.2
  **/
 GSList *
-e_client_util_parse_capabilities (const gchar *capabilities)
+e_client_util_parse_comma_strings (const gchar *strings)
 {
-	GSList *caps_slist = NULL;
-	gchar **caps_strv = NULL;
+	GSList *strs_slist = NULL;
+	gchar **strs_strv = NULL;
 	gint ii;
 
-	if (!capabilities || !*capabilities)
+	if (!strings || !*strings)
 		return NULL;
 
-	caps_strv = g_strsplit (capabilities, ",", -1);
-	g_return_val_if_fail (caps_strv != NULL, NULL);
+	strs_strv = g_strsplit (strings, ",", -1);
+	g_return_val_if_fail (strs_strv != NULL, NULL);
 
-	for (ii = 0; caps_strv && caps_strv[ii]; ii++) {
-		gchar *cap = g_strstrip (caps_strv[ii]);
+	for (ii = 0; strs_strv && strs_strv[ii]; ii++) {
+		gchar *str = g_strstrip (strs_strv[ii]);
 
-		if (cap && *cap)
-			caps_slist = g_slist_prepend (caps_slist, g_strdup (cap));
+		if (str && *str)
+			strs_slist = g_slist_prepend (strs_slist, g_strdup (str));
 	}
 
-	g_strfreev (caps_strv);
+	g_strfreev (strs_strv);
 
-	return g_slist_reverse (caps_slist);
+	return g_slist_reverse (strs_slist);
 }
 
 /* for each known source calls check_func, which should return TRUE if the required

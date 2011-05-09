@@ -28,6 +28,7 @@
 #include <gio/gio.h>
 
 #include "libedataserver/e-data-server-util.h"
+#include "libedataserver/e-client-private.h"
 
 #include "e-book-client.h"
 #include "e-contact.h"
@@ -46,6 +47,34 @@ struct _EBookClientPrivate
 };
 
 G_DEFINE_TYPE (EBookClient, e_book_client, E_TYPE_CLIENT)
+
+/**
+ * Well-known book backend properties:
+ * @BOOK_BACKEND_PROPERTY_LOADED: Is set to "TRUE" or "FALSE" depending
+ *   on the backend's loaded state.
+ * @BOOK_BACKEND_PROPERTY_ONLINE: Is set to "TRUE" or "FALSE" depending
+ *   on the backend's loaded state. See also e_client_is_online().
+ * @BOOK_BACKEND_PROPERTY_READONLY: Is set to "TRUE" or "FALSE" depending
+ *   on the backend's readonly state. See also e_client_is_readonly().
+ * @BOOK_BACKEND_PROPERTY_CACHE_DIR: Local folder with cached data used
+ *   by the backend.
+ * @BOOK_BACKEND_PROPERTY_CAPABILITIES: Retrieves comma-separated list
+ *   of	capabilities supported by the backend. Preferred method of retreiving
+ *   and working with capabilities is e_client_get_capabilities() and
+ *   e_client_check_capability().
+ * @BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS: Retrieves comma-separated list
+ *   of required fields by the backend. Use e_client_util_parse_comma_strings()
+ *   to parse returned string value into a #GSList. These fields are required
+ *   to be filled in for all contacts.
+ * @BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS: Retrieves comma-separated list
+ *   of supported fields by the backend. Use e_client_util_parse_comma_strings()
+ *   to parse returned string value into a #GSList. These fields can be
+ *   stored for contacts.
+ * @BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS: Retrieves comma-separated list
+ *   of supported authentication methods by the backend.
+ *   Use e_client_util_parse_comma_strings() to parse returned string value
+ *   into a #GSList.
+ **/
 
 GQuark
 e_book_client_error_quark (void)
@@ -900,6 +929,86 @@ e_book_client_is_self (EContact *contact)
 }
 
 static void
+book_client_get_backend_property (EClient *client, const gchar *prop_name, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	e_client_proxy_call_string (client, prop_name, cancellable, callback, user_data, book_client_get_backend_property,
+			e_gdbus_book_call_get_backend_property,
+			NULL, NULL, e_gdbus_book_call_get_backend_property_finish, NULL, NULL);
+}
+
+static gboolean
+book_client_get_backend_property_finish (EClient *client, GAsyncResult *result, gchar **prop_value, GError **error)
+{
+	return e_client_proxy_call_finish_string (client, result, prop_value, error, book_client_get_backend_property);
+}
+
+static gboolean
+book_client_get_backend_property_sync (EClient *client, const gchar *prop_name, gchar **prop_value, GCancellable *cancellable, GError **error)
+{
+	EBookClient *book_client;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_BOOK_CLIENT (client), FALSE);
+
+	book_client = E_BOOK_CLIENT (client);
+	g_return_val_if_fail (book_client != NULL, FALSE);
+	g_return_val_if_fail (book_client->priv != NULL, FALSE);
+
+	if (!book_client->priv->gdbus_book) {
+		set_proxy_gone_error (error);
+		return FALSE;
+	}
+
+	return e_client_proxy_call_sync_string__string (client, prop_name, prop_value, cancellable, error, e_gdbus_book_call_get_backend_property_sync);
+}
+
+static void
+book_client_set_backend_property (EClient *client, const gchar *prop_name, const gchar *prop_value, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	gchar **prop_name_value;
+
+	prop_name_value = e_gdbus_book_encode_set_backend_property (prop_name, prop_value);
+
+	e_client_proxy_call_strv (client, (const gchar * const *) prop_name_value, cancellable, callback, user_data, book_client_set_backend_property,
+			e_gdbus_book_call_set_backend_property,
+			e_gdbus_book_call_set_backend_property_finish, NULL, NULL, NULL, NULL);
+
+	g_strfreev (prop_name_value);
+}
+
+static gboolean
+book_client_set_backend_property_finish (EClient *client, GAsyncResult *result, GError **error)
+{
+	return e_client_proxy_call_finish_void (client, result, error, book_client_set_backend_property);
+}
+
+static gboolean
+book_client_set_backend_property_sync (EClient *client, const gchar *prop_name, const gchar *prop_value, GCancellable *cancellable, GError **error)
+{
+	EBookClient *book_client;
+	gboolean res;
+	gchar **prop_name_value;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_BOOK_CLIENT (client), FALSE);
+
+	book_client = E_BOOK_CLIENT (client);
+	g_return_val_if_fail (book_client != NULL, FALSE);
+	g_return_val_if_fail (book_client->priv != NULL, FALSE);
+
+	if (!book_client->priv->gdbus_book) {
+		set_proxy_gone_error (error);
+		return FALSE;
+	}
+
+	prop_name_value = e_gdbus_book_encode_set_backend_property (prop_name, prop_value);
+	res = e_client_proxy_call_sync_strv__void (client, (const gchar * const *) prop_name_value, cancellable, error, e_gdbus_book_call_set_backend_property_sync);
+	g_strfreev (prop_name_value);
+
+	return res;
+}
+
+static void
 book_client_open (EClient *client, gboolean only_if_exists, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	e_client_proxy_call_boolean (client, only_if_exists, cancellable, callback, user_data, book_client_open,
@@ -967,405 +1076,6 @@ book_client_remove_sync (EClient *client, GCancellable *cancellable, GError **er
 	return e_client_proxy_call_sync_void__void (client, cancellable, error, e_gdbus_book_call_remove_sync);
 }
 
-
-/**
- * e_book_client_get_capabilities:
- * @client: an #EBookClient
- * @cancellable: a #GCancellable; can be %NULL
- * @callback: callback to call when a result is ready
- * @user_data: user data for the @callback
- *
- * Starts retrieval of the list of capabilities which the backend for this address book
- * supports. The call is finished by e_book_client_get_capabilities_finish() from
- * the @callback.
- *
- * Note: Usually is sufficient to use e_client_get_capabilities() or e_client_check_capability(),
- * which caches capabilities of a backend on the client side.
- *
- * Since: 3.2
- **/
-void
-e_book_client_get_capabilities (EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_capabilities,
-			e_gdbus_book_call_get_capabilities,
-			NULL, NULL, e_gdbus_book_call_get_capabilities_finish, NULL, NULL);
-}
-
-/**
- * e_book_client_get_capabilities_finish:
- * @client: an #EBookClient
- * @result: a #GAsyncResult
- * @capabilities: (out): list of strings with capabilities
- * @error: (out): a #GError to set an error, if any
- *
- * Finishes previous call of e_book_client_get_capabilities() and
- * sets @capabilities to a list of strings of backend capabilities.
- * This list should be freed with e_client_util_free_string_slist().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_book_client_get_capabilities_finish (EBookClient *client, GAsyncResult *result, GSList **capabilities, GError **error)
-{
-	gboolean res;
-	gchar *out_string = NULL;
-
-	g_return_val_if_fail (capabilities != NULL, FALSE);
-
-	res = e_client_proxy_call_finish_string (E_CLIENT (client), result, &out_string, error, e_book_client_get_capabilities);
-
-	if (res && out_string)
-		*capabilities = e_client_util_parse_capabilities (out_string);
-	else
-		*capabilities = NULL;
-
-	g_free (out_string);
-
-	return res;
-}
-
-/**
- * e_book_client_get_capabilities_sync:
- * @client: an #EBookClient
- * @capabilities: (out): list of strings with capabilities
- * @cancellable: a #GCancellable; can be %NULL
- * @error: (out): a #GError to set an error, if any
- *
- * Retrieves a list of capabilities which the backend for this address book
- * supports and sets @capabilities to that list.
- * This list should be freed with e_client_util_free_string_slist().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Note: Usually is sufficient to use e_client_get_capabilities() or e_client_check_capability(),
- * which caches capabilities of a backend on the client side.
- *
- * Since: 3.2
- **/
-gboolean
-e_book_client_get_capabilities_sync (EBookClient *client, GSList **capabilities, GCancellable *cancellable, GError **error)
-{
-	gboolean res;
-	gchar *out_string = NULL;
-
-	g_return_val_if_fail (client != NULL, FALSE);
-	g_return_val_if_fail (E_IS_BOOK_CLIENT (client), FALSE);
-	g_return_val_if_fail (client->priv != NULL, FALSE);
-	g_return_val_if_fail (capabilities != NULL, FALSE);
-
-	if (!client->priv->gdbus_book) {
-		set_proxy_gone_error (error);
-		return FALSE;
-	}
-
-	res = e_client_proxy_call_sync_void__string (E_CLIENT (client), &out_string, cancellable, error, e_gdbus_book_call_get_capabilities_sync);
-
-	if (res && out_string)
-		*capabilities = e_client_util_parse_capabilities (out_string);
-	else
-		*capabilities = NULL;
-
-	g_free (out_string);
-
-	return res;
-}
-
-/**
- * e_book_client_get_required_fields:
- * @client: an #EBookClient
- * @cancellable: a #GCancellable; can be %NULL
- * @callback: callback to call when a result is ready
- * @user_data: user data for the @callback
- *
- * Gets a list of fields that are required to be filled in for
- * all contacts in this @client. The call is finished by
- * e_book_client_get_required_fields_finish() from the @callback.
- *
- * Since: 3.2
- **/
-void
-e_book_client_get_required_fields (EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_required_fields,
-			e_gdbus_book_call_get_required_fields,
-			NULL, NULL, NULL, e_gdbus_book_call_get_required_fields_finish, NULL);
-}
-
-/**
- * e_book_client_get_required_fields_finish:
- * @client: an #EBookClient
- * @result: a #GAsyncResult
- * @fields: (out): list of strings with required fields
- * @error: (out): a #GError to set an error, if any
- *
- * Finishes previous call of e_book_client_get_required_fields() and
- * sets @fields to a list of strings of required fields by a backend.
- * This list should be freed with e_client_util_free_string_slist().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_book_client_get_required_fields_finish (EBookClient *client, GAsyncResult *result, GSList **fields, GError **error)
-{
-	gboolean res;
-	gchar **out_strv = NULL;
-
-	g_return_val_if_fail (fields != NULL, FALSE);
-
-	res = e_client_proxy_call_finish_strv (E_CLIENT (client), result, &out_strv, error, e_book_client_get_required_fields);
-
-	if (res && out_strv)
-		*fields = e_client_util_strv_to_slist ((const gchar * const *) out_strv);
-	else
-		*fields = NULL;
-
-	g_strfreev (out_strv);
-
-	return res;
-}
-
-/**
- * e_book_client_get_required_fields_sync:
- * @client: an #EBookClient
- * @fields: (out): list of strings with required fields
- * @cancellable: a #GCancellable; can be %NULL
- * @error: (out): a #GError to set an error, if any
- *
- * Gets a list of fields that are required to be filled in for
- * all contacts in this @client. Sets @fields to a list of strings
- * of required fields by a backend.
- * This list should be freed with e_client_util_free_string_slist().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_book_client_get_required_fields_sync (EBookClient *client, GSList **fields, GCancellable *cancellable, GError **error)
-{
-	gboolean res;
-	gchar **out_strv = NULL;
-
-	g_return_val_if_fail (client != NULL, FALSE);
-	g_return_val_if_fail (E_IS_BOOK_CLIENT (client), FALSE);
-	g_return_val_if_fail (client->priv != NULL, FALSE);
-	g_return_val_if_fail (fields != NULL, FALSE);
-
-	if (!client->priv->gdbus_book) {
-		set_proxy_gone_error (error);
-		return FALSE;
-	}
-
-	res = e_client_proxy_call_sync_void__strv (E_CLIENT (client), &out_strv, cancellable, error, e_gdbus_book_call_get_required_fields_sync);
-
-	if (res && out_strv)
-		*fields = e_client_util_strv_to_slist ((const gchar * const *) out_strv);
-	else
-		*fields = NULL;
-
-	g_strfreev (out_strv);
-
-	return res;
-}
-
-/**
- * e_book_client_get_supported_fields:
- * @client: an #EBookClient
- * @cancellable: a #GCancellable; can be %NULL
- * @callback: callback to call when a result is ready
- * @user_data: user data for the @callback
- *
- * Gets a list of fields that can be stored for contacts
- * in this @client. Other fields may be discarded. The call is finished by
- * e_book_client_get_supported_fields_finish() from the @callback.
- *
- * Since: 3.2
- **/
-void
-e_book_client_get_supported_fields (EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_supported_fields,
-			e_gdbus_book_call_get_supported_fields,
-			NULL, NULL, NULL, e_gdbus_book_call_get_supported_fields_finish, NULL);
-}
-
-/**
- * e_book_client_get_supported_fields_finish:
- * @client: an #EBookClient
- * @result: a #GAsyncResult
- * @fields: (out): list of strings with supported fields
- * @error: (out): a #GError to set an error, if any
- *
- * Finishes previous call of e_book_client_get_supported_fields() and
- * sets @fields to a list of strings of supported fields by a backend.
- * This list should be freed with e_client_util_free_string_slist().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_book_client_get_supported_fields_finish (EBookClient *client, GAsyncResult *result, GSList **fields, GError **error)
-{
-	gboolean res;
-	gchar **out_strv = NULL;
-
-	g_return_val_if_fail (fields != NULL, FALSE);
-
-	res = e_client_proxy_call_finish_strv (E_CLIENT (client), result, &out_strv, error, e_book_client_get_supported_fields);
-
-	if (res && out_strv)
-		*fields = e_client_util_strv_to_slist ((const gchar * const *) out_strv);
-	else
-		*fields = NULL;
-
-	g_strfreev (out_strv);
-
-	return res;
-}
-
-/**
- * e_book_client_get_supported_fields_sync:
- * @client: an #EBookClient
- * @fields: (out): list of strings with supported fields
- * @cancellable: a #GCancellable; can be %NULL
- * @error: (out): a #GError to set an error, if any
- *
- * Gets a list of fields that can be stored for contacts
- * in this @client. Other fields may be discarded. Sets @fields
- * to a list of strings of required fields by a backend.
- * This list should be freed with e_client_util_free_string_slist().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_book_client_get_supported_fields_sync (EBookClient *client, GSList **fields, GCancellable *cancellable, GError **error)
-{
-	gboolean res;
-	gchar **out_strv = NULL;
-
-	g_return_val_if_fail (client != NULL, FALSE);
-	g_return_val_if_fail (E_IS_BOOK_CLIENT (client), FALSE);
-	g_return_val_if_fail (client->priv != NULL, FALSE);
-
-	if (!client->priv->gdbus_book) {
-		set_proxy_gone_error (error);
-		return FALSE;
-	}
-
-	res = e_client_proxy_call_sync_void__strv (E_CLIENT (client), &out_strv, cancellable, error, e_gdbus_book_call_get_supported_fields_sync);
-
-	if (res && out_strv)
-		*fields = e_client_util_strv_to_slist ((const gchar * const *) out_strv);
-	else
-		*fields = NULL;
-
-	g_strfreev (out_strv);
-
-	return res;
-}
-
-/**
- * e_book_client_get_supported_auth_methods:
- * @client: an #EBookClient
- * @cancellable: a #GCancellable; can be %NULL
- * @callback: callback to call when a result is ready
- * @user_data: user data for the @callback
- *
- * Queries @client for the list of authentication methods it supports.
- * The call is finished by e_book_client_get_supported_auth_methods_finish()
- * from the @callback.
- *
- * Since: 3.2
- **/
-void
-e_book_client_get_supported_auth_methods (EBookClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_book_client_get_supported_auth_methods,
-			e_gdbus_book_call_get_supported_auth_methods,
-			NULL, NULL, NULL, e_gdbus_book_call_get_supported_auth_methods_finish, NULL);
-}
-
-/**
- * e_book_client_get_supported_auth_methods_finish:
- * @client: an #EBookClient
- * @result: a #GAsyncResult
- * @auth_methods: (out): list of strings with supported authentication methods
- * @error: (out): a #GError to set an error, if any
- *
- * Finishes previous call of e_book_client_get_supported_auth_methods() and
- * sets @auth_methods to a list of strings of supported authentication methods by a backend.
- * This list should be freed with e_client_util_free_string_slist().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_book_client_get_supported_auth_methods_finish	(EBookClient *client, GAsyncResult *result, GSList **auth_methods, GError **error)
-{
-	gboolean res;
-	gchar **out_strv = NULL;
-
-	res = e_client_proxy_call_finish_strv (E_CLIENT (client), result, &out_strv, error, e_book_client_get_supported_auth_methods);
-
-	if (res && out_strv)
-		*auth_methods = e_client_util_strv_to_slist ((const gchar * const *) out_strv);
-	else
-		*auth_methods = NULL;
-
-	g_strfreev (out_strv);
-
-	return res;
-}
-
-/**
- * e_book_client_get_supported_auth_methods_sync:
- * @client: an #EBookClient
- * @auth_methods: (out): list of strings with supported authentication methods
- * @cancellable: a #GCancellable; can be %NULL
- * @error: (out): a #GError to set an error, if any
- *
- * Queries @client for the list of authentication methods it supports.
- * This list should be freed with e_client_util_free_string_slist().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_book_client_get_supported_auth_methods_sync (EBookClient *client, GSList **auth_methods, GCancellable *cancellable, GError **error)
-{
-	gboolean res;
-	gchar **out_strv = NULL;
-
-	g_return_val_if_fail (client != NULL, FALSE);
-	g_return_val_if_fail (E_IS_BOOK_CLIENT (client), FALSE);
-	g_return_val_if_fail (client->priv != NULL, FALSE);
-
-	if (!client->priv->gdbus_book) {
-		set_proxy_gone_error (error);
-		return FALSE;
-	}
-
-	res = e_client_proxy_call_sync_void__strv (E_CLIENT (client), &out_strv, cancellable, error, e_gdbus_book_call_get_supported_auth_methods_sync);
-
-	if (res && out_strv)
-		*auth_methods = e_client_util_strv_to_slist ((const gchar * const *) out_strv);
-	else
-		*auth_methods = NULL;
-
-	g_strfreev (out_strv);
-
-	return res;
-}
 
 /**
  * e_book_client_add_contact:
@@ -2317,7 +2027,7 @@ book_client_retrieve_capabilities (EClient *client)
 	if (!book_client->priv->gdbus_book)
 		return NULL;
 
-	e_gdbus_book_call_get_capabilities_sync (book_client->priv->gdbus_book, &capabilities, NULL, &error);
+	e_gdbus_book_call_get_backend_property_sync (book_client->priv->gdbus_book, BOOK_BACKEND_PROPERTY_CAPABILITIES, &capabilities, NULL, &error);
 
 	if (error) {
 		g_debug ("%s: Failed to retrieve capabilitites: %s", G_STRFUNC, error->message);
@@ -2386,14 +2096,20 @@ e_book_client_class_init (EBookClientClass *klass)
 	object_class->finalize = book_client_finalize;
 
 	client_class = E_CLIENT_CLASS (klass);
-	client_class->get_dbus_proxy = book_client_get_dbus_proxy;
-	client_class->unwrap_dbus_error = book_client_unwrap_dbus_error;
-	client_class->handle_authentication = book_client_handle_authentication;
-	client_class->retrieve_capabilities = book_client_retrieve_capabilities;
-	client_class->open = book_client_open;
-	client_class->open_finish = book_client_open_finish;
-	client_class->open_sync = book_client_open_sync;
-	client_class->remove = book_client_remove;
-	client_class->remove_finish = book_client_remove_finish;
-	client_class->remove_sync = book_client_remove_sync;
+	client_class->get_dbus_proxy			= book_client_get_dbus_proxy;
+	client_class->unwrap_dbus_error			= book_client_unwrap_dbus_error;
+	client_class->handle_authentication		= book_client_handle_authentication;
+	client_class->retrieve_capabilities		= book_client_retrieve_capabilities;
+	client_class->get_backend_property		= book_client_get_backend_property;
+	client_class->get_backend_property_finish	= book_client_get_backend_property_finish;
+	client_class->get_backend_property_sync		= book_client_get_backend_property_sync;
+	client_class->set_backend_property		= book_client_set_backend_property;
+	client_class->set_backend_property_finish	= book_client_set_backend_property_finish;
+	client_class->set_backend_property_sync		= book_client_set_backend_property_sync;
+	client_class->open				= book_client_open;
+	client_class->open_finish			= book_client_open_finish;
+	client_class->open_sync				= book_client_open_sync;
+	client_class->remove				= book_client_remove;
+	client_class->remove_finish			= book_client_remove_finish;
+	client_class->remove_sync			= book_client_remove_sync;
 }

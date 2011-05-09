@@ -36,10 +36,8 @@ struct _ECalBackendSyncClass {
 	void	(* remove_sync)			(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, GError **error);
 
 	void	(* refresh_sync)		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, GError **error);
-	void	(* get_capabilities_sync)	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **capabilities, GError **error);
-	void	(* get_cal_email_address_sync)	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **error);
-	void	(* get_alarm_email_address_sync)(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **error);
-	void	(* get_default_object_sync)	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **calobj, GError **error);
+	gboolean (* get_backend_property_sync)	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **error);
+	gboolean (* set_backend_property_sync)	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value, GError **error);
 	void	(* get_object_sync)		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *uid, const gchar *rid, gchar **calobj, GError **error);
 	void	(* get_object_list_sync)	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *sexp, GSList **calobjs, GError **error);
 	void	(* get_free_busy_sync)		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const GSList *users, time_t start, time_t end, GSList **freebusyobjs, GError **error);
@@ -61,10 +59,8 @@ void	e_cal_backend_sync_open			(ECalBackendSync *backend, EDataCal *cal, GCancel
 void	e_cal_backend_sync_authenticate_user	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, ECredentials *credentials, GError **error);
 void	e_cal_backend_sync_remove		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, GError **error);
 void	e_cal_backend_sync_refresh		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, GError **error);
-void	e_cal_backend_sync_get_capabilities	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **capabilities, GError **error);
-void	e_cal_backend_sync_get_cal_email_address(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **error);
-void	e_cal_backend_sync_get_alarm_email_address(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **error);
-void	e_cal_backend_sync_get_default_object	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **calobj, GError **error);
+gboolean e_cal_backend_sync_get_backend_property(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **error);
+gboolean e_cal_backend_sync_set_backend_property(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value, GError **error);
 void	e_cal_backend_sync_get_object		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *uid, const gchar *rid, gchar **calobj, GError **error);
 void	e_cal_backend_sync_get_object_list	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *sexp, GSList **calobjs, GError **error);
 void	e_cal_backend_sync_get_free_busy	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const GSList *users, time_t start, time_t end, GSList **freebusyobjs, GError **error);

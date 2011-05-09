@@ -392,31 +392,53 @@ lookup_component (ECalBackendFile *cbfile, const gchar *uid)
 /* Calendar backend methods */
 
 /* Get_email_address handler for the file backend */
-static void
-e_cal_backend_file_get_cal_email_address (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **perror)
+static gboolean
+e_cal_backend_file_get_backend_property (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **perror)
 {
-	/* A file backend has no particular email address associated
-	 * with it (although that would be a useful feature some day).
-	 */
-	*address = NULL;
-}
+	gboolean processed = TRUE;
 
-static void
-e_cal_backend_file_get_alarm_email_address (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **address, GError **perror)
-{
-	/* A file backend has no particular email address associated
-	 * with it (although that would be a useful feature some day).
-	 */
-	*address = NULL;
-}
+	g_return_val_if_fail (prop_name != NULL, FALSE);
+	g_return_val_if_fail (prop_value != NULL, FALSE);
 
-static void
-e_cal_backend_file_get_capabilities (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **capabilities, GError **perror)
-{
-	*capabilities = g_strdup (CAL_STATIC_CAPABILITY_NO_EMAIL_ALARMS ","
-				  CAL_STATIC_CAPABILITY_NO_THISANDFUTURE ","
-				  CAL_STATIC_CAPABILITY_DELEGATE_SUPPORTED ","
-				  CAL_STATIC_CAPABILITY_NO_THISANDPRIOR);
+	if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAPABILITIES)) {
+		*prop_value = g_strdup (CAL_STATIC_CAPABILITY_NO_EMAIL_ALARMS ","
+					CAL_STATIC_CAPABILITY_NO_THISANDFUTURE ","
+					CAL_STATIC_CAPABILITY_DELEGATE_SUPPORTED ","
+					CAL_STATIC_CAPABILITY_NO_THISANDPRIOR);
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS) ||
+		   g_str_equal (prop_name, CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS)) {
+		/* A file backend has no particular email address associated
+		 * with it (although that would be a useful feature some day).
+		 */
+		*prop_value = NULL;
+	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_DEFAULT_OBJECT)) {
+		ECalComponent *comp;
+
+		comp = e_cal_component_new ();
+
+		switch (e_cal_backend_get_kind (E_CAL_BACKEND (backend))) {
+		case ICAL_VEVENT_COMPONENT:
+			e_cal_component_set_new_vtype (comp, E_CAL_COMPONENT_EVENT);
+			break;
+		case ICAL_VTODO_COMPONENT:
+			e_cal_component_set_new_vtype (comp, E_CAL_COMPONENT_TODO);
+			break;
+		case ICAL_VJOURNAL_COMPONENT:
+			e_cal_component_set_new_vtype (comp, E_CAL_COMPONENT_JOURNAL);
+			break;
+		default:
+			g_object_unref (comp);
+			g_propagate_error (perror, EDC_ERROR (ObjectNotFound));
+			return TRUE;
+		}
+
+		*prop_value = e_cal_component_get_as_string (comp);
+		g_object_unref (comp);
+	} else {
+		processed = FALSE;
+	}
+
+	return processed;
 }
 
 /* function to resolve timezones */
@@ -1353,33 +1375,6 @@ static void
 e_cal_backend_file_set_online (ECalBackend *backend, gboolean is_online)
 {
 	e_cal_backend_notify_online (backend, TRUE);
-}
-
-static void
-e_cal_backend_file_get_default_object (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, gchar **object, GError **perror)
-{
-	ECalComponent *comp;
-
-	comp = e_cal_component_new ();
-
-	switch (e_cal_backend_get_kind (E_CAL_BACKEND (backend))) {
-	case ICAL_VEVENT_COMPONENT:
-		e_cal_component_set_new_vtype (comp, E_CAL_COMPONENT_EVENT);
-		break;
-	case ICAL_VTODO_COMPONENT:
-		e_cal_component_set_new_vtype (comp, E_CAL_COMPONENT_TODO);
-		break;
-	case ICAL_VJOURNAL_COMPONENT:
-		e_cal_component_set_new_vtype (comp, E_CAL_COMPONENT_JOURNAL);
-		break;
-	default:
-		g_object_unref (comp);
-		g_propagate_error (perror, EDC_ERROR (ObjectNotFound));
-		return;
-	}
-
-	*object = e_cal_component_get_as_string (comp);
-	g_object_unref (comp);
 }
 
 static void
@@ -3079,27 +3074,23 @@ e_cal_backend_file_class_init (ECalBackendFileClass *class)
 	object_class->finalize = e_cal_backend_file_finalize;
 	object_class->constructed = cal_backend_file_constructed;
 
-	sync_class->get_cal_email_address_sync = e_cal_backend_file_get_cal_email_address;
-	sync_class->get_alarm_email_address_sync = e_cal_backend_file_get_alarm_email_address;
-	sync_class->get_capabilities_sync = e_cal_backend_file_get_capabilities;
-	sync_class->open_sync = e_cal_backend_file_open;
-	sync_class->remove_sync = e_cal_backend_file_remove;
-	sync_class->create_object_sync = e_cal_backend_file_create_object;
-	sync_class->modify_object_sync = e_cal_backend_file_modify_object;
-	sync_class->remove_object_sync = e_cal_backend_file_remove_object;
-	sync_class->receive_objects_sync = e_cal_backend_file_receive_objects;
-	sync_class->send_objects_sync = e_cal_backend_file_send_objects;
-	sync_class->get_default_object_sync = e_cal_backend_file_get_default_object;
-	sync_class->get_object_sync = e_cal_backend_file_get_object;
-	sync_class->get_object_list_sync = e_cal_backend_file_get_object_list;
-	sync_class->get_attachment_uris_sync = e_cal_backend_file_get_attachment_uris;
-	sync_class->add_timezone_sync = e_cal_backend_file_add_timezone;
-	sync_class->get_free_busy_sync = e_cal_backend_file_get_free_busy;
+	sync_class->get_backend_property_sync	= e_cal_backend_file_get_backend_property;
+	sync_class->open_sync			= e_cal_backend_file_open;
+	sync_class->remove_sync			= e_cal_backend_file_remove;
+	sync_class->create_object_sync		= e_cal_backend_file_create_object;
+	sync_class->modify_object_sync		= e_cal_backend_file_modify_object;
+	sync_class->remove_object_sync		= e_cal_backend_file_remove_object;
+	sync_class->receive_objects_sync	= e_cal_backend_file_receive_objects;
+	sync_class->send_objects_sync		= e_cal_backend_file_send_objects;
+	sync_class->get_object_sync		= e_cal_backend_file_get_object;
+	sync_class->get_object_list_sync	= e_cal_backend_file_get_object_list;
+	sync_class->get_attachment_uris_sync	= e_cal_backend_file_get_attachment_uris;
+	sync_class->add_timezone_sync		= e_cal_backend_file_add_timezone;
+	sync_class->get_free_busy_sync		= e_cal_backend_file_get_free_busy;
 
-	backend_class->start_view = e_cal_backend_file_start_view;
-	backend_class->set_online = e_cal_backend_file_set_online;
-
-	backend_class->internal_get_timezone = e_cal_backend_file_internal_get_timezone;
+	backend_class->start_view		= e_cal_backend_file_start_view;
+	backend_class->set_online		= e_cal_backend_file_set_online;
+	backend_class->internal_get_timezone	= e_cal_backend_file_internal_get_timezone;
 }
 
 void

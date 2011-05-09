@@ -28,6 +28,7 @@
 #include <gio/gio.h>
 
 #include "libedataserver/e-data-server-util.h"
+#include "libedataserver/e-client-private.h"
 
 #include "libedata-cal/e-data-cal-types.h"
 
@@ -63,6 +64,30 @@ enum {
 static guint signals[LAST_SIGNAL];
 
 G_DEFINE_TYPE (ECalClient, e_cal_client, E_TYPE_CLIENT)
+
+/**
+ * Well-known calendar backend properties:
+ * @CAL_BACKEND_PROPERTY_LOADED: Is set to "TRUE" or "FALSE" depending
+ *   on the backend's loaded state.
+ * @CAL_BACKEND_PROPERTY_ONLINE: Is set to "TRUE" or "FALSE" depending
+ *   on the backend's loaded state. See also e_client_is_online().
+ * @CAL_BACKEND_PROPERTY_READONLY: Is set to "TRUE" or "FALSE" depending
+ *   on the backend's readonly state. See also e_client_is_readonly().
+ * @CAL_BACKEND_PROPERTY_CACHE_DIR: Local folder with cached data used
+ *   by the backend.
+ * @CAL_BACKEND_PROPERTY_CAPABILITIES: Retrieves comma-separated list
+ *   of	capabilities supported by the backend. Preferred method of retreiving
+ *   and working with capabilities is e_client_get_capabilities() and
+ *   e_client_check_capability().
+ * @CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS: Contains default calendar's email
+ *   address suggested by the backend.
+ * @CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS: Contains default alarm email
+ *   address suggested by the backend.
+ * @CAL_BACKEND_PROPERTY_DEFAULT_OBJECT: Contains iCal component string
+ *   of an #icalcomponent with the default values for properties needed.
+ *   Preferred way of retrieving this property is by
+ *   calling e_cal_client_get_default_object().
+ **/
 
 /**
  * e_cal_client_source_type_enum_get_type:
@@ -913,7 +938,7 @@ e_cal_client_get_local_attachment_store (ECalClient *client)
 	if (client->priv->cache_dir || !client->priv->gdbus_cal)
 		return client->priv->cache_dir;
 
-	e_gdbus_cal_call_get_cache_dir_sync (client->priv->gdbus_cal, &cache_dir, NULL, &error);
+	e_gdbus_cal_call_get_backend_property_sync (client->priv->gdbus_cal, CAL_BACKEND_PROPERTY_CACHE_DIR, &cache_dir, NULL, &error);
 
 	if (error == NULL) {
 		client->priv->cache_dir = cache_dir;
@@ -1781,6 +1806,86 @@ e_cal_client_get_component_as_string (ECalClient *client, icalcomponent *icalcom
 }
 
 static void
+cal_client_get_backend_property (EClient *client, const gchar *prop_name, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	e_client_proxy_call_string (client, prop_name, cancellable, callback, user_data, cal_client_get_backend_property,
+			e_gdbus_cal_call_get_backend_property,
+			NULL, NULL, e_gdbus_cal_call_get_backend_property_finish, NULL, NULL);
+}
+
+static gboolean
+cal_client_get_backend_property_finish (EClient *client, GAsyncResult *result, gchar **prop_value, GError **error)
+{
+	return e_client_proxy_call_finish_string (client, result, prop_value, error, cal_client_get_backend_property);
+}
+
+static gboolean
+cal_client_get_backend_property_sync (EClient *client, const gchar *prop_name, gchar **prop_value, GCancellable *cancellable, GError **error)
+{
+	ECalClient *cal_client;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
+
+	cal_client = E_CAL_CLIENT (client);
+	g_return_val_if_fail (cal_client != NULL, FALSE);
+	g_return_val_if_fail (cal_client->priv != NULL, FALSE);
+
+	if (!cal_client->priv->gdbus_cal) {
+		set_proxy_gone_error (error);
+		return FALSE;
+	}
+
+	return e_client_proxy_call_sync_string__string (client, prop_name, prop_value, cancellable, error, e_gdbus_cal_call_get_backend_property_sync);
+}
+
+static void
+cal_client_set_backend_property (EClient *client, const gchar *prop_name, const gchar *prop_value, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	gchar **prop_name_value;
+
+	prop_name_value = e_gdbus_cal_encode_set_backend_property (prop_name, prop_value);
+
+	e_client_proxy_call_strv (client, (const gchar * const *) prop_name_value, cancellable, callback, user_data, cal_client_set_backend_property,
+			e_gdbus_cal_call_set_backend_property,
+			e_gdbus_cal_call_set_backend_property_finish, NULL, NULL, NULL, NULL);
+
+	g_strfreev (prop_name_value);
+}
+
+static gboolean
+cal_client_set_backend_property_finish (EClient *client, GAsyncResult *result, GError **error)
+{
+	return e_client_proxy_call_finish_void (client, result, error, cal_client_set_backend_property);
+}
+
+static gboolean
+cal_client_set_backend_property_sync (EClient *client, const gchar *prop_name, const gchar *prop_value, GCancellable *cancellable, GError **error)
+{
+	ECalClient *cal_client;
+	gboolean res;
+	gchar **prop_name_value;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
+
+	cal_client = E_CAL_CLIENT (client);
+	g_return_val_if_fail (cal_client != NULL, FALSE);
+	g_return_val_if_fail (cal_client->priv != NULL, FALSE);
+
+	if (!cal_client->priv->gdbus_cal) {
+		set_proxy_gone_error (error);
+		return FALSE;
+	}
+
+	prop_name_value = e_gdbus_cal_encode_set_backend_property (prop_name, prop_value);
+	res = e_client_proxy_call_sync_strv__void (client, (const gchar * const *) prop_name_value, cancellable, error, e_gdbus_cal_call_set_backend_property_sync);
+	g_strfreev (prop_name_value);
+
+	return res;
+}
+
+static void
 cal_client_open (EClient *client, gboolean only_if_exists, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	e_client_proxy_call_boolean (client, only_if_exists, cancellable, callback, user_data, cal_client_open,
@@ -1848,112 +1953,6 @@ cal_client_remove_sync (EClient *client, GCancellable *cancellable, GError **err
 	return e_client_proxy_call_sync_void__void (client, cancellable, error, e_gdbus_cal_call_remove_sync);
 }
 
-
-/**
- * e_cal_client_get_capabilities:
- * @client: an #ECalClient
- * @cancellable: a #GCancellable; can be %NULL
- * @callback: callback to call when a result is ready
- * @user_data: user data for the @callback
- *
- * Starts retrieval of the list of capabilities which the backend for this calendar
- * supports. The call is finished by e_cal_client_get_capabilities_finish() from
- * the @callback.
- *
- * Note: Usually is sufficient to use e_client_get_capabilities() or e_client_check_capability(),
- * which caches capabilities of a backend on the client side.
- *
- * Since: 3.2
- **/
-void
-e_cal_client_get_capabilities (ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_capabilities,
-			e_gdbus_cal_call_get_capabilities,
-			NULL, NULL, e_gdbus_cal_call_get_capabilities_finish, NULL, NULL);
-}
-
-/**
- * e_cal_client_get_capabilities_finish:
- * @client: an #ECalClient
- * @result: a #GAsyncResult
- * @capabilities: (out): list of strings with capabilities
- * @error: (out): a #GError to set an error, if any
- *
- * Finishes previous call of e_cal_client_get_capabilities() and
- * sets @capabilities to a list of strings of backend capabilities.
- * This list should be freed with e_client_util_free_string_slist().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_cal_client_get_capabilities_finish (ECalClient *client, GAsyncResult *result, GSList **capabilities, GError **error)
-{
-	gboolean res;
-	gchar *out_string = NULL;
-
-	g_return_val_if_fail (capabilities != NULL, FALSE);
-
-	res = e_client_proxy_call_finish_string (E_CLIENT (client), result, &out_string, error, e_cal_client_get_capabilities);
-
-	if (res && out_string)
-		*capabilities = e_client_util_parse_capabilities (out_string);
-	else
-		*capabilities = NULL;
-
-	g_free (out_string);
-
-	return res;
-}
-
-/**
- * e_cal_client_get_capabilities_sync:
- * @client: an #ECalClient
- * @capabilities: (out): list of strings with capabilities
- * @cancellable: a #GCancellable; can be %NULL
- * @error: (out): a #GError to set an error, if any
- *
- * Retrieves a list of capabilities which the backend for this calendar
- * supports and sets @capabilities to that list.
- * This list should be freed with e_client_util_free_string_slist().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Note: Usually is sufficient to use e_client_get_capabilities() or e_client_check_capability(),
- * which caches capabilities of a backend on the client side.
- *
- * Since: 3.2
- **/
-gboolean
-e_cal_client_get_capabilities_sync (ECalClient *client, GSList **capabilities, GCancellable *cancellable, GError **error)
-{
-	gboolean res;
-	gchar *out_string = NULL;
-
-	g_return_val_if_fail (client != NULL, FALSE);
-	g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
-	g_return_val_if_fail (client->priv != NULL, FALSE);
-	g_return_val_if_fail (capabilities != NULL, FALSE);
-
-	if (!client->priv->gdbus_cal) {
-		set_proxy_gone_error (error);
-		return FALSE;
-	}
-
-	res = e_client_proxy_call_sync_void__string (E_CLIENT (client), &out_string, cancellable, error, e_gdbus_cal_call_get_capabilities_sync);
-
-	if (res && out_string)
-		*capabilities = e_client_util_parse_capabilities (out_string);
-	else
-		*capabilities = NULL;
-
-	g_free (out_string);
-
-	return res;
-}
-
 static gboolean
 complete_string_exchange (gboolean res, gchar *out_string, gchar **result, GError **error)
 {
@@ -1980,174 +1979,6 @@ complete_string_exchange (gboolean res, gchar *out_string, gchar **result, GErro
 }
 
 /**
- * e_cal_client_get_cal_email_address:
- * @client: an #ECalClient
- * @cancellable: a #GCancellable; can be %NULL
- * @callback: callback to call when a result is ready
- * @user_data: user data for the @callback
- *
- * Queries the calendar address associated with a calendar client.
- * The call is finished by e_cal_client_get_cal_email_address_finish() from
- * the @callback.
- *
- * Since: 3.2
- **/
-void
-e_cal_client_get_cal_email_address (ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_cal_email_address,
-			e_gdbus_cal_call_get_cal_email_address,
-			NULL, NULL, e_gdbus_cal_call_get_cal_email_address_finish, NULL, NULL);
-}
-
-/**
- * e_cal_client_get_cal_email_address_finish:
- * @client: an #ECalClient
- * @result: a #GAsyncResult
- * @address: (out): Calendar's e-mail address
- * @error: (out): a #GError to set an error, if any
- *
- * Finishes previous call of e_cal_client_get_cal_email_address() and
- * sets @address the calendar address associated with a calendar client.
- * This address should be freed with g_free().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_cal_client_get_cal_email_address_finish (ECalClient *client, GAsyncResult *result, gchar **address, GError **error)
-{
-	gboolean res;
-	gchar *out_string = NULL;
-
-	g_return_val_if_fail (address != NULL, FALSE);
-
-	res = e_client_proxy_call_finish_string (E_CLIENT (client), result, &out_string, error, e_cal_client_get_cal_email_address);
-
-	return complete_string_exchange (res, out_string, address, error);
-}
-
-/**
- * e_cal_client_get_cal_email_address_sync:
- * @client: an #ECalClient
- * @address: (out): Calendar's e-mail address
- * @cancellable: a #GCancellable; can be %NULL
- * @error: (out): a #GError to set an error, if any
- *
- * Queries the calendar address associated with a calendar client.
- * This address should be freed with g_free().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_cal_client_get_cal_email_address_sync (ECalClient *client, gchar **address, GCancellable *cancellable, GError **error)
-{
-	gboolean res;
-	gchar *out_string = NULL;
-
-	g_return_val_if_fail (client != NULL, FALSE);
-	g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
-	g_return_val_if_fail (client->priv != NULL, FALSE);
-	g_return_val_if_fail (address != NULL, FALSE);
-
-	if (!client->priv->gdbus_cal) {
-		set_proxy_gone_error (error);
-		return FALSE;
-	}
-
-	res = e_client_proxy_call_sync_void__string (E_CLIENT (client), &out_string, cancellable, error, e_gdbus_cal_call_get_cal_email_address_sync);
-
-	return complete_string_exchange (res, out_string, address, error);
-}
-
-/**
- * e_cal_client_get_alarm_email_address:
- * @client: an #ECalClient
- * @cancellable: a #GCancellable; can be %NULL
- * @callback: callback to call when a result is ready
- * @user_data: user data for the @callback
- *
- * Queries the address to be used for alarms in a calendar client.
- * The call is finished by e_cal_client_get_alarm_email_address_finish() from
- * the @callback.
- *
- * Since: 3.2
- **/
-void
-e_cal_client_get_alarm_email_address (ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_alarm_email_address,
-			e_gdbus_cal_call_get_alarm_email_address,
-			NULL, NULL, e_gdbus_cal_call_get_alarm_email_address_finish, NULL, NULL);
-}
-
-/**
- * e_cal_client_get_alarm_email_address_finish:
- * @client: an #ECalClient
- * @result: a #GAsyncResult
- * @address: (out): Calendar's e-mail address for alarms
- * @error: (out): a #GError to set an error, if any
- *
- * Finishes previous call of e_cal_client_get_alarm_email_address() and
- * sets @addressto the address to be used for alarms in a calendar client.
- * This address should be freed with g_free().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_cal_client_get_alarm_email_address_finish (ECalClient *client, GAsyncResult *result, gchar **address, GError **error)
-{
-	gboolean res;
-	gchar *out_string = NULL;
-
-	g_return_val_if_fail (address != NULL, FALSE);
-
-	res = e_client_proxy_call_finish_string (E_CLIENT (client), result, &out_string, error, e_cal_client_get_alarm_email_address);
-
-	return complete_string_exchange (res, out_string, address, error);
-}
-
-/**
- * e_cal_client_get_alarm_email_address_sync:
- * @client: an #ECalClient
- * @address: (out): Calendar's e-mail address for alarms
- * @cancellable: a #GCancellable; can be %NULL
- * @error: (out): a #GError to set an error, if any
- *
- * Queries the address to be used for alarms in a calendar client.
- * This address should be freed with g_free().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_cal_client_get_alarm_email_address_sync (ECalClient *client, gchar **address, GCancellable *cancellable, GError **error)
-{
-	gboolean res;
-	gchar *out_string = NULL;
-
-	g_return_val_if_fail (client != NULL, FALSE);
-	g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
-	g_return_val_if_fail (client->priv != NULL, FALSE);
-	g_return_val_if_fail (address != NULL, FALSE);
-
-	if (!client->priv->gdbus_cal) {
-		set_proxy_gone_error (error);
-		return FALSE;
-	}
-
-	res = e_client_proxy_call_sync_void__string (E_CLIENT (client), &out_string, cancellable, error, e_gdbus_cal_call_get_alarm_email_address_sync);
-
-	return complete_string_exchange (res, out_string, address, error);
-}
-
-/**
  * e_cal_client_get_default_object:
  * @client: an #ECalClient
  * @cancellable: a #GCancellable; can be %NULL
@@ -2163,9 +1994,9 @@ e_cal_client_get_alarm_email_address_sync (ECalClient *client, gchar **address, 
 void
 e_cal_client_get_default_object (ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_get_default_object,
-			e_gdbus_cal_call_get_default_object,
-			NULL, NULL, e_gdbus_cal_call_get_default_object_finish, NULL, NULL);
+	e_client_proxy_call_string (E_CLIENT (client), CAL_BACKEND_PROPERTY_DEFAULT_OBJECT, cancellable, callback, user_data, e_cal_client_get_default_object,
+			e_gdbus_cal_call_get_backend_property,
+			NULL, NULL, e_gdbus_cal_call_get_backend_property_finish, NULL, NULL);
 }
 
 static gboolean
@@ -2249,7 +2080,7 @@ e_cal_client_get_default_object_sync (ECalClient *client, icalcomponent **icalco
 		return FALSE;
 	}
 
-	res = e_client_proxy_call_sync_void__string (E_CLIENT (client), &out_string, cancellable, error, e_gdbus_cal_call_get_default_object_sync);
+	res = e_client_proxy_call_sync_string__string (E_CLIENT (client), CAL_BACKEND_PROPERTY_DEFAULT_OBJECT, &out_string, cancellable, error, e_gdbus_cal_call_get_backend_property_sync);
 
 	return complete_get_object (res, out_string, icalcomp, error);
 }
@@ -4163,7 +3994,7 @@ cal_client_retrieve_capabilities (EClient *client)
 	if (!cal_client->priv->gdbus_cal)
 		return NULL;
 
-	e_gdbus_cal_call_get_capabilities_sync (cal_client->priv->gdbus_cal, &capabilities, NULL, &error);
+	e_gdbus_cal_call_get_backend_property_sync (cal_client->priv->gdbus_cal, CAL_BACKEND_PROPERTY_CAPABILITIES, &capabilities, NULL, &error);
 
 	if (error) {
 		g_debug ("%s: Failed to retrieve capabilitites: %s", G_STRFUNC, error->message);
@@ -4260,16 +4091,22 @@ e_cal_client_class_init (ECalClientClass *klass)
 	object_class->finalize = cal_client_finalize;
 
 	client_class = E_CLIENT_CLASS (klass);
-	client_class->get_dbus_proxy = cal_client_get_dbus_proxy;
-	client_class->unwrap_dbus_error = cal_client_unwrap_dbus_error;
-	client_class->handle_authentication = cal_client_handle_authentication;
-	client_class->retrieve_capabilities = cal_client_retrieve_capabilities;
-	client_class->open = cal_client_open;
-	client_class->open_finish = cal_client_open_finish;
-	client_class->open_sync = cal_client_open_sync;
-	client_class->remove = cal_client_remove;
-	client_class->remove_finish = cal_client_remove_finish;
-	client_class->remove_sync = cal_client_remove_sync;
+	client_class->get_dbus_proxy			= cal_client_get_dbus_proxy;
+	client_class->unwrap_dbus_error			= cal_client_unwrap_dbus_error;
+	client_class->handle_authentication		= cal_client_handle_authentication;
+	client_class->retrieve_capabilities		= cal_client_retrieve_capabilities;
+	client_class->get_backend_property		= cal_client_get_backend_property;
+	client_class->get_backend_property_finish	= cal_client_get_backend_property_finish;
+	client_class->get_backend_property_sync		= cal_client_get_backend_property_sync;
+	client_class->set_backend_property		= cal_client_set_backend_property;
+	client_class->set_backend_property_finish	= cal_client_set_backend_property_finish;
+	client_class->set_backend_property_sync		= cal_client_set_backend_property_sync;
+	client_class->open				= cal_client_open;
+	client_class->open_finish			= cal_client_open_finish;
+	client_class->open_sync				= cal_client_open_sync;
+	client_class->remove				= cal_client_remove;
+	client_class->remove_finish			= cal_client_remove_finish;
+	client_class->remove_sync			= cal_client_remove_sync;
 
 	signals[FREE_BUSY_DATA] = g_signal_new (
 		"free-busy-data",

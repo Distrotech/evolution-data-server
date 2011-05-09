@@ -749,47 +749,6 @@ e_book_backend_file_authenticate_user (EBookBackendSync *backend,
 	/* Success */
 }
 
-static void
-e_book_backend_file_get_required_fields (EBookBackendSync *backend,
-					  EDataBook *book,
-					  GCancellable *cancellable,
-					  GSList **fields_out,
-					  GError **perror)
-{
-	GSList *fields = NULL;
-
-	fields = g_slist_append (fields , g_strdup (e_contact_field_name (E_CONTACT_FILE_AS)));
-	*fields_out = fields;
-}
-
-static void
-e_book_backend_file_get_supported_auth_methods (EBookBackendSync *backend,
-						EDataBook *book,
-						GCancellable *cancellable,
-						GSList **methods_out,
-						GError **perror)
-{
-	*methods_out = NULL;
-}
-
-static void
-e_book_backend_file_get_supported_fields (EBookBackendSync *backend,
-					  EDataBook *book,
-					  GCancellable *cancellable,
-					  GSList **fields_out,
-					  GError **perror)
-{
-	GSList *fields = NULL;
-	gint i;
-
-	/* XXX we need a way to say "we support everything", since the
-	   file backend does */
-	for (i = 1; i < E_CONTACT_FIELD_LAST; i++)
-		fields = g_slist_append (fields, g_strdup (e_contact_field_name (i)));
-
-	*fields_out = fields;
-}
-
 /*
 ** versions:
 **
@@ -1218,10 +1177,36 @@ e_book_backend_file_remove (EBookBackendSync *backend,
 	   that the addressbook is still valid */
 }
 
-static void
-e_book_backend_file_get_capabilities (EBookBackendSync *backend, EDataBook *book, GCancellable *cancellable, gchar **capabilities, GError **error)
+static gboolean
+e_book_backend_file_get_backend_property (EBookBackendSync *backend, EDataBook *book, GCancellable *cancellable, const gchar *prop_name, gchar **prop_value, GError **error)
 {
-	*capabilities = g_strdup ("local,do-initial-query,bulk-removes,contact-lists");
+	gboolean processed = TRUE;
+
+	g_return_val_if_fail (prop_name != NULL, FALSE);
+	g_return_val_if_fail (prop_value != NULL, FALSE);
+
+	if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_CAPABILITIES)) {
+		*prop_value = g_strdup ("local,do-initial-query,bulk-removes,contact-lists");
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS)) {
+		*prop_value = g_strdup (e_contact_field_name (E_CONTACT_FILE_AS));
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS)) {
+		GSList *fields = NULL;
+		gint i;
+
+		/* XXX we need a way to say "we support everything", since the
+		   file backend does */
+		for (i = 1; i < E_CONTACT_FIELD_LAST; i++)
+			fields = g_slist_append (fields, (gpointer) e_contact_field_name (i));
+
+		*prop_value = e_data_book_string_slist_to_comma_string (fields);
+		g_slist_free (fields);
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS)) {
+		*prop_value = NULL;
+	} else {
+		processed = FALSE;
+	}
+
+	return processed;
 }
 
 static void
@@ -1354,23 +1339,20 @@ e_book_backend_file_class_init (EBookBackendFileClass *klass)
 	backend_class = E_BOOK_BACKEND_CLASS (klass);
 
 	/* Set the virtual methods. */
-	backend_class->start_book_view			= e_book_backend_file_start_book_view;
-	backend_class->stop_book_view			= e_book_backend_file_stop_book_view;
-	backend_class->set_online			= e_book_backend_file_set_online;
-	backend_class->sync				= e_book_backend_file_sync;
+	backend_class->start_book_view		= e_book_backend_file_start_book_view;
+	backend_class->stop_book_view		= e_book_backend_file_stop_book_view;
+	backend_class->set_online		= e_book_backend_file_set_online;
+	backend_class->sync			= e_book_backend_file_sync;
 
-	sync_class->open_sync				= e_book_backend_file_open;
-	sync_class->remove_sync				= e_book_backend_file_remove;
-	sync_class->get_capabilities_sync		= e_book_backend_file_get_capabilities;
-	sync_class->create_contact_sync			= e_book_backend_file_create_contact;
-	sync_class->remove_contacts_sync		= e_book_backend_file_remove_contacts;
-	sync_class->modify_contact_sync			= e_book_backend_file_modify_contact;
-	sync_class->get_contact_sync			= e_book_backend_file_get_contact;
-	sync_class->get_contact_list_sync		= e_book_backend_file_get_contact_list;
-	sync_class->authenticate_user_sync		= e_book_backend_file_authenticate_user;
-	sync_class->get_supported_auth_methods_sync	= e_book_backend_file_get_supported_auth_methods;
-	sync_class->get_supported_fields_sync		= e_book_backend_file_get_supported_fields;
-	sync_class->get_required_fields_sync		= e_book_backend_file_get_required_fields;
+	sync_class->open_sync			= e_book_backend_file_open;
+	sync_class->remove_sync			= e_book_backend_file_remove;
+	sync_class->get_backend_property_sync	= e_book_backend_file_get_backend_property;
+	sync_class->create_contact_sync		= e_book_backend_file_create_contact;
+	sync_class->remove_contacts_sync	= e_book_backend_file_remove_contacts;
+	sync_class->modify_contact_sync		= e_book_backend_file_modify_contact;
+	sync_class->get_contact_sync		= e_book_backend_file_get_contact;
+	sync_class->get_contact_list_sync	= e_book_backend_file_get_contact_list;
+	sync_class->authenticate_user_sync	= e_book_backend_file_authenticate_user;
 
 	object_class->dispose = e_book_backend_file_dispose;
 	object_class->finalize = e_book_backend_file_finalize;

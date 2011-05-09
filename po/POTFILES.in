@@ -11,6 +11,7 @@ addressbook/libebook/e-book.c
 addressbook/libebook/e-book-client.c
 addressbook/libebook/e-contact.c
 addressbook/libebook/e-destination.c
+addressbook/libedata-book/e-book-backend.c
 addressbook/libedata-book/e-data-book-factory.c
 addressbook/libedata-book/e-data-book.c
 calendar/backends/caldav/e-cal-backend-caldav.c
@@ -27,6 +28,7 @@ calendar/libecal/e-cal-util.c
 calendar/libecal/e-cal.c
 calendar/libedata-cal/e-cal-backend-sexp.c
 calendar/libedata-cal/e-cal-backend-util.c
+calendar/libedata-cal/e-cal-backend.c
 calendar/libedata-cal/e-data-cal.c
 calendar/libedata-cal/e-data-cal-factory.c
 camel/camel-address.c
@@ -186,12 +188,12 @@ camel/providers/sendmail/camel-sendmail-transport.c
 camel/providers/smtp/camel-smtp-provider.c
 camel/providers/smtp/camel-smtp-transport.c
 libedataserver/e-categories.c
+libedataserver/e-client.c
 libedataserver/e-time-utils.c
 libedataserverui/e-book-auth-util.c
 libedataserverui/e-categories-dialog.c
 libedataserverui/e-category-completion.c
 libedataserverui/e-cell-renderer-color.c
-libedataserverui/e-client.c
 libedataserverui/e-client-authenticate.c
 libedataserverui/e-name-selector-dialog.c
 libedataserverui/e-name-selector-entry.c

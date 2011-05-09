@@ -3301,55 +3301,6 @@ e_book_backend_groupwise_authenticate_user (EBookBackend *backend,
 }
 
 static void
-e_book_backend_groupwise_get_required_fields (EBookBackend *backend,
-					       EDataBook    *book,
-					       guint32       opid,
-					       GCancellable *cancellable)
-{
-	GSList *fields = NULL;
-
-	if (enable_debug)
-		printf ("\ne_book_backend_groupwise_get_required_fields...\n");
-
-	fields = g_slist_append (fields, (gchar *)e_contact_field_name (E_CONTACT_FILE_AS));
-	e_data_book_respond_get_supported_fields (book, opid,
-						  EDB_ERROR (SUCCESS),
-						  fields);
-	g_slist_free (fields);
-
-}
-
-static void
-e_book_backend_groupwise_get_supported_fields (EBookBackend *backend,
-					       EDataBook    *book,
-					       guint32       opid,
-					       GCancellable *cancellable)
-{
-	GSList *fields = NULL;
-	gint i;
-
-	if (enable_debug)
-		printf ("\ne_book_backend_groupwise_get_supported_fields...\n");
-
-	for (i = 0; i < G_N_ELEMENTS (mappings); i++)
-		fields = g_slist_append (fields, g_strdup (e_contact_field_name (mappings[i].field_id)));
-	fields = g_slist_append (fields, g_strdup (e_contact_field_name (E_CONTACT_EMAIL_2)));
-	fields = g_slist_append (fields, g_strdup (e_contact_field_name (E_CONTACT_EMAIL_3)));
-	fields = g_slist_append (fields, g_strdup (e_contact_field_name (E_CONTACT_IM_ICQ)));
-	fields = g_slist_append (fields, g_strdup (e_contact_field_name (E_CONTACT_IM_YAHOO)));
-	fields = g_slist_append (fields, g_strdup (e_contact_field_name (E_CONTACT_IM_GADUGADU)));
-	fields = g_slist_append (fields, g_strdup (e_contact_field_name (E_CONTACT_IM_MSN)));
-	fields = g_slist_append (fields, g_strdup (e_contact_field_name (E_CONTACT_IM_SKYPE)));
-	fields = g_slist_append (fields, g_strdup (e_contact_field_name (E_CONTACT_IM_JABBER)));
-	fields = g_slist_append (fields, g_strdup (e_contact_field_name (E_CONTACT_IM_GROUPWISE)));
-	fields = g_slist_append (fields, g_strdup (e_contact_field_name (E_CONTACT_ADDRESS_WORK)));
-	e_data_book_respond_get_supported_fields (book, opid,
-						  EDB_ERROR (SUCCESS),
-						  fields);
-	g_slist_free (fields);
-}
-
-static void
 #if DB_VERSION_MAJOR == 4 && DB_VERSION_MINOR >= 3
 file_errcall (const DB_ENV *env, const gchar *buf1, const gchar *buf2)
 #else
@@ -3603,34 +3554,52 @@ e_book_backend_groupwise_remove (EBookBackend *backend,
 }
 
 static void
-e_book_backend_groupwise_get_capabilities (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)
+e_book_backend_groupwise_get_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name)
 {
 	if (enable_debug)
-		printf ("\n%s...\n", G_STRFUNC);
+		printf ("\n%s (prop_name: %s)...\n", G_STRFUNC, prop_name ? prop_name : "NULL");
 
-	/* do-initialy-query is enabled for system address book also, so that we get the
-	 * book_view, which is needed for displaying cache update progress.
-	 * and null query is handled for system address book.
-	 */
-	e_data_book_respond_get_capabilities (book, opid, NULL, "net,bulk-removes,do-initial-query,contact-lists");
-}
+	g_return_if_fail (prop_name != NULL);
 
-static void
-e_book_backend_groupwise_get_supported_auth_methods (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)
-{
-	GSList *auth_methods = NULL;
-	gchar *auth_method;
+	if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_CAPABILITIES)) {
+		/* do-initialy-query is enabled for system address book also, so that we get the
+		 * book_view, which is needed for displaying cache update progress.
+		 * and null query is handled for system address book.
+		 */
+		e_data_book_respond_get_backend_property (book, opid, NULL, "net,bulk-removes,do-initial-query,contact-lists");
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS)) {
+		e_data_book_respond_get_backend_property (book, opid, NULL, e_contact_field_name (E_CONTACT_FILE_AS));
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS)) {
+		gchar *fields_str;
+		GSList *fields = NULL;
+		gint i;
 
-	if (enable_debug)
-		printf ("\ne_book_backend_groupwise_get_supported_auth_methods...\n");
-	auth_method =  g_strdup_printf ("plain/password");
-	auth_methods = g_slist_append (auth_methods, auth_method);
-	e_data_book_respond_get_supported_auth_methods (book,
-							opid,
-							EDB_ERROR (SUCCESS),
-							auth_methods);
-	g_free (auth_method);
-	g_slist_free (auth_methods);
+		for (i = 0; i < G_N_ELEMENTS (mappings); i++) {
+			fields = g_slist_append (fields, (gpointer) e_contact_field_name (mappings[i].field_id));
+		}
+
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_EMAIL_2));
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_EMAIL_3));
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_IM_ICQ));
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_IM_YAHOO));
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_IM_GADUGADU));
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_IM_MSN));
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_IM_SKYPE));
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_IM_JABBER));
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_IM_GROUPWISE));
+		fields = g_slist_append (fields, (gpointer) e_contact_field_name (E_CONTACT_ADDRESS_WORK));
+
+		fields_str = e_data_book_string_slist_to_comma_string (fields);
+
+		e_data_book_respond_get_backend_property (book, opid, NULL, fields_str);
+
+		g_slist_free (fields);
+		g_free (fields_str);
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS)) {
+		e_data_book_respond_get_backend_property (book, opid, NULL, "plain/password");
+	} else {
+		E_BOOK_BACKEND_CLASS (e_book_backend_groupwise_parent_class)->get_backend_property (backend, book, opid, cancellable, prop_name);
+	}
 }
 
 static void
@@ -3781,24 +3750,21 @@ e_book_backend_groupwise_class_init (EBookBackendGroupwiseClass *klass)
 	parent_class = E_BOOK_BACKEND_CLASS (klass);
 
 	/* Set the virtual methods. */
-	parent_class->open				= e_book_backend_groupwise_open;
-	parent_class->get_capabilities			= e_book_backend_groupwise_get_capabilities;
+	parent_class->open			= e_book_backend_groupwise_open;
+	parent_class->get_backend_property	= e_book_backend_groupwise_get_backend_property;
 
-	parent_class->create_contact			= e_book_backend_groupwise_create_contact;
-	parent_class->remove_contacts			= e_book_backend_groupwise_remove_contacts;
-	parent_class->modify_contact			= e_book_backend_groupwise_modify_contact;
-	parent_class->get_contact			= e_book_backend_groupwise_get_contact;
-	parent_class->get_contact_list			= e_book_backend_groupwise_get_contact_list;
-	parent_class->start_book_view			= e_book_backend_groupwise_start_book_view;
-	parent_class->stop_book_view			= e_book_backend_groupwise_stop_book_view;
-	parent_class->authenticate_user			= e_book_backend_groupwise_authenticate_user;
-	parent_class->get_required_fields		= e_book_backend_groupwise_get_required_fields;
-	parent_class->get_supported_fields		= e_book_backend_groupwise_get_supported_fields;
-	parent_class->get_supported_auth_methods	= e_book_backend_groupwise_get_supported_auth_methods;
-	parent_class->remove				= e_book_backend_groupwise_remove;
-	parent_class->set_online			= e_book_backend_groupwise_set_online;
+	parent_class->create_contact		= e_book_backend_groupwise_create_contact;
+	parent_class->remove_contacts		= e_book_backend_groupwise_remove_contacts;
+	parent_class->modify_contact		= e_book_backend_groupwise_modify_contact;
+	parent_class->get_contact		= e_book_backend_groupwise_get_contact;
+	parent_class->get_contact_list		= e_book_backend_groupwise_get_contact_list;
+	parent_class->start_book_view		= e_book_backend_groupwise_start_book_view;
+	parent_class->stop_book_view		= e_book_backend_groupwise_stop_book_view;
+	parent_class->authenticate_user		= e_book_backend_groupwise_authenticate_user;
+	parent_class->remove			= e_book_backend_groupwise_remove;
+	parent_class->set_online		= e_book_backend_groupwise_set_online;
 
-	object_class->dispose				= e_book_backend_groupwise_dispose;
+	object_class->dispose			= e_book_backend_groupwise_dispose;
 }
 
 static void

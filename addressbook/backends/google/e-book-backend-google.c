@@ -1349,146 +1349,6 @@ e_book_backend_google_authenticate_user (EBookBackend *backend, EDataBook *book,
 }
 
 static void
-e_book_backend_google_get_supported_auth_methods (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)
-{
-	GSList methods = { (gpointer) "plain/password", NULL, };
-
-	__debug__ (G_STRFUNC);
-	e_data_book_respond_get_supported_auth_methods (book, opid, NULL, &methods);
-}
-
-static void
-e_book_backend_google_get_required_fields (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)
-{
-	__debug__ (G_STRFUNC);
-	e_data_book_respond_get_required_fields (book, opid, NULL, NULL);
-}
-
-static void
-e_book_backend_google_get_supported_fields (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)
-{
-	GSList *fields = NULL;
-	guint i;
-	const gint supported_fields[] = {
-		E_CONTACT_FULL_NAME,
-		E_CONTACT_EMAIL_1,
-		E_CONTACT_EMAIL_2,
-		E_CONTACT_EMAIL_3,
-		E_CONTACT_EMAIL_4,
-		E_CONTACT_ADDRESS_LABEL_HOME,
-		E_CONTACT_ADDRESS_LABEL_WORK,
-		E_CONTACT_ADDRESS_LABEL_OTHER,
-		E_CONTACT_PHONE_HOME,
-		E_CONTACT_PHONE_HOME_FAX,
-		E_CONTACT_PHONE_BUSINESS,
-		E_CONTACT_PHONE_BUSINESS_FAX,
-		E_CONTACT_PHONE_MOBILE,
-		E_CONTACT_PHONE_PAGER,
-		E_CONTACT_IM_AIM,
-		E_CONTACT_IM_JABBER,
-		E_CONTACT_IM_YAHOO,
-		E_CONTACT_IM_MSN,
-		E_CONTACT_IM_ICQ,
-		E_CONTACT_IM_SKYPE,
-		E_CONTACT_IM_GADUGADU,
-		E_CONTACT_IM_GROUPWISE,
-		E_CONTACT_ADDRESS,
-		E_CONTACT_ADDRESS_HOME,
-		E_CONTACT_ADDRESS_WORK,
-		E_CONTACT_ADDRESS_OTHER,
-		E_CONTACT_NAME,
-		E_CONTACT_GIVEN_NAME,
-		E_CONTACT_FAMILY_NAME,
-		E_CONTACT_PHONE_ASSISTANT,
-		E_CONTACT_PHONE_BUSINESS_2,
-		E_CONTACT_PHONE_CALLBACK,
-		E_CONTACT_PHONE_CAR,
-		E_CONTACT_PHONE_COMPANY,
-		E_CONTACT_PHONE_HOME_2,
-		E_CONTACT_PHONE_ISDN,
-		E_CONTACT_PHONE_OTHER,
-		E_CONTACT_PHONE_OTHER_FAX,
-		E_CONTACT_PHONE_PRIMARY,
-		E_CONTACT_PHONE_RADIO,
-		E_CONTACT_PHONE_TELEX,
-		E_CONTACT_PHONE_TTYTDD,
-		E_CONTACT_IM_AIM_HOME_1,
-		E_CONTACT_IM_AIM_HOME_2,
-		E_CONTACT_IM_AIM_HOME_3,
-		E_CONTACT_IM_AIM_WORK_1,
-		E_CONTACT_IM_AIM_WORK_2,
-		E_CONTACT_IM_AIM_WORK_3,
-		E_CONTACT_IM_GROUPWISE_HOME_1,
-		E_CONTACT_IM_GROUPWISE_HOME_2,
-		E_CONTACT_IM_GROUPWISE_HOME_3,
-		E_CONTACT_IM_GROUPWISE_WORK_1,
-		E_CONTACT_IM_GROUPWISE_WORK_2,
-		E_CONTACT_IM_GROUPWISE_WORK_3,
-		E_CONTACT_IM_JABBER_HOME_1,
-		E_CONTACT_IM_JABBER_HOME_2,
-		E_CONTACT_IM_JABBER_HOME_3,
-		E_CONTACT_IM_JABBER_WORK_1,
-		E_CONTACT_IM_JABBER_WORK_2,
-		E_CONTACT_IM_JABBER_WORK_3,
-		E_CONTACT_IM_YAHOO_HOME_1,
-		E_CONTACT_IM_YAHOO_HOME_2,
-		E_CONTACT_IM_YAHOO_HOME_3,
-		E_CONTACT_IM_YAHOO_WORK_1,
-		E_CONTACT_IM_YAHOO_WORK_2,
-		E_CONTACT_IM_YAHOO_WORK_3,
-		E_CONTACT_IM_MSN_HOME_1,
-		E_CONTACT_IM_MSN_HOME_2,
-		E_CONTACT_IM_MSN_HOME_3,
-		E_CONTACT_IM_MSN_WORK_1,
-		E_CONTACT_IM_MSN_WORK_2,
-		E_CONTACT_IM_MSN_WORK_3,
-		E_CONTACT_IM_ICQ_HOME_1,
-		E_CONTACT_IM_ICQ_HOME_2,
-		E_CONTACT_IM_ICQ_HOME_3,
-		E_CONTACT_IM_ICQ_WORK_1,
-		E_CONTACT_IM_ICQ_WORK_2,
-		E_CONTACT_IM_ICQ_WORK_3,
-		E_CONTACT_EMAIL,
-		E_CONTACT_IM_GADUGADU_HOME_1,
-		E_CONTACT_IM_GADUGADU_HOME_2,
-		E_CONTACT_IM_GADUGADU_HOME_3,
-		E_CONTACT_IM_GADUGADU_WORK_1,
-		E_CONTACT_IM_GADUGADU_WORK_2,
-		E_CONTACT_IM_GADUGADU_WORK_3,
-		E_CONTACT_TEL,
-		E_CONTACT_IM_SKYPE_HOME_1,
-		E_CONTACT_IM_SKYPE_HOME_2,
-		E_CONTACT_IM_SKYPE_HOME_3,
-		E_CONTACT_IM_SKYPE_WORK_1,
-		E_CONTACT_IM_SKYPE_WORK_2,
-		E_CONTACT_IM_SKYPE_WORK_3,
-		E_CONTACT_SIP,
-		E_CONTACT_ORG,
-		E_CONTACT_ORG_UNIT,
-		E_CONTACT_TITLE,
-		E_CONTACT_ROLE,
-		E_CONTACT_HOMEPAGE_URL,
-		E_CONTACT_BLOG_URL,
-		E_CONTACT_BIRTH_DATE,
-		E_CONTACT_ANNIVERSARY,
-		E_CONTACT_NOTE,
-		E_CONTACT_CATEGORIES,
-		E_CONTACT_CATEGORY_LIST
-	};
-
-	__debug__ (G_STRFUNC);
-
-	/* Add all the fields above to the list */
-	for (i = 0; i < G_N_ELEMENTS (supported_fields); i++) {
-		const gchar *field_name = e_contact_field_name (supported_fields[i]);
-		fields = g_slist_prepend (fields, (gpointer) field_name);
-	}
-
-	e_data_book_respond_get_supported_fields (book, opid, NULL, fields);
-	g_slist_free (fields);
-}
-
-static void
 e_book_backend_google_remove (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)
 {
 	__debug__ (G_STRFUNC);
@@ -1560,11 +1420,144 @@ e_book_backend_google_open (EBookBackend *backend, EDataBook *book, guint opid, 
 }
 
 static void
-e_book_backend_google_get_capabilities (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)
+e_book_backend_google_get_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name)
 {
 	__debug__ (G_STRFUNC);
 
-	e_data_book_respond_get_capabilities (book, opid, NULL, "net,do-initial-query,contact-lists");
+	g_return_if_fail (prop_name != NULL);
+
+	if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_CAPABILITIES)) {
+		e_data_book_respond_get_backend_property (book, opid, NULL, "net,do-initial-query,contact-lists");
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS)) {
+		e_data_book_respond_get_backend_property (book, opid, NULL, "");
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS)) {
+		GSList *fields = NULL;
+		gchar *fields_str;
+		guint i;
+		const gint supported_fields[] = {
+			E_CONTACT_FULL_NAME,
+			E_CONTACT_EMAIL_1,
+			E_CONTACT_EMAIL_2,
+			E_CONTACT_EMAIL_3,
+			E_CONTACT_EMAIL_4,
+			E_CONTACT_ADDRESS_LABEL_HOME,
+			E_CONTACT_ADDRESS_LABEL_WORK,
+			E_CONTACT_ADDRESS_LABEL_OTHER,
+			E_CONTACT_PHONE_HOME,
+			E_CONTACT_PHONE_HOME_FAX,
+			E_CONTACT_PHONE_BUSINESS,
+			E_CONTACT_PHONE_BUSINESS_FAX,
+			E_CONTACT_PHONE_MOBILE,
+			E_CONTACT_PHONE_PAGER,
+			E_CONTACT_IM_AIM,
+			E_CONTACT_IM_JABBER,
+			E_CONTACT_IM_YAHOO,
+			E_CONTACT_IM_MSN,
+			E_CONTACT_IM_ICQ,
+			E_CONTACT_IM_SKYPE,
+			E_CONTACT_IM_GADUGADU,
+			E_CONTACT_IM_GROUPWISE,
+			E_CONTACT_ADDRESS,
+			E_CONTACT_ADDRESS_HOME,
+			E_CONTACT_ADDRESS_WORK,
+			E_CONTACT_ADDRESS_OTHER,
+			E_CONTACT_NAME,
+			E_CONTACT_GIVEN_NAME,
+			E_CONTACT_FAMILY_NAME,
+			E_CONTACT_PHONE_ASSISTANT,
+			E_CONTACT_PHONE_BUSINESS_2,
+			E_CONTACT_PHONE_CALLBACK,
+			E_CONTACT_PHONE_CAR,
+			E_CONTACT_PHONE_COMPANY,
+			E_CONTACT_PHONE_HOME_2,
+			E_CONTACT_PHONE_ISDN,
+			E_CONTACT_PHONE_OTHER,
+			E_CONTACT_PHONE_OTHER_FAX,
+			E_CONTACT_PHONE_PRIMARY,
+			E_CONTACT_PHONE_RADIO,
+			E_CONTACT_PHONE_TELEX,
+			E_CONTACT_PHONE_TTYTDD,
+			E_CONTACT_IM_AIM_HOME_1,
+			E_CONTACT_IM_AIM_HOME_2,
+			E_CONTACT_IM_AIM_HOME_3,
+			E_CONTACT_IM_AIM_WORK_1,
+			E_CONTACT_IM_AIM_WORK_2,
+			E_CONTACT_IM_AIM_WORK_3,
+			E_CONTACT_IM_GROUPWISE_HOME_1,
+			E_CONTACT_IM_GROUPWISE_HOME_2,
+			E_CONTACT_IM_GROUPWISE_HOME_3,
+			E_CONTACT_IM_GROUPWISE_WORK_1,
+			E_CONTACT_IM_GROUPWISE_WORK_2,
+			E_CONTACT_IM_GROUPWISE_WORK_3,
+			E_CONTACT_IM_JABBER_HOME_1,
+			E_CONTACT_IM_JABBER_HOME_2,
+			E_CONTACT_IM_JABBER_HOME_3,
+			E_CONTACT_IM_JABBER_WORK_1,
+			E_CONTACT_IM_JABBER_WORK_2,
+			E_CONTACT_IM_JABBER_WORK_3,
+			E_CONTACT_IM_YAHOO_HOME_1,
+			E_CONTACT_IM_YAHOO_HOME_2,
+			E_CONTACT_IM_YAHOO_HOME_3,
+			E_CONTACT_IM_YAHOO_WORK_1,
+			E_CONTACT_IM_YAHOO_WORK_2,
+			E_CONTACT_IM_YAHOO_WORK_3,
+			E_CONTACT_IM_MSN_HOME_1,
+			E_CONTACT_IM_MSN_HOME_2,
+			E_CONTACT_IM_MSN_HOME_3,
+			E_CONTACT_IM_MSN_WORK_1,
+			E_CONTACT_IM_MSN_WORK_2,
+			E_CONTACT_IM_MSN_WORK_3,
+			E_CONTACT_IM_ICQ_HOME_1,
+			E_CONTACT_IM_ICQ_HOME_2,
+			E_CONTACT_IM_ICQ_HOME_3,
+			E_CONTACT_IM_ICQ_WORK_1,
+			E_CONTACT_IM_ICQ_WORK_2,
+			E_CONTACT_IM_ICQ_WORK_3,
+			E_CONTACT_EMAIL,
+			E_CONTACT_IM_GADUGADU_HOME_1,
+			E_CONTACT_IM_GADUGADU_HOME_2,
+			E_CONTACT_IM_GADUGADU_HOME_3,
+			E_CONTACT_IM_GADUGADU_WORK_1,
+			E_CONTACT_IM_GADUGADU_WORK_2,
+			E_CONTACT_IM_GADUGADU_WORK_3,
+			E_CONTACT_TEL,
+			E_CONTACT_IM_SKYPE_HOME_1,
+			E_CONTACT_IM_SKYPE_HOME_2,
+			E_CONTACT_IM_SKYPE_HOME_3,
+			E_CONTACT_IM_SKYPE_WORK_1,
+			E_CONTACT_IM_SKYPE_WORK_2,
+			E_CONTACT_IM_SKYPE_WORK_3,
+			E_CONTACT_SIP,
+			E_CONTACT_ORG,
+			E_CONTACT_ORG_UNIT,
+			E_CONTACT_TITLE,
+			E_CONTACT_ROLE,
+			E_CONTACT_HOMEPAGE_URL,
+			E_CONTACT_BLOG_URL,
+			E_CONTACT_BIRTH_DATE,
+			E_CONTACT_ANNIVERSARY,
+			E_CONTACT_NOTE,
+			E_CONTACT_CATEGORIES,
+			E_CONTACT_CATEGORY_LIST
+		};
+
+		/* Add all the fields above to the list */
+		for (i = 0; i < G_N_ELEMENTS (supported_fields); i++) {
+			const gchar *field_name = e_contact_field_name (supported_fields[i]);
+			fields = g_slist_prepend (fields, (gpointer) field_name);
+		}
+
+		fields_str = e_data_book_string_slist_to_comma_string (fields);
+
+		e_data_book_respond_get_backend_property (book, opid, NULL, fields_str);
+
+		g_slist_free (fields);
+		g_free (fields_str);
+	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS)) {
+		e_data_book_respond_get_backend_property (book, opid, NULL, "plain/password");
+	} else {
+		E_BOOK_BACKEND_CLASS (e_book_backend_google_parent_class)->get_backend_property (backend, book, opid, cancellable, prop_name);
+	}
 }
 
 static void
@@ -1676,21 +1669,18 @@ e_book_backend_google_class_init (EBookBackendGoogleClass *klass)
 	g_type_class_add_private (klass, sizeof (EBookBackendGooglePrivate));
 
 	/* Set the virtual methods. */
-	backend_class->open				= e_book_backend_google_open;
-	backend_class->get_capabilities			= e_book_backend_google_get_capabilities;
-	backend_class->start_book_view			= e_book_backend_google_start_book_view;
-	backend_class->stop_book_view			= e_book_backend_google_stop_book_view;
-	backend_class->set_online			= e_book_backend_google_set_online;
-	backend_class->remove				= e_book_backend_google_remove;
-	backend_class->create_contact			= e_book_backend_google_create_contact;
-	backend_class->remove_contacts			= e_book_backend_google_remove_contacts;
-	backend_class->modify_contact			= e_book_backend_google_modify_contact;
-	backend_class->get_contact			= e_book_backend_google_get_contact;
-	backend_class->get_contact_list			= e_book_backend_google_get_contact_list;
-	backend_class->authenticate_user		= e_book_backend_google_authenticate_user;
-	backend_class->get_supported_fields		= e_book_backend_google_get_supported_fields;
-	backend_class->get_required_fields		= e_book_backend_google_get_required_fields;
-	backend_class->get_supported_auth_methods	= e_book_backend_google_get_supported_auth_methods;
+	backend_class->open			= e_book_backend_google_open;
+	backend_class->get_backend_property	= e_book_backend_google_get_backend_property;
+	backend_class->start_book_view		= e_book_backend_google_start_book_view;
+	backend_class->stop_book_view		= e_book_backend_google_stop_book_view;
+	backend_class->set_online		= e_book_backend_google_set_online;
+	backend_class->remove			= e_book_backend_google_remove;
+	backend_class->create_contact		= e_book_backend_google_create_contact;
+	backend_class->remove_contacts		= e_book_backend_google_remove_contacts;
+	backend_class->modify_contact		= e_book_backend_google_modify_contact;
+	backend_class->get_contact		= e_book_backend_google_get_contact;
+	backend_class->get_contact_list		= e_book_backend_google_get_contact_list;
+	backend_class->authenticate_user	= e_book_backend_google_authenticate_user;
 
 	object_class->dispose  = e_book_backend_google_dispose;
 	object_class->finalize = e_book_backend_google_finalize;

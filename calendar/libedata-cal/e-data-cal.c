@@ -61,11 +61,8 @@ typedef enum {
 	OP_AUTHENTICATE,
 	OP_REMOVE,
 	OP_REFRESH,
-	OP_GET_CACHE_DIR,
-	OP_GET_CAPABILITIES,
-	OP_GET_CAL_EMAIL_ADDRESS,
-	OP_GET_ALARM_EMAIL_ADDRESS,
-	OP_GET_DEFAULT_OBJECT,
+	OP_GET_BACKEND_PROPERTY,
+	OP_SET_BACKEND_PROPERTY,
 	OP_GET_OBJECT,
 	OP_GET_OBJECT_LIST,
 	OP_GET_FREE_BUSY,
@@ -131,14 +128,16 @@ typedef struct {
 		gchar *tzobject;
 		/* OP_CANCEL_OPERATION */
 		guint opid;
+		/* OP_GET_BACKEND_PROPERTY */
+		gchar *prop_name;
+		/* OP_SET_BACKEND_PROPERTY */
+		struct _sbp {
+			gchar *prop_name;
+			gchar *prop_value;
+		} sbp;
 
 		/* OP_REMOVE */
 		/* OP_REFRESH */
-		/* OP_GET_CACHE_DIR */
-		/* OP_GET_CAPABILITIES */
-		/* OP_GET_CAL_EMAIL_ADDRESS */
-		/* OP_GET_ALARM_EMAIL_ADDRESS */
-		/* OP_GET_DEFAULT_OBJECT */
 		/* OP_CANCEL_ALL */
 		/* OP_CLOSE */
 	} d;
@@ -182,24 +181,14 @@ operation_thread (gpointer data, gpointer user_data)
 	case OP_REFRESH:
 		e_cal_backend_refresh (backend, op->cal, op->id, op->cancellable);
 		break;
-	case OP_GET_CACHE_DIR: {
-		gchar *gdbus_cache_dir = NULL;
-
-		e_gdbus_cal_emit_get_cache_dir_done (op->cal->priv->gdbus_object, op->id, NULL, e_util_ensure_gdbus_string (e_cal_backend_get_cache_dir (backend), &gdbus_cache_dir));
-
-		g_free (gdbus_cache_dir);
-		} break;
-	case OP_GET_CAPABILITIES:
-		e_cal_backend_get_capabilities (backend, op->cal, op->id, op->cancellable);
+	case OP_GET_BACKEND_PROPERTY:
+		e_cal_backend_get_backend_property (backend, op->cal, op->id, op->cancellable, op->d.prop_name);
+		g_free (op->d.prop_name);
 		break;
-	case OP_GET_CAL_EMAIL_ADDRESS:
-		e_cal_backend_get_cal_email_address (backend, op->cal, op->id, op->cancellable);
-		break;
-	case OP_GET_ALARM_EMAIL_ADDRESS:
-		e_cal_backend_get_alarm_email_address (backend, op->cal, op->id, op->cancellable);
-		break;
-	case OP_GET_DEFAULT_OBJECT:
-		e_cal_backend_get_default_object (backend, op->cal, op->id, op->cancellable);
+	case OP_SET_BACKEND_PROPERTY:
+		e_cal_backend_set_backend_property (backend, op->cal, op->id, op->cancellable, op->d.sbp.prop_name, op->d.sbp.prop_value);
+		g_free (op->d.sbp.prop_name);
+		g_free (op->d.sbp.prop_value);
 		break;
 	case OP_GET_OBJECT:
 		e_cal_backend_get_object (backend, op->cal, op->id, op->cancellable, op->d.ur.uid, op->d.ur.rid && *op->d.ur.rid ? op->d.ur.rid : NULL);
@@ -615,65 +604,28 @@ impl_Cal_refresh (EGdbusCal *object, GDBusMethodInvocation *invocation, EDataCal
 }
 
 static gboolean
-impl_Cal_getCacheDir (EGdbusCal *object, GDBusMethodInvocation *invocation, EDataCal *cal)
+impl_Cal_getBackendProperty (EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar *in_prop_name, EDataCal *cal)
 {
 	OperationData *op;
 
-	op = op_new (OP_GET_CACHE_DIR, cal);
+	op = op_new (OP_GET_BACKEND_PROPERTY, cal);
+	op->d.prop_name = g_strdup (in_prop_name);
 
-	e_gdbus_cal_complete_get_cache_dir (cal->priv->gdbus_object, invocation, op->id);
+	e_gdbus_cal_complete_get_backend_property (cal->priv->gdbus_object, invocation, op->id);
 	e_operation_pool_push (ops_pool, op);
 
 	return TRUE;
 }
 
 static gboolean
-impl_Cal_getCapabilities (EGdbusCal *object, GDBusMethodInvocation *invocation, EDataCal *cal)
+impl_Cal_setBackendProperty (EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar * const *in_prop_name_value, EDataCal *cal)
 {
 	OperationData *op;
 
-	op = op_new (OP_GET_CAPABILITIES, cal);
+	op = op_new (OP_SET_BACKEND_PROPERTY, cal);
+	g_return_val_if_fail (e_gdbus_cal_decode_set_backend_property (in_prop_name_value, &op->d.sbp.prop_name, &op->d.sbp.prop_value), FALSE);
 
-	e_gdbus_cal_complete_get_capabilities (cal->priv->gdbus_object, invocation, op->id);
-	e_operation_pool_push (ops_pool, op);
-
-	return TRUE;
-}
-
-static gboolean
-impl_Cal_getCalEmailAddress (EGdbusCal *object, GDBusMethodInvocation *invocation, EDataCal *cal)
-{
-	OperationData *op;
-
-	op = op_new (OP_GET_CAL_EMAIL_ADDRESS, cal);
-
-	e_gdbus_cal_complete_get_cal_email_address (cal->priv->gdbus_object, invocation, op->id);
-	e_operation_pool_push (ops_pool, op);
-
-	return TRUE;
-}
-
-static gboolean
-impl_Cal_getAlarmEmailAddress (EGdbusCal *object, GDBusMethodInvocation *invocation, EDataCal *cal)
-{
-	OperationData *op;
-
-	op = op_new (OP_GET_ALARM_EMAIL_ADDRESS, cal);
-
-	e_gdbus_cal_complete_get_alarm_email_address (cal->priv->gdbus_object, invocation, op->id);
-	e_operation_pool_push (ops_pool, op);
-
-	return TRUE;
-}
-
-static gboolean
-impl_Cal_getDefaultObject (EGdbusCal *object, GDBusMethodInvocation *invocation, EDataCal *cal)
-{
-	OperationData *op;
-
-	op = op_new (OP_GET_DEFAULT_OBJECT, cal);
-
-	e_gdbus_cal_complete_get_default_object (cal->priv->gdbus_object, invocation, op->id);
+	e_gdbus_cal_complete_set_backend_property (cal->priv->gdbus_object, invocation, op->id);
 	e_operation_pool_push (ops_pool, op);
 
 	return TRUE;
@@ -995,101 +947,47 @@ e_data_cal_respond_refresh (EDataCal *cal, guint32 opid, GError *error)
 }
 
 /**
- * e_data_cal_respond_get_capabilities:
+ * e_data_cal_respond_get_backend_property:
  * @cal: A calendar client interface.
  * @error: Operation error, if any, automatically freed if passed it.
- * @calabilities: Comma-separated list of capabilities for the calendar.
+ * @prop_value: Value of a property
  *
- * Notifies listeners of the completion of the get_capabilities method call.
+ * Notifies listeners of the completion of the get_backend_property method call.
  */
 void
-e_data_cal_respond_get_capabilities (EDataCal *cal, guint32 opid, GError *error, const gchar *capabilities)
+e_data_cal_respond_get_backend_property (EDataCal *cal, guint32 opid, GError *error, const gchar *prop_value)
 {
-	gchar *gdbus_capabilities = NULL;
+	gchar *gdbus_prop_value = NULL;
 
 	op_complete (cal, opid);
 
 	/* Translators: This is prefix to a detailed error message */
-	g_prefix_error (&error, "%s", _("Cannot retrieve calendar capabilities: "));
+	g_prefix_error (&error, "%s", _("Cannot retrieve backend property: "));
 
-	e_gdbus_cal_emit_get_capabilities_done (cal->priv->gdbus_object, opid, error, e_util_ensure_gdbus_string (capabilities, &gdbus_capabilities));
+	e_gdbus_cal_emit_get_backend_property_done (cal->priv->gdbus_object, opid, error, e_util_ensure_gdbus_string (prop_value, &gdbus_prop_value));
 
-	g_free (gdbus_capabilities);
+	g_free (gdbus_prop_value);
 	if (error)
 		g_error_free (error);
 }
 
 /**
- * e_data_cal_respond_get_cal_email_address:
+ * e_data_cal_respond_set_backend_property:
  * @cal: A calendar client interface.
  * @error: Operation error, if any, automatically freed if passed it.
- * @address: Calendar address.
  *
- * Notifies listeners of the completion of the get_cal_email_address method call.
+ * Notifies listeners of the completion of the set_backend_property method call.
  */
 void
-e_data_cal_respond_get_cal_email_address (EDataCal *cal, guint32 opid, GError *error, const gchar *address)
+e_data_cal_respond_set_backend_property (EDataCal *cal, guint32 opid, GError *error)
 {
-	gchar *gdbus_address = NULL;
-
 	op_complete (cal, opid);
 
 	/* Translators: This is prefix to a detailed error message */
-	g_prefix_error (&error, "%s", _("Cannot retrieve calendar address: "));
+	g_prefix_error (&error, "%s", _("Cannot set backend property: "));
 
-	e_gdbus_cal_emit_get_cal_email_address_done (cal->priv->gdbus_object, opid, error, e_util_ensure_gdbus_string (address, &gdbus_address));
+	e_gdbus_cal_emit_set_backend_property_done (cal->priv->gdbus_object, opid, error);
 
-	g_free (gdbus_address);
-	if (error)
-		g_error_free (error);
-}
-
-/**
- * e_data_cal_respond_get_alarm_email_address:
- * @cal: A calendar client interface.
- * @error: Operation error, if any, automatically freed if passed it.
- * @address: Alarm email address.
- *
- * Notifies listeners of the completion of the get_alarm_email_address method call.
- */
-void
-e_data_cal_respond_get_alarm_email_address (EDataCal *cal, guint32 opid, GError *error, const gchar *address)
-{
-	gchar *gdbus_address = NULL;
-
-	op_complete (cal, opid);
-
-	/* Translators: This is prefix to a detailed error message */
-	g_prefix_error (&error, "%s", _("Cannot retrieve calendar alarm e-mail address: "));
-
-	e_gdbus_cal_emit_get_alarm_email_address_done (cal->priv->gdbus_object, opid, error, e_util_ensure_gdbus_string (address, &gdbus_address));
-
-	g_free (gdbus_address);
-	if (error)
-		g_error_free (error);
-}
-
-/**
- * e_data_cal_respond_get_default_object:
- * @cal: A calendar client interface.
- * @error: Operation error, if any, automatically freed if passed it.
- * @object: The default object as an iCalendar string.
- *
- * Notifies listeners of the completion of the get_default_object method call.
- */
-void
-e_data_cal_respond_get_default_object (EDataCal *cal, guint32 opid, GError *error, const gchar *object)
-{
-	gchar *gdbus_object = NULL;
-
-	op_complete (cal, opid);
-
-	/* Translators: This is prefix to a detailed error message */
-	g_prefix_error (&error, "%s", _("Cannot retrieve default calendar object: "));
-
-	e_gdbus_cal_emit_get_default_object_done (cal->priv->gdbus_object, opid, error, e_util_ensure_gdbus_string (object, &gdbus_object));
-
-	g_free (gdbus_object);
 	if (error)
 		g_error_free (error);
 }
@@ -1475,11 +1373,8 @@ e_data_cal_init (EDataCal *ecal)
 	g_signal_connect (gdbus_object, "handle-authenticate-user", G_CALLBACK (impl_Cal_authenticateUser), ecal);
 	g_signal_connect (gdbus_object, "handle-remove", G_CALLBACK (impl_Cal_remove), ecal);
 	g_signal_connect (gdbus_object, "handle-refresh", G_CALLBACK (impl_Cal_refresh), ecal);
-	g_signal_connect (gdbus_object, "handle-get-cache-dir", G_CALLBACK (impl_Cal_getCacheDir), ecal);
-	g_signal_connect (gdbus_object, "handle-get-capabilities", G_CALLBACK (impl_Cal_getCapabilities), ecal);
-	g_signal_connect (gdbus_object, "handle-get-cal-email-address", G_CALLBACK (impl_Cal_getCalEmailAddress), ecal);
-	g_signal_connect (gdbus_object, "handle-get-alarm-email-address", G_CALLBACK (impl_Cal_getAlarmEmailAddress), ecal);
-	g_signal_connect (gdbus_object, "handle-get-default-object", G_CALLBACK (impl_Cal_getDefaultObject), ecal);
+	g_signal_connect (gdbus_object, "handle-get-backend-property", G_CALLBACK (impl_Cal_getBackendProperty), ecal);
+	g_signal_connect (gdbus_object, "handle-set-backend-property", G_CALLBACK (impl_Cal_setBackendProperty), ecal);
 	g_signal_connect (gdbus_object, "handle-get-object", G_CALLBACK (impl_Cal_getObject), ecal);
 	g_signal_connect (gdbus_object, "handle-get-object-list", G_CALLBACK (impl_Cal_getObjectList), ecal);
 	g_signal_connect (gdbus_object, "handle-get-free-busy", G_CALLBACK (impl_Cal_getFreeBusy), ecal);
