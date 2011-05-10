@@ -92,7 +92,7 @@ main (gint argc, gchar **argv)
 
 	main_initialize ();
 
-	cal_client = e_cal_client_new_system (E_CAL_CLIENT_SOURCE_TYPE_EVENT, &error);
+	cal_client = e_cal_client_new_system (E_CAL_CLIENT_SOURCE_TYPE_EVENTS, &error);
 	if (!cal_client) {
 		report_error ("create local calendar", &error);
 		return 1;

@@ -1,5 +1,5 @@
 /*
- * e-client-authenticate.c
+ * e-client-utils.c
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -29,11 +29,240 @@
 #include <libsoup/soup.h>
 
 #include <libedataserver/e-client.h>
+#include "libedataserver/e-client-private.h"
 #include <libebook/e-book-client.h>
 #include <libecal/e-cal-client.h>
 
 #include "e-passwords.h"
-#include "e-client-authenticate.h"
+#include "e-client-utils.h"
+
+/**
+ * e_client_utils_new:
+ *
+ * Proxy function for e_book_client_utils_new() and e_cal_client_utils_new().
+ **/
+EClient	*
+e_client_utils_new (ESource *source, EClientSourceType source_type, GError **error)
+{
+	EClient *res = NULL;
+
+	g_return_val_if_fail (source != NULL, NULL);
+	g_return_val_if_fail (E_IS_SOURCE (source), NULL);
+
+	switch (source_type) {
+	case E_CLIENT_SOURCE_TYPE_CONTACTS:
+		res = E_CLIENT (e_book_client_new (source, error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_EVENTS:
+		res = E_CLIENT (e_cal_client_new (source, E_CAL_CLIENT_SOURCE_TYPE_EVENTS, error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_MEMOS:
+		res = E_CLIENT (e_cal_client_new (source, E_CAL_CLIENT_SOURCE_TYPE_MEMOS, error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_TASKS:
+		res = E_CLIENT (e_cal_client_new (source, E_CAL_CLIENT_SOURCE_TYPE_TASKS, error));
+		break;
+	default:
+		g_return_val_if_reached (NULL);
+		break;
+	}
+
+	return res;
+}
+
+/**
+ * e_client_utils_new_from_uri:
+ *
+ * Proxy function for e_book_client_utils_new_from_uri() and e_cal_client_utils_new_from_uri().
+ **/
+EClient *
+e_client_utils_new_from_uri (const gchar *uri, EClientSourceType source_type, GError **error)
+{
+	EClient *res = NULL;
+
+	g_return_val_if_fail (uri != NULL, NULL);
+
+	switch (source_type) {
+	case E_CLIENT_SOURCE_TYPE_CONTACTS:
+		res = E_CLIENT (e_book_client_new_from_uri (uri, error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_EVENTS:
+		res = E_CLIENT (e_cal_client_new_from_uri (uri, E_CAL_CLIENT_SOURCE_TYPE_EVENTS, error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_MEMOS:
+		res = E_CLIENT (e_cal_client_new_from_uri (uri, E_CAL_CLIENT_SOURCE_TYPE_MEMOS, error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_TASKS:
+		res = E_CLIENT (e_cal_client_new_from_uri (uri, E_CAL_CLIENT_SOURCE_TYPE_TASKS, error));
+		break;
+	default:
+		g_return_val_if_reached (NULL);
+		break;
+	}
+
+	return res;
+}
+
+/**
+ * e_client_utils_new_system:
+ *
+ * Proxy function for e_book_client_utils_new_system() and e_cal_client_utils_new_system().
+ **/
+EClient *
+e_client_utils_new_system (EClientSourceType source_type, GError **error)
+{
+	EClient *res = NULL;
+
+	switch (source_type) {
+	case E_CLIENT_SOURCE_TYPE_CONTACTS:
+		res = E_CLIENT (e_book_client_new_system (error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_EVENTS:
+		res = E_CLIENT (e_cal_client_new_system (E_CAL_CLIENT_SOURCE_TYPE_EVENTS, error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_MEMOS:
+		res = E_CLIENT (e_cal_client_new_system (E_CAL_CLIENT_SOURCE_TYPE_MEMOS, error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_TASKS:
+		res = E_CLIENT (e_cal_client_new_system (E_CAL_CLIENT_SOURCE_TYPE_TASKS, error));
+		break;
+	default:
+		g_return_val_if_reached (NULL);
+		break;
+	}
+
+	return res;
+}
+
+/**
+ * e_client_utils_new_default:
+ *
+ * Proxy function for e_book_client_utils_new_default() and e_cal_client_utils_new_default().
+ **/
+EClient *
+e_client_utils_new_default (EClientSourceType source_type, GError **error)
+{
+	EClient *res = NULL;
+
+	switch (source_type) {
+	case E_CLIENT_SOURCE_TYPE_CONTACTS:
+		res = E_CLIENT (e_book_client_new_default (error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_EVENTS:
+		res = E_CLIENT (e_cal_client_new_default (E_CAL_CLIENT_SOURCE_TYPE_EVENTS, error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_MEMOS:
+		res = E_CLIENT (e_cal_client_new_default (E_CAL_CLIENT_SOURCE_TYPE_MEMOS, error));
+		break;
+	case E_CLIENT_SOURCE_TYPE_TASKS:
+		res = E_CLIENT (e_cal_client_new_default (E_CAL_CLIENT_SOURCE_TYPE_TASKS, error));
+		break;
+	default:
+		g_return_val_if_reached (NULL);
+		break;
+	}
+
+	return res;
+}
+
+/**
+ * e_client_utils_set_default:
+ *
+ * Proxy function for e_book_client_utils_set_default() and e_book_client_utils_set_default().
+ **/
+gboolean
+e_client_utils_set_default (EClient *client, EClientSourceType source_type, GError **error)
+{
+	gboolean res = FALSE;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_CLIENT (client), FALSE);
+
+	switch (source_type) {
+	case E_CLIENT_SOURCE_TYPE_CONTACTS:
+		g_return_val_if_fail (E_IS_BOOK_CLIENT (client), FALSE);
+		res = e_book_client_set_default (E_BOOK_CLIENT (client), error);
+		break;
+	case E_CLIENT_SOURCE_TYPE_EVENTS:
+	case E_CLIENT_SOURCE_TYPE_MEMOS:
+	case E_CLIENT_SOURCE_TYPE_TASKS:
+		g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
+		res = e_cal_client_set_default (E_CAL_CLIENT (client), error);
+		break;
+	default:
+		g_return_val_if_reached (FALSE);
+		break;
+	}
+
+	return res;
+}
+
+/**
+ * e_client_utils_set_default_source:
+ *
+ * Proxy function for e_book_client_utils_set_default_source() and e_cal_client_utils_set_default_source().
+ **/
+gboolean
+e_client_utils_set_default_source (ESource *source, EClientSourceType source_type, GError **error)
+{
+	gboolean res = FALSE;
+
+	g_return_val_if_fail (source != NULL, FALSE);
+	g_return_val_if_fail (E_IS_SOURCE (source), FALSE);
+
+	switch (source_type) {
+	case E_CLIENT_SOURCE_TYPE_CONTACTS:
+		res = e_book_client_set_default_source (source, error);
+		break;
+	case E_CLIENT_SOURCE_TYPE_EVENTS:
+		res = e_cal_client_set_default_source (source, E_CAL_CLIENT_SOURCE_TYPE_EVENTS, error);
+		break;
+	case E_CLIENT_SOURCE_TYPE_MEMOS:
+		res = e_cal_client_set_default_source (source, E_CAL_CLIENT_SOURCE_TYPE_MEMOS, error);
+		break;
+	case E_CLIENT_SOURCE_TYPE_TASKS:
+		res = e_cal_client_set_default_source (source, E_CAL_CLIENT_SOURCE_TYPE_TASKS, error);
+		break;
+	default:
+		g_return_val_if_reached (FALSE);
+		break;
+	}
+
+	return res;
+}
+
+/**
+ * e_client_utils_get_sources:
+ *
+ * Proxy function for e_book_client_utils_get_sources() and e_cal_client_utils_get_sources().
+ **/
+gboolean
+e_client_utils_get_sources (ESourceList **sources, EClientSourceType source_type, GError **error)
+{
+	gboolean res = FALSE;
+
+	g_return_val_if_fail (sources != NULL, FALSE);
+
+	switch (source_type) {
+	case E_CLIENT_SOURCE_TYPE_CONTACTS:
+		res = e_book_client_get_sources (sources, error);
+		break;
+	case E_CLIENT_SOURCE_TYPE_EVENTS:
+		res = e_cal_client_get_sources (sources, E_CAL_CLIENT_SOURCE_TYPE_EVENTS, error);
+		break;
+	case E_CLIENT_SOURCE_TYPE_MEMOS:
+		res = e_cal_client_get_sources (sources, E_CAL_CLIENT_SOURCE_TYPE_MEMOS, error);
+		break;
+	case E_CLIENT_SOURCE_TYPE_TASKS:
+		res = e_cal_client_get_sources (sources, E_CAL_CLIENT_SOURCE_TYPE_TASKS, error);
+		break;
+	default:
+		g_return_val_if_reached (FALSE);
+		break;
+	}
+
+	return res;
+}
 
 /* This function is suitable as a handler for EClient::authenticate signal.
    It takes care of all the password prompt and such and returns TRUE if
@@ -41,7 +270,7 @@
    and it'll take care of everything else.
 */
 gboolean
-e_client_authenticate_handler (EClient *client, ECredentials *credentials)
+e_client_utils_authenticate_handler (EClient *client, ECredentials *credentials, gpointer unused_user_data)
 {
 	ESource *source;
 	gboolean is_book, is_cal, res, remember_password = FALSE;

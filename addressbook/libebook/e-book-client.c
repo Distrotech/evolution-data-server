@@ -586,7 +586,7 @@ e_book_client_new_from_uri (const gchar *uri, GError **error)
 }
 
 /**
- * e_book_client_new_system_addressbook:
+ * e_book_client_new_system:
  * @error: A #GError pointer
  *
  * Creates a new #EBookClient corresponding to the user's system
@@ -598,7 +598,7 @@ e_book_client_new_from_uri (const gchar *uri, GError **error)
  * Since: 3.2
  **/
 EBookClient *
-e_book_client_new_system_addressbook (GError **error)
+e_book_client_new_system (GError **error)
 {
 	ESourceList *source_list = NULL;
 	ESource *source;
@@ -624,7 +624,7 @@ e_book_client_new_system_addressbook (GError **error)
 }
 
 /**
- * e_book_client_new_default_addressbook:
+ * e_book_client_new_default:
  * @error: return location for a #GError, or %NULL
  *
  * Creates a new #EBookClient corresponding to the user's default
@@ -636,7 +636,7 @@ e_book_client_new_system_addressbook (GError **error)
  * Since: 3.2
  **/
 EBookClient *
-e_book_client_new_default_addressbook (GError **error)
+e_book_client_new_default (GError **error)
 {
 	ESourceList *source_list = NULL;
 	ESource *source;
@@ -812,7 +812,7 @@ e_book_client_get_self (EContact **contact, EBookClient **client, GError **error
 	g_return_val_if_fail (contact != NULL, FALSE);
 	g_return_val_if_fail (client != NULL, FALSE);
 
-	*client = e_book_client_new_system_addressbook (&local_error);
+	*client = e_book_client_new_system (&local_error);
 	if (!*client) {
 		g_propagate_error (error, local_error);
 		return FALSE;

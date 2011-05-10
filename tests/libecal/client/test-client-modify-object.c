@@ -145,7 +145,7 @@ main (gint argc, gchar **argv)
 
 	main_initialize ();
 
-	cal_client = new_temp_client (E_CAL_CLIENT_SOURCE_TYPE_EVENT, NULL);
+	cal_client = new_temp_client (E_CAL_CLIENT_SOURCE_TYPE_EVENTS, NULL);
 	g_return_val_if_fail (cal_client != NULL, FALSE);
 
 	if (!e_client_open_sync (E_CLIENT (cal_client), FALSE, NULL, &error)) {

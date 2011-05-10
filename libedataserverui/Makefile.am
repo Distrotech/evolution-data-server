@@ -23,7 +23,7 @@ libedataserveruiinclude_HEADERS =	\
 	e-category-completion.h		\
 	e-destination-store.h		\
 	e-book-auth-util.h		\
-	e-client-authenticate.h		\
+	e-client-utils.h		\
 	e-contact-store.h		\
 	e-name-selector.h		\
 	e-name-selector-dialog.h	\
@@ -51,7 +51,7 @@ libedataserverui_3_0_la_SOURCES =	\
 	e-category-completion.c		\
 	e-destination-store.c		\
 	e-book-auth-util.c		\
-	e-client-authenticate.c		\
+	e-client-utils.c		\
 	e-contact-store.c		\
 	e-name-selector.c		\
 	e-name-selector-dialog.c	\

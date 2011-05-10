@@ -80,7 +80,7 @@ book_backend_get_backend_property (EBookBackend *backend, EDataBook *book, guint
 	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_LOADED)) {
 		e_data_book_respond_get_backend_property (book, opid, NULL, e_book_backend_is_loaded (backend) ? "TRUE" : "FALSE");
 	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_ONLINE)) {
-		e_data_book_respond_get_backend_property (book, opid, NULL, backend->priv->online ? "TRUE" : "FALSE");
+		e_data_book_respond_get_backend_property (book, opid, NULL, e_book_backend_is_online (backend) ? "TRUE" : "FALSE");
 	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_READONLY)) {
 		e_data_book_respond_get_backend_property (book, opid, NULL, e_book_backend_is_readonly (backend) ? "TRUE" : "FALSE");
 	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_CACHE_DIR)) {
@@ -740,6 +740,22 @@ e_book_backend_set_backend_property (EBookBackend *backend, EDataBook *book, gui
 	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->set_backend_property != NULL);
 
 	E_BOOK_BACKEND_GET_CLASS (backend)->set_backend_property (backend, book, opid, cancellable, prop_name, prop_value);
+}
+
+/**
+ * e_book_backend_is_online:
+ * @backend: an #EBookBackend
+ *
+ * Checks if @backend's storage is online.
+ *
+ * Returns: %TRUE if loaded, %FALSE otherwise.
+ **/
+gboolean
+e_book_backend_is_online (EBookBackend *backend)
+{
+	g_return_val_if_fail (E_IS_BOOK_BACKEND (backend), FALSE);
+
+	return backend->priv->online;
 }
 
 /**

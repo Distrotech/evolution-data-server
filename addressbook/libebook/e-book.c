@@ -3537,7 +3537,7 @@ check_system (ESource *source, gpointer data)
  *
  * Returns: a new but unopened #EBook.
  *
- * Deprecated: 3.2: Use e_book_client_new_system_addressbook() instead.
+ * Deprecated: 3.2: Use e_book_client_new_system() instead.
  */
 EBook *
 e_book_new_system_addressbook (GError **error)
@@ -3592,7 +3592,7 @@ e_book_new_system_addressbook (GError **error)
  *
  * Returns: a new but unopened #EBook
  *
- * Deprecated: 3.2: Use e_book_client_new_default_addressbook() instead.
+ * Deprecated: 3.2: Use e_book_client_new_default() instead.
  */
 EBook *
 e_book_new_default_addressbook (GError **error)

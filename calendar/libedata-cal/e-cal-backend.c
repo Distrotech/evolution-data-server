@@ -195,7 +195,7 @@ cal_backend_get_backend_property (ECalBackend *backend, EDataCal *cal, guint32 o
 	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_LOADED)) {
 		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_is_loaded (backend) ? "TRUE" : "FALSE");
 	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_ONLINE)) {
-		e_data_cal_respond_get_backend_property (cal, opid, NULL, backend->priv->online ? "TRUE" : "FALSE");
+		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_is_online (backend) ? "TRUE" : "FALSE");
 	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_READONLY)) {
 		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_is_readonly (backend) ? "TRUE" : "FALSE");
 	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_CACHE_DIR)) {
@@ -451,6 +451,20 @@ e_cal_backend_get_kind (ECalBackend *backend)
 	g_return_val_if_fail (E_IS_CAL_BACKEND (backend), ICAL_NO_COMPONENT);
 
 	return backend->priv->kind;
+}
+
+/**
+ * e_cal_backend_is_online:
+ * @backend: an #ECalBackend
+ *
+ * Returns: Whether is backend online.
+ **/
+gboolean
+e_cal_backend_is_online (ECalBackend *backend)
+{
+	g_return_val_if_fail (E_IS_CAL_BACKEND (backend), FALSE);
+
+	return backend->priv->online;
 }
 
 /**

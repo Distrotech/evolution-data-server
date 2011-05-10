@@ -149,13 +149,13 @@ identify_source (ESource *source, ECalClientSourceType source_type)
 	g_return_if_fail (source != NULL);
 
 	switch (source_type) {
-	case E_CAL_CLIENT_SOURCE_TYPE_EVENT:
+	case E_CAL_CLIENT_SOURCE_TYPE_EVENTS:
 		type = "events";
 		break;
-	case E_CAL_CLIENT_SOURCE_TYPE_TODO:
+	case E_CAL_CLIENT_SOURCE_TYPE_TASKS:
 		type = "tasks";
 		break;
-	case E_CAL_CLIENT_SOURCE_TYPE_JOURNAL:
+	case E_CAL_CLIENT_SOURCE_TYPE_MEMOS:
 		type = "memos";
 		break;
 	default:
@@ -435,20 +435,20 @@ static gboolean
 in_main_thread_idle_cb (gpointer unused)
 {
 	g_print ("* run in main thread with mainloop running\n");
-	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_EVENT, check_source_sync);
-	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_TODO, check_source_sync);
-	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_JOURNAL, check_source_sync);
+	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_EVENTS, check_source_sync);
+	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_TASKS, check_source_sync);
+	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_MEMOS, check_source_sync);
 	g_print ("---------------------------------------------------------\n\n");
 
 	g_print ("* run in main thread async\n");
 
-	if (!foreach_async (E_CAL_CLIENT_SOURCE_TYPE_EVENT))
+	if (!foreach_async (E_CAL_CLIENT_SOURCE_TYPE_EVENTS))
 		return FALSE;
 
-	if (!foreach_async (E_CAL_CLIENT_SOURCE_TYPE_TODO))
+	if (!foreach_async (E_CAL_CLIENT_SOURCE_TYPE_TASKS))
 		return FALSE;
 
-	if (!foreach_async (E_CAL_CLIENT_SOURCE_TYPE_JOURNAL))
+	if (!foreach_async (E_CAL_CLIENT_SOURCE_TYPE_MEMOS))
 		return FALSE;
 
 	return FALSE;
@@ -458,9 +458,9 @@ static gpointer
 worker_thread (gpointer unused)
 {
 	g_print ("* run in dedicated thread with mainloop running\n");
-	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_EVENT, check_source_sync);
-	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_TODO, check_source_sync);
-	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_JOURNAL, check_source_sync);
+	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_EVENTS, check_source_sync);
+	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_TASKS, check_source_sync);
+	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_MEMOS, check_source_sync);
 	g_print ("---------------------------------------------------------\n\n");
 
 	g_idle_add (in_main_thread_idle_cb, NULL);
@@ -474,9 +474,9 @@ main (gint argc, gchar **argv)
 	main_initialize ();
 
 	g_print ("* run in main thread without mainloop\n");
-	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_EVENT, check_source_sync);
-	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_TODO, check_source_sync);
-	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_JOURNAL, check_source_sync);
+	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_EVENTS, check_source_sync);
+	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_TASKS, check_source_sync);
+	foreach_configured_source (E_CAL_CLIENT_SOURCE_TYPE_MEMOS, check_source_sync);
 	g_print ("---------------------------------------------------------\n\n");
 
 	start_in_thread_with_main_loop (worker_thread, NULL);

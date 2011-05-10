@@ -102,6 +102,7 @@ GType		e_cal_backend_get_type			(void);
 ESource *	e_cal_backend_get_source		(ECalBackend *backend);
 const gchar *	e_cal_backend_get_uri			(ECalBackend *backend);
 icalcomponent_kind e_cal_backend_get_kind		(ECalBackend *backend);
+gboolean	e_cal_backend_is_online			(ECalBackend *backend);
 gboolean	e_cal_backend_is_loaded			(ECalBackend *backend);
 gboolean	e_cal_backend_is_readonly		(ECalBackend *backend);
 gboolean	e_cal_backend_is_removed		(ECalBackend *backend);

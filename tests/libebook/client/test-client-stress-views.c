@@ -104,7 +104,7 @@ main (gint argc, gchar **argv)
 
 	printf ("loading addressbook\n");
 
-	book_client = e_book_client_new_system_addressbook (&error);
+	book_client = e_book_client_new_system (&error);
 	if (!book_client) {
 		report_error ("create local addressbook", &error);
 		return 1;

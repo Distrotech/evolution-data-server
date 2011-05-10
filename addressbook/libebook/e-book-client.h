@@ -79,8 +79,8 @@ GType		e_book_client_get_type				(void);
 /* Creating a new addressbook */
 EBookClient *	e_book_client_new				(ESource *source, GError **error);
 EBookClient *	e_book_client_new_from_uri			(const gchar *uri, GError **error);
-EBookClient *	e_book_client_new_system_addressbook		(GError **error);
-EBookClient *	e_book_client_new_default_addressbook		(GError **error);
+EBookClient *	e_book_client_new_system			(GError **error);
+EBookClient *	e_book_client_new_default			(GError **error);
 
 /* Addressbook discovery */
 gboolean	e_book_client_set_default			(EBookClient *client, GError **error);

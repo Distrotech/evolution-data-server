@@ -93,6 +93,7 @@ ESource *	e_book_backend_get_source	(EBookBackend *backend);
 gboolean	e_book_backend_add_client	(EBookBackend *backend, EDataBook *book);
 void		e_book_backend_remove_client	(EBookBackend *backend, EDataBook *book);
 
+gboolean	e_book_backend_is_online	(EBookBackend *backend);
 gboolean	e_book_backend_is_loaded	(EBookBackend *backend);
 gboolean	e_book_backend_is_readonly	(EBookBackend *backend);
 gboolean	e_book_backend_is_removed	(EBookBackend *backend);

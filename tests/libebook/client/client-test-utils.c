@@ -42,7 +42,7 @@ open_system_book (gboolean only_if_exists)
 
 	main_initialize ();
 
-	book_client = e_book_client_new_system_addressbook (&error);
+	book_client = e_book_client_new_system (&error);
 	if (error) {
 		report_error ("create system addressbook", &error);
 		return NULL;

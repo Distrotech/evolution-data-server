@@ -96,10 +96,10 @@ e_cal_client_source_type_enum_get_type (void)
 	if (g_once_init_enter (&enum_type__volatile)) {
 		GType enum_type;
 		static GEnumValue values[] = {
-			{ E_CAL_CLIENT_SOURCE_TYPE_EVENT, "Event", "Event"},
-			{ E_CAL_CLIENT_SOURCE_TYPE_TODO, "ToDo", "ToDo"},
-			{ E_CAL_CLIENT_SOURCE_TYPE_JOURNAL, "Journal", "Journal"},
-			{ E_CAL_CLIENT_SOURCE_TYPE_LAST, "Invalid", "Invalid"},
+			{ E_CAL_CLIENT_SOURCE_TYPE_EVENTS, "Events",  "Events"  },
+			{ E_CAL_CLIENT_SOURCE_TYPE_TASKS,  "Tasks",   "Tasks"   },
+			{ E_CAL_CLIENT_SOURCE_TYPE_MEMOS,  "Memos",   "Memos"   },
+			{ E_CAL_CLIENT_SOURCE_TYPE_LAST,   "Invalid", "Invalid" },
 			{ -1, NULL, NULL}
 		};
 
@@ -517,11 +517,11 @@ static EDataCalObjType
 convert_type (ECalClientSourceType type)
 {
 	switch (type) {
-	case E_CAL_CLIENT_SOURCE_TYPE_EVENT:
+	case E_CAL_CLIENT_SOURCE_TYPE_EVENTS:
 		return Event;
-	case E_CAL_CLIENT_SOURCE_TYPE_TODO:
+	case E_CAL_CLIENT_SOURCE_TYPE_TASKS:
 		return Todo;
-	case E_CAL_CLIENT_SOURCE_TYPE_JOURNAL:
+	case E_CAL_CLIENT_SOURCE_TYPE_MEMOS:
 		return Journal;
 	default:
 		return AnyType;
@@ -555,7 +555,7 @@ e_cal_client_new (ESource *source, ECalClientSourceType source_type, GError **er
 
 	g_return_val_if_fail (source != NULL, NULL);
 	g_return_val_if_fail (E_IS_SOURCE (source), NULL);
-	g_return_val_if_fail (source_type == E_CAL_CLIENT_SOURCE_TYPE_EVENT || source_type == E_CAL_CLIENT_SOURCE_TYPE_TODO || source_type == E_CAL_CLIENT_SOURCE_TYPE_JOURNAL, NULL);
+	g_return_val_if_fail (source_type == E_CAL_CLIENT_SOURCE_TYPE_EVENTS || source_type == E_CAL_CLIENT_SOURCE_TYPE_TASKS || source_type == E_CAL_CLIENT_SOURCE_TYPE_MEMOS, NULL);
 
 	if (!gdbus_cal_factory_activate (&err)) {
 		if (err) {
@@ -858,13 +858,13 @@ e_cal_client_get_sources (ESourceList **sources, ECalClientSourceType source_typ
 	g_return_val_if_fail (sources != NULL, FALSE);
 
 	switch (source_type) {
-	case E_CAL_CLIENT_SOURCE_TYPE_EVENT:
+	case E_CAL_CLIENT_SOURCE_TYPE_EVENTS:
 		key = "/apps/evolution/calendar/sources";
 		break;
-	case E_CAL_CLIENT_SOURCE_TYPE_TODO:
+	case E_CAL_CLIENT_SOURCE_TYPE_TASKS:
 		key = "/apps/evolution/tasks/sources";
 		break;
-	case E_CAL_CLIENT_SOURCE_TYPE_JOURNAL:
+	case E_CAL_CLIENT_SOURCE_TYPE_MEMOS:
 		key = "/apps/evolution/memos/sources";
 		break;
 	default:
@@ -2287,9 +2287,9 @@ complete_get_objects_for_uid (ECalClientSourceType source_type, gboolean res, gc
 		return FALSE;
 
 	kind = icalcomponent_isa (icalcomp);
-	if ((kind == ICAL_VEVENT_COMPONENT && source_type == E_CAL_CLIENT_SOURCE_TYPE_EVENT) ||
-	    (kind == ICAL_VTODO_COMPONENT && source_type == E_CAL_CLIENT_SOURCE_TYPE_TODO) ||
-	    (kind == ICAL_VJOURNAL_COMPONENT && source_type == E_CAL_CLIENT_SOURCE_TYPE_JOURNAL)) {
+	if ((kind == ICAL_VEVENT_COMPONENT && source_type == E_CAL_CLIENT_SOURCE_TYPE_EVENTS) ||
+	    (kind == ICAL_VTODO_COMPONENT && source_type == E_CAL_CLIENT_SOURCE_TYPE_TASKS) ||
+	    (kind == ICAL_VJOURNAL_COMPONENT && source_type == E_CAL_CLIENT_SOURCE_TYPE_MEMOS)) {
 		comp = e_cal_component_new ();
 		e_cal_component_set_icalcomponent (comp, icalcomponent_new_clone (icalcomp));
 		*ecalcomps = g_slist_append (NULL, comp);
@@ -2298,13 +2298,13 @@ complete_get_objects_for_uid (ECalClientSourceType source_type, gboolean res, gc
 		icalcomponent_kind kind_to_find;
 
 		switch (source_type) {
-		case E_CAL_CLIENT_SOURCE_TYPE_TODO :
+		case E_CAL_CLIENT_SOURCE_TYPE_TASKS:
 			kind_to_find = ICAL_VTODO_COMPONENT;
 			break;
-		case E_CAL_CLIENT_SOURCE_TYPE_JOURNAL :
+		case E_CAL_CLIENT_SOURCE_TYPE_MEMOS:
 			kind_to_find = ICAL_VJOURNAL_COMPONENT;
 			break;
-		case E_CAL_CLIENT_SOURCE_TYPE_EVENT :
+		case E_CAL_CLIENT_SOURCE_TYPE_EVENTS:
 		default:
 			kind_to_find = ICAL_VEVENT_COMPONENT;
 			break;
