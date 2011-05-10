@@ -644,7 +644,7 @@ e_book_backend_vcf_get_backend_property (EBookBackendSync *backend, EDataBook *b
 	g_return_val_if_fail (prop_name != NULL, FALSE);
 	g_return_val_if_fail (prop_value != NULL, FALSE);
 
-	if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_CAPABILITIES)) {
+	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_CAPABILITIES)) {
 		*prop_value = g_strdup ("local,do-initial-query,contact-lists");
 	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS)) {
 		*prop_value = g_strdup (e_contact_field_name (E_CONTACT_FILE_AS));

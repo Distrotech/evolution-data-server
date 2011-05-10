@@ -67,18 +67,6 @@ G_DEFINE_TYPE (ECalClient, e_cal_client, E_TYPE_CLIENT)
 
 /**
  * Well-known calendar backend properties:
- * @CAL_BACKEND_PROPERTY_LOADED: Is set to "TRUE" or "FALSE" depending
- *   on the backend's loaded state.
- * @CAL_BACKEND_PROPERTY_ONLINE: Is set to "TRUE" or "FALSE" depending
- *   on the backend's loaded state. See also e_client_is_online().
- * @CAL_BACKEND_PROPERTY_READONLY: Is set to "TRUE" or "FALSE" depending
- *   on the backend's readonly state. See also e_client_is_readonly().
- * @CAL_BACKEND_PROPERTY_CACHE_DIR: Local folder with cached data used
- *   by the backend.
- * @CAL_BACKEND_PROPERTY_CAPABILITIES: Retrieves comma-separated list
- *   of	capabilities supported by the backend. Preferred method of retreiving
- *   and working with capabilities is e_client_get_capabilities() and
- *   e_client_check_capability().
  * @CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS: Contains default calendar's email
  *   address suggested by the backend.
  * @CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS: Contains default alarm email
@@ -87,6 +75,10 @@ G_DEFINE_TYPE (ECalClient, e_cal_client, E_TYPE_CLIENT)
  *   of an #icalcomponent with the default values for properties needed.
  *   Preferred way of retrieving this property is by
  *   calling e_cal_client_get_default_object().
+ *
+ * See also: @CLIENT_BACKEND_PROPERTY_LOADED,
+ *   @CLIENT_BACKEND_PROPERTY_ONLINE, @CLIENT_BACKEND_PROPERTY_READONLY
+ *   @CLIENT_BACKEND_PROPERTY_CACHE_DIR, @CLIENT_BACKEND_PROPERTY_CAPABILITIES
  **/
 
 /**
@@ -938,7 +930,7 @@ e_cal_client_get_local_attachment_store (ECalClient *client)
 	if (client->priv->cache_dir || !client->priv->gdbus_cal)
 		return client->priv->cache_dir;
 
-	e_gdbus_cal_call_get_backend_property_sync (client->priv->gdbus_cal, CAL_BACKEND_PROPERTY_CACHE_DIR, &cache_dir, NULL, &error);
+	e_gdbus_cal_call_get_backend_property_sync (client->priv->gdbus_cal, CLIENT_BACKEND_PROPERTY_CACHE_DIR, &cache_dir, NULL, &error);
 
 	if (error == NULL) {
 		client->priv->cache_dir = cache_dir;
@@ -3994,7 +3986,7 @@ cal_client_retrieve_capabilities (EClient *client)
 	if (!cal_client->priv->gdbus_cal)
 		return NULL;
 
-	e_gdbus_cal_call_get_backend_property_sync (cal_client->priv->gdbus_cal, CAL_BACKEND_PROPERTY_CAPABILITIES, &capabilities, NULL, &error);
+	e_gdbus_cal_call_get_backend_property_sync (cal_client->priv->gdbus_cal, CLIENT_BACKEND_PROPERTY_CAPABILITIES, &capabilities, NULL, &error);
 
 	if (error) {
 		g_debug ("%s: Failed to retrieve capabilitites: %s", G_STRFUNC, error->message);

@@ -50,18 +50,6 @@ G_DEFINE_TYPE (EBookClient, e_book_client, E_TYPE_CLIENT)
 
 /**
  * Well-known book backend properties:
- * @BOOK_BACKEND_PROPERTY_LOADED: Is set to "TRUE" or "FALSE" depending
- *   on the backend's loaded state.
- * @BOOK_BACKEND_PROPERTY_ONLINE: Is set to "TRUE" or "FALSE" depending
- *   on the backend's loaded state. See also e_client_is_online().
- * @BOOK_BACKEND_PROPERTY_READONLY: Is set to "TRUE" or "FALSE" depending
- *   on the backend's readonly state. See also e_client_is_readonly().
- * @BOOK_BACKEND_PROPERTY_CACHE_DIR: Local folder with cached data used
- *   by the backend.
- * @BOOK_BACKEND_PROPERTY_CAPABILITIES: Retrieves comma-separated list
- *   of	capabilities supported by the backend. Preferred method of retreiving
- *   and working with capabilities is e_client_get_capabilities() and
- *   e_client_check_capability().
  * @BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS: Retrieves comma-separated list
  *   of required fields by the backend. Use e_client_util_parse_comma_strings()
  *   to parse returned string value into a #GSList. These fields are required
@@ -74,6 +62,10 @@ G_DEFINE_TYPE (EBookClient, e_book_client, E_TYPE_CLIENT)
  *   of supported authentication methods by the backend.
  *   Use e_client_util_parse_comma_strings() to parse returned string value
  *   into a #GSList.
+ *
+ * See also: @CLIENT_BACKEND_PROPERTY_LOADED,
+ *   @CLIENT_BACKEND_PROPERTY_ONLINE, @CLIENT_BACKEND_PROPERTY_READONLY
+ *   @CLIENT_BACKEND_PROPERTY_CACHE_DIR, @CLIENT_BACKEND_PROPERTY_CAPABILITIES
  **/
 
 GQuark
@@ -2027,7 +2019,7 @@ book_client_retrieve_capabilities (EClient *client)
 	if (!book_client->priv->gdbus_book)
 		return NULL;
 
-	e_gdbus_book_call_get_backend_property_sync (book_client->priv->gdbus_book, BOOK_BACKEND_PROPERTY_CAPABILITIES, &capabilities, NULL, &error);
+	e_gdbus_book_call_get_backend_property_sync (book_client->priv->gdbus_book, CLIENT_BACKEND_PROPERTY_CAPABILITIES, &capabilities, NULL, &error);
 
 	if (error) {
 		g_debug ("%s: Failed to retrieve capabilitites: %s", G_STRFUNC, error->message);

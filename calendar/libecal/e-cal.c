@@ -59,8 +59,8 @@
 #include "e-gdbus-cal-view.h"
 #include "e-gdbus-cal-factory.h"
 
-#define CAL_BACKEND_PROPERTY_CACHE_DIR			"cache-dir"
-#define CAL_BACKEND_PROPERTY_CAPABILITIES		"capabilities"
+#define CLIENT_BACKEND_PROPERTY_CACHE_DIR		"cache-dir"
+#define CLIENT_BACKEND_PROPERTY_CAPABILITIES		"capabilities"
 #define CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS		"cal-email-address"
 #define CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS	"alarm-email-address"
 #define CAL_BACKEND_PROPERTY_DEFAULT_OBJECT		"default-object"
@@ -1084,7 +1084,7 @@ set_local_attachment_store (ECal *ecal)
 	GError *error = NULL;
 
 	e_gdbus_cal_call_get_backend_property_sync (
-		ecal->priv->gdbus_cal, CAL_BACKEND_PROPERTY_CACHE_DIR, &cache_dir, NULL, &error);
+		ecal->priv->gdbus_cal, CLIENT_BACKEND_PROPERTY_CACHE_DIR, &cache_dir, NULL, &error);
 
 	if (error == NULL)
 		ecal->priv->local_attachment_store = cache_dir;
@@ -2117,7 +2117,7 @@ load_capabilities (ECal *ecal, GError **error)
 		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_OK, error);
 	}
 
-	if (!e_gdbus_cal_call_get_backend_property_sync (priv->gdbus_cal, CAL_BACKEND_PROPERTY_CAPABILITIES, &priv->capabilities, NULL, error)) {
+	if (!e_gdbus_cal_call_get_backend_property_sync (priv->gdbus_cal, CLIENT_BACKEND_PROPERTY_CAPABILITIES, &priv->capabilities, NULL, error)) {
 		UNLOCK_CACHE ();
 		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_DBUS_EXCEPTION, error);
 	}

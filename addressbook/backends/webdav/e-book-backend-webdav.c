@@ -1305,7 +1305,7 @@ e_book_backend_webdav_get_backend_property (EBookBackend *backend, EDataBook *bo
 {
 	g_return_if_fail (prop_name != NULL);
 
-	if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_CAPABILITIES)) {
+	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_CAPABILITIES)) {
 		e_data_book_respond_get_backend_property (book, opid, NULL, "net,do-initial-query,contact-lists");
 	} else if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS)) {
 		e_data_book_respond_get_backend_property (book, opid, NULL, e_contact_field_name (E_CONTACT_FILE_AS));

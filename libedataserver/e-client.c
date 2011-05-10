@@ -71,6 +71,22 @@ static EOperationPool *ops_pool = NULL;
 
 G_DEFINE_ABSTRACT_TYPE (EClient, e_client, G_TYPE_OBJECT)
 
+/**
+ * Well-known client backend properties, which are common for each #EClient:
+ * @CLIENT_BACKEND_PROPERTY_LOADED: Is set to "TRUE" or "FALSE" depending
+ *   on the backend's loaded state.
+ * @CLIENT_BACKEND_PROPERTY_ONLINE: Is set to "TRUE" or "FALSE" depending
+ *   on the backend's loaded state. See also e_client_is_online().
+ * @CLIENT_BACKEND_PROPERTY_READONLY: Is set to "TRUE" or "FALSE" depending
+ *   on the backend's readonly state. See also e_client_is_readonly().
+ * @CLIENT_BACKEND_PROPERTY_CACHE_DIR: Local folder with cached data used
+ *   by the backend.
+ * @CLIENT_BACKEND_PROPERTY_CAPABILITIES: Retrieves comma-separated list
+ *   of	capabilities supported by the backend. Preferred method of retreiving
+ *   and working with capabilities is e_client_get_capabilities() and
+ *   e_client_check_capability().
+ **/
+
 GQuark
 e_client_error_quark (void)
 {

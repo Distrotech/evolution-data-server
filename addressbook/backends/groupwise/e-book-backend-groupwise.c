@@ -3561,7 +3561,7 @@ e_book_backend_groupwise_get_backend_property (EBookBackend *backend, EDataBook 
 
 	g_return_if_fail (prop_name != NULL);
 
-	if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_CAPABILITIES)) {
+	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_CAPABILITIES)) {
 		/* do-initialy-query is enabled for system address book also, so that we get the
 		 * book_view, which is needed for displaying cache update progress.
 		 * and null query is handled for system address book.

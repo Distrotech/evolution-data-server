@@ -52,7 +52,7 @@
 #include "e-gdbus-book-factory.h"
 #include "e-gdbus-book-view.h"
 
-#define BOOK_BACKEND_PROPERTY_CAPABILITIES		"capabilities"
+#define CLIENT_BACKEND_PROPERTY_CAPABILITIES		"capabilities"
 #define BOOK_BACKEND_PROPERTY_REQUIRED_FIELDS		"required-fields"
 #define BOOK_BACKEND_PROPERTY_SUPPORTED_FIELDS		"supported-fields"
 #define BOOK_BACKEND_PROPERTY_SUPPORTED_AUTH_METHODS	"supported-auth-methods"
@@ -2916,7 +2916,7 @@ e_book_get_static_capabilities (EBook *book,
 	if (!book->priv->cap_queried) {
 		gchar *cap = NULL;
 
-		if (!e_gdbus_book_call_get_backend_property_sync (book->priv->gdbus_book, BOOK_BACKEND_PROPERTY_CAPABILITIES, &cap, NULL, error)) {
+		if (!e_gdbus_book_call_get_backend_property_sync (book->priv->gdbus_book, CLIENT_BACKEND_PROPERTY_CAPABILITIES, &cap, NULL, error)) {
 			return NULL;
 		}
 

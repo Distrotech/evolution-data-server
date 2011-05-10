@@ -192,13 +192,13 @@ cal_backend_get_backend_property (ECalBackend *backend, EDataCal *cal, guint32 o
 	g_return_if_fail (cal != NULL);
 	g_return_if_fail (prop_name != NULL);
 
-	if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_LOADED)) {
+	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_LOADED)) {
 		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_is_loaded (backend) ? "TRUE" : "FALSE");
-	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_ONLINE)) {
+	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_ONLINE)) {
 		e_data_cal_respond_get_backend_property (cal, opid, NULL, backend->priv->online ? "TRUE" : "FALSE");
-	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_READONLY)) {
+	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_READONLY)) {
 		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_is_readonly (backend) ? "TRUE" : "FALSE");
-	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CACHE_DIR)) {
+	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_CACHE_DIR)) {
 		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_get_cache_dir (backend));
 	} else {
 		e_data_cal_respond_get_backend_property (cal, opid, e_data_cal_create_error_fmt (NotSupported, _("Unknown calendar property '%s'"), prop_name), NULL);

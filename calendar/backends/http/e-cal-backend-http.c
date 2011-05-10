@@ -163,7 +163,7 @@ e_cal_backend_http_get_backend_property (ECalBackendSync *backend, EDataCal *cal
 	g_return_val_if_fail (prop_name != NULL, FALSE);
 	g_return_val_if_fail (prop_value != NULL, FALSE);
 
-	if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAPABILITIES)) {
+	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_CAPABILITIES)) {
 		*prop_value = g_strdup (CAL_STATIC_CAPABILITY_NO_EMAIL_ALARMS ","
 					CAL_STATIC_CAPABILITY_REFRESH_SUPPORTED);
 	} else if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS) ||

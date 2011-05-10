@@ -14,11 +14,11 @@ get_known_prop_names (void)
 {
 	GSList *prop_names = NULL;
 
-	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_LOADED);
-	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_ONLINE);
-	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_READONLY);
-	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_CACHE_DIR);
-	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_CAPABILITIES);
+	prop_names = g_slist_append (prop_names, (gpointer) CLIENT_BACKEND_PROPERTY_LOADED);
+	prop_names = g_slist_append (prop_names, (gpointer) CLIENT_BACKEND_PROPERTY_ONLINE);
+	prop_names = g_slist_append (prop_names, (gpointer) CLIENT_BACKEND_PROPERTY_READONLY);
+	prop_names = g_slist_append (prop_names, (gpointer) CLIENT_BACKEND_PROPERTY_CACHE_DIR);
+	prop_names = g_slist_append (prop_names, (gpointer) CLIENT_BACKEND_PROPERTY_CAPABILITIES);
 	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS);
 	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS);
 	prop_names = g_slist_append (prop_names, (gpointer) CAL_BACKEND_PROPERTY_DEFAULT_OBJECT);
@@ -77,7 +77,7 @@ print_each_property (gpointer prop_name, gpointer prop_value, gpointer user_data
 
 	g_print ("\t   %s: ", (const gchar *) prop_name);
 
-	if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAPABILITIES)) {
+	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_CAPABILITIES)) {
 		GSList *values = e_client_util_parse_comma_strings (prop_value), *v;
 
 		

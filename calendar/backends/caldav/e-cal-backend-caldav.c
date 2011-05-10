@@ -2204,7 +2204,7 @@ caldav_get_backend_property (ECalBackendSync *backend, EDataCal *cal, GCancellab
 	g_return_val_if_fail (prop_name != NULL, FALSE);
 	g_return_val_if_fail (prop_value != NULL, FALSE);
 
-	if (g_str_equal (prop_name, CAL_BACKEND_PROPERTY_CAPABILITIES)) {
+	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_CAPABILITIES)) {
 		ESource *source;
 		GString *caps;
 		gchar *usermail;

@@ -5110,7 +5110,7 @@ e_book_backend_ldap_get_backend_property (EBookBackend *backend, EDataBook *book
 {
 	g_return_if_fail (prop_name != NULL);
 
-	if (g_str_equal (prop_name, BOOK_BACKEND_PROPERTY_CAPABILITIES)) {
+	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_CAPABILITIES)) {
 		if (can_browse (backend) || E_BOOK_BACKEND_LDAP (backend)->priv->marked_for_offline)
 			e_data_book_respond_get_backend_property (book, opid, NULL, "net,anon-access,contact-lists,do-initial-query");
 		else
