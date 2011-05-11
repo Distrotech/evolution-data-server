@@ -61,6 +61,9 @@ struct _EDataCalViewPrivate {
 
 	GMutex *pending_mutex;
 	guint flush_id;
+
+	/* restriction which fields is listener interested in */
+	GHashTable *only_fields;
 };
 
 G_DEFINE_TYPE (EDataCalView, e_data_cal_view, G_TYPE_OBJECT);
@@ -99,6 +102,43 @@ e_data_cal_view_class_init (EDataCalViewClass *klass)
 		g_param_spec_object (
 			"sexp", NULL, NULL, E_TYPE_CAL_BACKEND_SEXP,
 			G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+}
+
+static guint
+str_ic_hash (gconstpointer key)
+{
+	guint32 hash = 5381;
+	const gchar *str = key;
+	gint ii;
+
+	if (!str)
+		return hash;
+
+	for (ii = 0; str[ii]; ii++) {
+		hash = hash * 33 + g_ascii_tolower (str[ii]);
+	}
+
+	return hash;
+}
+
+static gboolean
+str_ic_equal (gconstpointer a, gconstpointer b)
+{
+	const gchar *stra = a, *strb = b;
+	gint ii;
+
+	if (!stra && !strb)
+		return TRUE;
+
+	if (!stra || !strb)
+		return FALSE;
+
+	for (ii = 0; stra[ii] && strb[ii]; ii++) {
+		if (g_ascii_tolower (stra[ii]) != g_ascii_tolower (strb[ii]))
+			return FALSE;
+	}
+
+	return stra[ii] == strb[ii];
 }
 
 static guint
@@ -177,7 +217,7 @@ send_pending_changes (EDataCalView *view)
 	if (priv->changes->len == 0)
 		return;
 
-	e_gdbus_cal_view_emit_objects_changed (view->priv->gdbus_object, (const gchar * const *) priv->changes->data);
+	e_gdbus_cal_view_emit_objects_modified (view->priv->gdbus_object, (const gchar * const *) priv->changes->data);
 	reset_array (priv->changes);
 }
 
@@ -289,15 +329,17 @@ notify_remove (EDataCalView *view, ECalComponentId *id)
 static void
 notify_complete (EDataCalView *view, const GError *error)
 {
-	gchar *gdbus_error_msg = NULL;
+	gchar **error_strv;
 
 	send_pending_adds (view);
 	send_pending_changes (view);
 	send_pending_removes (view);
 
-	e_gdbus_cal_view_emit_complete (view->priv->gdbus_object, error ? error->code : 0, e_util_ensure_gdbus_string (error ? error->message : "", &gdbus_error_msg));
+	error_strv = e_gdbus_cal_view_encode_error (error);
 
-	g_free (gdbus_error_msg);
+	e_gdbus_cal_view_emit_complete (view->priv->gdbus_object, (const gchar * const *) error_strv);
+
+	g_strfreev (error_strv);
 }
 
 static gboolean
@@ -328,6 +370,7 @@ impl_DataCalView_stop (EGdbusCalView *object, GDBusMethodInvocation *invocation,
 	priv->stopped = TRUE;
 
 	e_gdbus_cal_view_complete_stop (object, invocation, NULL);
+	e_cal_backend_stop_view (priv->backend, view);
 
 	return TRUE;
 }
@@ -337,7 +380,41 @@ impl_DataCalView_dispose (EGdbusCalView *object, GDBusMethodInvocation *invocati
 {
 	e_gdbus_cal_view_complete_dispose (object, invocation, NULL);
 
+	view->priv->stopped = TRUE;
+	e_cal_backend_stop_view (view->priv->backend, view);
+
 	g_object_unref (view);
+
+	return TRUE;
+}
+
+static gboolean
+impl_DataCalView_setRestriction (EGdbusCalView *object, GDBusMethodInvocation *invocation, const gchar * const *in_only_fields, EDataCalView *view)
+{
+	EDataCalViewPrivate *priv;
+	gint ii;
+
+	g_return_val_if_fail (in_only_fields != NULL, TRUE);
+
+	priv = view->priv;
+
+	if (priv->only_fields)
+		g_hash_table_destroy (priv->only_fields);
+	priv->only_fields = NULL;
+
+	for (ii = 0; in_only_fields[ii]; ii++) {
+		const gchar *field = in_only_fields[ii];
+
+		if (!*field)
+			continue;
+
+		if (!priv->only_fields)
+			priv->only_fields = g_hash_table_new_full (str_ic_hash, str_ic_equal, g_free, NULL);
+
+		g_hash_table_insert (priv->only_fields, g_strdup (field), GINT_TO_POINTER (1));
+	}
+
+	e_gdbus_cal_view_complete_set_restriction (object, invocation, NULL);
 
 	return TRUE;
 }
@@ -399,12 +476,14 @@ e_data_cal_view_init (EDataCalView *view)
 	g_signal_connect (priv->gdbus_object, "handle-start", G_CALLBACK (impl_DataCalView_start), view);
 	g_signal_connect (priv->gdbus_object, "handle-stop", G_CALLBACK (impl_DataCalView_stop), view);
 	g_signal_connect (priv->gdbus_object, "handle-dispose", G_CALLBACK (impl_DataCalView_dispose), view);
+	g_signal_connect (priv->gdbus_object, "handle-set-restriction", G_CALLBACK (impl_DataCalView_setRestriction), view);
 
 	priv->backend = NULL;
 	priv->started = FALSE;
 	priv->stopped = FALSE;
 	priv->complete = FALSE;
 	priv->sexp = NULL;
+	priv->only_fields = NULL;
 
 	priv->adds = g_array_sized_new (TRUE, TRUE, sizeof (gchar *), THRESHOLD_ITEMS);
 	priv->changes = g_array_sized_new (TRUE, TRUE, sizeof (gchar *), THRESHOLD_ITEMS);
@@ -472,6 +551,9 @@ e_data_cal_view_finalize (GObject *object)
 	g_array_free (priv->removes, TRUE);
 
 	g_hash_table_destroy (priv->ids);
+
+	if (priv->only_fields)
+		g_hash_table_destroy (priv->only_fields);
 
 	g_mutex_free (priv->pending_mutex);
 
@@ -585,6 +667,26 @@ e_data_cal_view_is_completed (EDataCalView *view)
 	g_return_val_if_fail (E_IS_DATA_CAL_VIEW (view), FALSE);
 
 	return view->priv->complete;
+}
+
+/**
+ * e_data_cal_view_get_restriction:
+ * @view: A view object.
+ *
+ * Returns: Hash table of field names which the listener is interested in.
+ * Backends can return fully populated objects, but the listener advertised
+ * that it will use only these. Returns %NULL for all available fields.
+ *
+ * Note: The data pointer in the hash table has no special meaning, it's
+ * only GINT_TO_POINTER(1) for easier checking. Also, field names are
+ * compared case insensitively.
+ **/
+/* const */ GHashTable *
+e_data_cal_view_get_restriction (EDataCalView *view)
+{
+	g_return_val_if_fail (E_IS_DATA_CAL_VIEW (view), NULL);
+
+	return view->priv->only_fields;
 }
 
 /**

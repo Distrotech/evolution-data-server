@@ -26,9 +26,9 @@
 #include <gio/gio.h>
 
 #include <libedataserver/e-client.h>
+#include <libecal/e-cal-client-view.h>
 #include <libecal/e-cal-recur.h>
 #include <libecal/e-cal-util.h>
-#include <libecal/e-cal-view.h>
 
 G_BEGIN_DECLS
 
@@ -174,8 +174,8 @@ gboolean	e_cal_client_get_attachment_uris_finish		(ECalClient *client, GAsyncRes
 gboolean	e_cal_client_get_attachment_uris_sync		(ECalClient *client, const gchar *uid, const gchar *rid, GSList **attachment_uris, GCancellable *cancellable, GError **error);
 
 void		e_cal_client_get_view				(ECalClient *client, const gchar *sexp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_cal_client_get_view_finish			(ECalClient *client, GAsyncResult *result, ECalView **view, GError **error);
-gboolean	e_cal_client_get_view_sync			(ECalClient *client, const gchar *sexp, ECalView **view, GCancellable *cancellable, GError **error);
+gboolean	e_cal_client_get_view_finish			(ECalClient *client, GAsyncResult *result, ECalClientView **view, GError **error);
+gboolean	e_cal_client_get_view_sync			(ECalClient *client, const gchar *sexp, ECalClientView **view, GCancellable *cancellable, GError **error);
 
 void		e_cal_client_get_timezone			(ECalClient *client, const gchar *tzid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_cal_client_get_timezone_finish		(ECalClient *client, GAsyncResult *result, icaltimezone **zone, GError **error);

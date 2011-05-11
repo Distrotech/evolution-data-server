@@ -22,11 +22,7 @@
 
 #include <glib-object.h>
 
-#ifndef E_BOOK_DISABLE_DEPRECATED
 #include "e-book.h"
-#endif
-
-#include "e-book-client.h"
 #include "e-book-view.h"
 #include "e-book-view-private.h"
 #include "e-book-marshal.h"
@@ -37,10 +33,7 @@ G_DEFINE_TYPE (EBookView, e_book_view, G_TYPE_OBJECT);
 
 struct _EBookViewPrivate {
 	EGdbusBookView *gdbus_bookview;
-	#ifndef E_BOOK_DISABLE_DEPRECATED
 	EBook *book;
-	#endif
-	EBookClient *book_client;
 	gboolean running;
 };
 
@@ -80,7 +73,7 @@ objects_added_cb (EGdbusBookView *object, const gchar * const *vcards, EBookView
 }
 
 static void
-objects_changed_cb (EGdbusBookView *object, const gchar * const *vcards, EBookView *book_view)
+objects_modified_cb (EGdbusBookView *object, const gchar * const *vcards, EBookView *book_view)
 {
 	const gchar * const *p;
 	GList *contacts = NULL;
@@ -129,14 +122,17 @@ progress_cb (EGdbusBookView *object, guint percent, const gchar *message, EBookV
 }
 
 static void
-complete_cb (EGdbusBookView *object, /* EDataBookStatus */ guint status, const gchar *message, EBookView *book_view)
+complete_cb (EGdbusBookView *object, const gchar * const *in_error_strv, EBookView *book_view)
 {
+	GError *error;
 	EBookViewStatus bv_status = E_BOOK_VIEW_ERROR_OTHER_ERROR;
 
 	if (!book_view->priv->running)
 		return;
 
-	switch (status) {
+	error = e_gdbus_book_view_decode_error (in_error_strv);
+
+	switch (error ? error->code : E_DATA_BOOK_STATUS_SUCCESS) {
 	case E_DATA_BOOK_STATUS_SUCCESS:
 		bv_status = E_BOOK_VIEW_STATUS_OK;
 		break;
@@ -159,47 +155,14 @@ complete_cb (EGdbusBookView *object, /* EDataBookStatus */ guint status, const g
 	#ifndef E_BOOK_DISABLE_DEPRECATED
 	g_signal_emit (book_view, signals[SEQUENCE_COMPLETE], 0, bv_status);
 	#endif
-	g_signal_emit (book_view, signals[VIEW_COMPLETE], 0, bv_status, message);
+	g_signal_emit (book_view, signals[VIEW_COMPLETE], 0, bv_status, error ? error->message : "");
+
+	if (error)
+		g_error_free (error);
 }
 
-/*
- * _e_book_view_new:
- * @book_client: an #EBookClient
- * @gdbus_bookview: The #EGdbusBookView to get signals from
- *
- * Creates a new #EBookView based on #EBookClient and listening to @gdbus_bookview.
- * This is a private function, applications should call #e_book_get_book_view or
- * #e_book_async_get_book_view.
- *
- * Returns: A new #EBookView.
- **/
 EBookView *
-_e_book_view_new (EBookClient *book_client, EGdbusBookView *gdbus_bookview)
-{
-	EBookView *view;
-	EBookViewPrivate *priv;
-
-	view = g_object_new (E_TYPE_BOOK_VIEW, NULL);
-	priv = view->priv;
-
-	priv->book_client = g_object_ref (book_client);
-
-	/* Take ownership of the gdbus_bookview object */
-	priv->gdbus_bookview = gdbus_bookview;
-
-	g_object_add_weak_pointer (G_OBJECT (gdbus_bookview), (gpointer) &priv->gdbus_bookview);
-	g_signal_connect (priv->gdbus_bookview, "objects-added", G_CALLBACK (objects_added_cb), view);
-	g_signal_connect (priv->gdbus_bookview, "objects-changed", G_CALLBACK (objects_changed_cb), view);
-	g_signal_connect (priv->gdbus_bookview, "objects-removed", G_CALLBACK (objects_removed_cb), view);
-	g_signal_connect (priv->gdbus_bookview, "progress", G_CALLBACK (progress_cb), view);
-	g_signal_connect (priv->gdbus_bookview, "complete", G_CALLBACK (complete_cb), view);
-
-	return view;
-}
-
-#ifndef E_BOOK_DISABLE_DEPRECATED
-EBookView *
-_e_book_view_new_with_book (EBook *book, EGdbusBookView *gdbus_bookview)
+_e_book_view_new (EBook *book, EGdbusBookView *gdbus_bookview)
 {
 	EBookView *view;
 	EBookViewPrivate *priv;
@@ -214,7 +177,7 @@ _e_book_view_new_with_book (EBook *book, EGdbusBookView *gdbus_bookview)
 
 	g_object_add_weak_pointer (G_OBJECT (gdbus_bookview), (gpointer) &priv->gdbus_bookview);
 	g_signal_connect (priv->gdbus_bookview, "objects-added", G_CALLBACK (objects_added_cb), view);
-	g_signal_connect (priv->gdbus_bookview, "objects-changed", G_CALLBACK (objects_changed_cb), view);
+	g_signal_connect (priv->gdbus_bookview, "objects-modified", G_CALLBACK (objects_modified_cb), view);
 	g_signal_connect (priv->gdbus_bookview, "objects-removed", G_CALLBACK (objects_removed_cb), view);
 	g_signal_connect (priv->gdbus_bookview, "progress", G_CALLBACK (progress_cb), view);
 	g_signal_connect (priv->gdbus_bookview, "complete", G_CALLBACK (complete_cb), view);
@@ -231,8 +194,6 @@ _e_book_view_new_with_book (EBook *book, EGdbusBookView *gdbus_bookview)
  * Returns: an #EBook.
  *
  * Since: 2.22
- *
- * Deprecated: 3.2: Use #EBookClient and e_book_view_get_book_client() instead
  **/
 EBook *
 e_book_view_get_book (EBookView *book_view)
@@ -240,25 +201,6 @@ e_book_view_get_book (EBookView *book_view)
 	g_return_val_if_fail (E_IS_BOOK_VIEW (book_view), NULL);
 
 	return book_view->priv->book;
-}
-#endif /* E_BOOK_DISABLE_DEPRECATED */
-
-/**
- * e_book_view_get_book_client:
- * @book_view: an #EBookView
- *
- * Returns the #EBookClient that this book view is monitoring.
- *
- * Returns: an #EBookClient.
- *
- * Since: 3.2
- **/
-EBookClient *
-e_book_view_get_book_client (EBookView *book_view)
-{
-	g_return_val_if_fail (E_IS_BOOK_VIEW (book_view), NULL);
-
-	return book_view->priv->book_client;
 }
 
 /**
@@ -324,10 +266,7 @@ e_book_view_init (EBookView *book_view)
 		book_view, E_TYPE_BOOK_VIEW, EBookViewPrivate);
 	book_view->priv->gdbus_bookview = NULL;
 
-	#ifndef E_BOOK_DISABLE_DEPRECATED	
 	book_view->priv->book = NULL;
-	#endif
-	book_view->priv->book_client = NULL;
 	book_view->priv->running = FALSE;
 }
 
@@ -350,16 +289,9 @@ e_book_view_dispose (GObject *object)
 		}
 	}
 
-	#ifndef E_BOOK_DISABLE_DEPRECATED
 	if (book_view->priv->book) {
 		g_object_unref (book_view->priv->book);
 		book_view->priv->book = NULL;
-	}
-	#endif
-
-	if (book_view->priv->book_client) {
-		g_object_unref (book_view->priv->book_client);
-		book_view->priv->book_client = NULL;
 	}
 
 	/* Chain up to parent's dispose() method. */

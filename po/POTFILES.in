@@ -9,6 +9,7 @@ addressbook/backends/vcf/e-book-backend-vcf.c
 addressbook/backends/webdav/e-book-backend-webdav.c
 addressbook/libebook/e-book.c
 addressbook/libebook/e-book-client.c
+addressbook/libebook/e-book-client-view.c
 addressbook/libebook/e-contact.c
 addressbook/libebook/e-destination.c
 addressbook/libedata-book/e-book-backend.c
@@ -22,6 +23,7 @@ calendar/backends/groupwise/e-cal-backend-groupwise.c
 calendar/backends/http/e-cal-backend-http.c
 calendar/backends/weather/e-cal-backend-weather.c
 calendar/libecal/e-cal-client.c
+calendar/libecal/e-cal-client-view.c
 calendar/libecal/e-cal-component.c
 calendar/libecal/e-cal-recur.c
 calendar/libecal/e-cal-util.c

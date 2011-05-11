@@ -7,52 +7,52 @@
 #include "client-test-utils.h"
 
 static void
-contacts_added (EBookView *book_view, const GList *contacts)
+objects_added (EBookClientView *view, const GSList *contacts)
 {
-	GList *l;
+	const GSList *l;
 
-	for (l = (GList*)contacts; l; l = l->next) {
+	for (l = contacts; l; l = l->next) {
 		print_email (l->data);
 	}
 }
 
 static void
-contacts_removed (EBookView *book_view, const GList *ids)
+objects_removed (EBookClientView *view, const GSList *ids)
 {
-	GList *l;
+	const GSList *l;
 
-	for (l = (GList*)ids; l; l = l->next) {
-		printf ("   Removed contact: %s\n", (gchar *)l->data);
+	for (l = ids; l; l = l->next) {
+		printf ("   Removed contact: %s\n", (gchar *) l->data);
 	}
 }
 
 static void
-view_complete (EBookView *book_view, EBookViewStatus status, const gchar *error_msg)
+complete (EBookClientView *view, const GError *error)
 {
-	e_book_view_stop (book_view);
-	g_object_unref (book_view);
+	e_book_client_view_stop (view, NULL);
+	g_object_unref (view);
 
 	stop_main_loop (0);
 }
 
 static void
-setup_and_start_view (EBookView *view)
+setup_and_start_view (EBookClientView *view)
 {
-	g_signal_connect (view, "contacts_added", G_CALLBACK (contacts_added), NULL);
-	g_signal_connect (view, "contacts_removed", G_CALLBACK (contacts_removed), NULL);
-	g_signal_connect (view, "view_complete", G_CALLBACK (view_complete), NULL);
+	g_signal_connect (view, "objects-added", G_CALLBACK (objects_added), NULL);
+	g_signal_connect (view, "objects-removed", G_CALLBACK (objects_removed), NULL);
+	g_signal_connect (view, "complete", G_CALLBACK (complete), NULL);
 
-	e_book_view_start (view);
+	e_book_client_view_start (view, NULL);
 }
 
 static void
-get_book_view_cb (GObject *source_object, GAsyncResult *result, gpointer user_data)
+get_view_cb (GObject *source_object, GAsyncResult *result, gpointer user_data)
 {
-	EBookView *view;
+	EBookClientView *view;
 	GError *error = NULL;
 
 	if (!e_book_client_get_view_finish (E_BOOK_CLIENT (source_object), result, &view, &error)) {
-		report_error ("get book view finish", &error);
+		report_error ("get view finish", &error);
 		stop_main_loop (1);
 
 		return;
@@ -88,7 +88,7 @@ setup_book (EBookClient **book_client)
 }
 
 static gpointer
-call_get_book_view (gpointer user_data)
+call_get_view (gpointer user_data)
 {
 	EBookQuery *query;
 	EBookClient *book_client = user_data;
@@ -101,7 +101,7 @@ call_get_book_view (gpointer user_data)
 	sexp = e_book_query_to_string (query);
 	e_book_query_unref (query);
 
-	e_book_client_get_view (book_client, sexp, NULL, get_book_view_cb, NULL);
+	e_book_client_get_view (book_client, sexp, NULL, get_view_cb, NULL);
 
 	g_free (sexp);
 
@@ -113,7 +113,7 @@ main (gint argc, gchar **argv)
 {
 	EBookClient *book_client;
 	EBookQuery *query;
-	EBookView *view;
+	EBookClientView *view;
 	gchar *sexp;
 	GError *error = NULL;
 
@@ -157,7 +157,7 @@ main (gint argc, gchar **argv)
 	if (!setup_book (&book_client))
 		return 1;
 
-	start_in_idle_with_main_loop (call_get_book_view, book_client);
+	start_in_idle_with_main_loop (call_get_view, book_client);
 
 	if (!e_client_remove_sync (E_CLIENT (book_client), NULL, &error)) {
 		report_error ("client remove sync", &error);

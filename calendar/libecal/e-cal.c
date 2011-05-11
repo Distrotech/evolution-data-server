@@ -4312,7 +4312,7 @@ e_cal_get_query (ECal *ecal, const gchar *sexp, ECalView **query, GError **error
 		*query = NULL;
 		status = E_CALENDAR_STATUS_OTHER_ERROR;
 	} else {
-		*query = _e_cal_view_new_for_ecal (ecal, gdbus_calview);
+		*query = _e_cal_view_new (ecal, gdbus_calview);
 		g_object_unref (gdbus_calview);
 	}
 

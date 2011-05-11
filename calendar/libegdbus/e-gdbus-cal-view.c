@@ -36,13 +36,14 @@ enum
 {
 	_0_SIGNAL,
 	__OBJECTS_ADDED_SIGNAL,
-	__OBJECTS_CHANGED_SIGNAL,
+	__OBJECTS_MODIFIED_SIGNAL,
 	__OBJECTS_REMOVED_SIGNAL,
 	__PROGRESS_SIGNAL,
 	__COMPLETE_SIGNAL,
 	__START_METHOD,
 	__STOP_METHOD,
 	__DISPOSE_METHOD,
+	__SET_RESTRICTION_METHOD,
 	__LAST_SIGNAL
 };
 
@@ -84,10 +85,10 @@ lookup_signal_type_from_signal_name (const gchar *signal_name)
 /* ------------------------------------------------------------------------- */
 
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV	 (GDBUS_CAL_VIEW_INTERFACE_NAME, objects_added)
-E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV	 (GDBUS_CAL_VIEW_INTERFACE_NAME, objects_changed)
+E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV	 (GDBUS_CAL_VIEW_INTERFACE_NAME, objects_modified)
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV	 (GDBUS_CAL_VIEW_INTERFACE_NAME, objects_removed)
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_UINT_STRING (GDBUS_CAL_VIEW_INTERFACE_NAME, progress)
-E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_UINT_STRING (GDBUS_CAL_VIEW_INTERFACE_NAME, complete)
+E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV	 (GDBUS_CAL_VIEW_INTERFACE_NAME, complete)
 
 static void
 e_gdbus_cal_view_default_init (EGdbusCalViewIface *iface)
@@ -101,17 +102,17 @@ e_gdbus_cal_view_default_init (EGdbusCalViewIface *iface)
 	
 	/* GObject signals definitions for D-Bus signals: */
 	E_INIT_GDBUS_SIGNAL_STRV	(EGdbusCalViewIface, "ObjectsAdded",	objects_added, __OBJECTS_ADDED_SIGNAL)
-	E_INIT_GDBUS_SIGNAL_STRV	(EGdbusCalViewIface, "ObjectsChanged",	objects_changed, __OBJECTS_CHANGED_SIGNAL)
+	E_INIT_GDBUS_SIGNAL_STRV	(EGdbusCalViewIface, "ObjectsModified",	objects_modified, __OBJECTS_MODIFIED_SIGNAL)
 	E_INIT_GDBUS_SIGNAL_STRV	(EGdbusCalViewIface, "ObjectsRemoved",	objects_removed, __OBJECTS_REMOVED_SIGNAL)
 	E_INIT_GDBUS_SIGNAL_UINT_STRING	(EGdbusCalViewIface, "Progress",	progress, __PROGRESS_SIGNAL)
-	E_INIT_GDBUS_SIGNAL_UINT_STRING	(EGdbusCalViewIface, "Complete",	complete, __COMPLETE_SIGNAL)
+	E_INIT_GDBUS_SIGNAL_STRV	(EGdbusCalViewIface, "Complete",	complete, __COMPLETE_SIGNAL)
 
 	/* GObject signals definitions for D-Bus methods: */
 	E_INIT_GDBUS_METHOD_VOID	(EGdbusCalViewIface, "start",		start, __START_METHOD)
 	E_INIT_GDBUS_METHOD_VOID	(EGdbusCalViewIface, "stop",		stop, __STOP_METHOD)
 	E_INIT_GDBUS_METHOD_VOID	(EGdbusCalViewIface, "dispose",		dispose, __DISPOSE_METHOD)
+	E_INIT_GDBUS_METHOD_STRV	(EGdbusCalViewIface, "setRestriction",	set_restriction, __SET_RESTRICTION_METHOD)
 }
-
 
 void
 e_gdbus_cal_view_call_start (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
@@ -168,15 +169,33 @@ e_gdbus_cal_view_call_dispose_sync (GDBusProxy *proxy, GCancellable *cancellable
 }
 
 void
+e_gdbus_cal_view_call_set_restriction (GDBusProxy *proxy, const gchar * const *in_only_fields, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	e_gdbus_proxy_method_call_strv ("setRestriction", proxy, in_only_fields, cancellable, callback, user_data);
+}
+
+gboolean
+e_gdbus_cal_view_call_set_restriction_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error)
+{
+	return e_gdbus_proxy_method_call_finish_void (proxy, result, error);
+}
+
+gboolean
+e_gdbus_cal_view_call_set_restriction_sync (GDBusProxy *proxy, const gchar * const *in_only_fields, GCancellable *cancellable, GError **error)
+{
+	return e_gdbus_proxy_method_call_sync_strv__void ("setRestriction", proxy, in_only_fields, cancellable, error);
+}
+
+void
 e_gdbus_cal_view_emit_objects_added (EGdbusCalView *object, const gchar * const *arg_objects)
 {
 	g_signal_emit (object, signals[__OBJECTS_ADDED_SIGNAL], 0, arg_objects);
 }
 
 void
-e_gdbus_cal_view_emit_objects_changed (EGdbusCalView *object, const gchar * const *arg_objects)
+e_gdbus_cal_view_emit_objects_modified (EGdbusCalView *object, const gchar * const *arg_objects)
 {
-	g_signal_emit (object, signals[__OBJECTS_CHANGED_SIGNAL], 0, arg_objects);
+	g_signal_emit (object, signals[__OBJECTS_MODIFIED_SIGNAL], 0, arg_objects);
 }
 
 void
@@ -191,34 +210,80 @@ e_gdbus_cal_view_emit_progress (EGdbusCalView *object, guint arg_percent, const 
 	g_signal_emit (object, signals[__PROGRESS_SIGNAL], 0, arg_percent, arg_message);
 }
 
-void
-e_gdbus_cal_view_emit_complete (EGdbusCalView *object, guint arg_status, const gchar *arg_message)
+/* free returned pointer with g_strfreev() */
+gchar **
+e_gdbus_cal_view_encode_error (const GError *in_error)
 {
-	g_signal_emit (object, signals[__COMPLETE_SIGNAL], 0, arg_status, arg_message);
+	gchar **strv;
+
+	strv = g_new0 (gchar *, 3);
+
+	if (!in_error) {
+		strv[0] = g_strdup ("");
+		strv[1] = g_strdup ("");
+	} else {
+		gchar *dbus_error_name = g_dbus_error_encode_gerror (in_error);
+
+		strv[0] = e_util_utf8_make_valid (dbus_error_name ? dbus_error_name : "");
+		strv[1] = e_util_utf8_make_valid (in_error->message);
+
+		g_free (dbus_error_name);
+	}
+
+	return strv;
+}
+
+/* free returned pointer with g_error_free(), of not NULL */
+GError *
+e_gdbus_cal_view_decode_error (const gchar * const *in_strv)
+{
+	GError *error = NULL;
+	const gchar *error_name, *error_message;
+
+	g_return_val_if_fail (in_strv != NULL, NULL);
+	g_return_val_if_fail (in_strv[0] != NULL, NULL);
+	g_return_val_if_fail (in_strv[1] != NULL, NULL);
+	g_return_val_if_fail (in_strv[2] == NULL, NULL);
+
+	error_name = in_strv[0];
+	error_message = in_strv[1];
+
+	if (error_name && *error_name && error_message)
+		error = g_dbus_error_new_for_dbus_error (error_name, error_message);
+
+	return error;
+}
+
+void
+e_gdbus_cal_view_emit_complete (EGdbusCalView *object, const gchar * const *arg_error)
+{
+	g_signal_emit (object, signals[__COMPLETE_SIGNAL], 0, arg_error);
 }
 
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal_view, ObjectsAdded, objects, "as")
-E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal_view, ObjectsChanged, objects, "as")
+E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal_view, ObjectsModified, objects, "as")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal_view, ObjectsRemoved, uids, "as")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_2 (cal_view, Progress, percent, "u", message, "s")
-E_DECLARE_GDBUS_NOTIFY_SIGNAL_2 (cal_view, Complete, status, "u", message, "s")
+E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal_view, Complete, error, "as")
 
 E_DECLARE_GDBUS_SYNC_METHOD_0	(cal_view, start)
 E_DECLARE_GDBUS_SYNC_METHOD_0	(cal_view, stop)
 E_DECLARE_GDBUS_SYNC_METHOD_0	(cal_view, dispose)
+E_DECLARE_GDBUS_SYNC_METHOD_1	(cal_view, setRestriction, only_fields, "as")
 
 static const GDBusMethodInfo * const e_gdbus_cal_view_method_info_pointers[] =
 {
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal_view, start),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal_view, stop),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal_view, dispose),
+	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal_view, setRestriction),
 	NULL
 };
 
 static const GDBusSignalInfo * const e_gdbus_cal_view_signal_info_pointers[] =
 {
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal_view, ObjectsAdded),
-	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal_view, ObjectsChanged),
+	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal_view, ObjectsModified),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal_view, ObjectsRemoved),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal_view, Progress),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal_view, Complete),

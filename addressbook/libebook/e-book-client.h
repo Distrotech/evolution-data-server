@@ -27,7 +27,8 @@
 
 #include <libedataserver/e-client.h>
 #include <libedataserver/e-source-list.h>
-#include <libebook/e-book-view.h>
+#include <libebook/e-book-client-view.h>
+#include <libebook/e-contact.h>
 
 G_BEGIN_DECLS
 
@@ -122,8 +123,8 @@ gboolean	e_book_client_get_contacts_finish		(EBookClient *client, GAsyncResult *
 gboolean	e_book_client_get_contacts_sync			(EBookClient *client, const gchar *sexp, GSList **contacts, GCancellable *cancellable, GError **error);
 
 void		e_book_client_get_view				(EBookClient *client, const gchar *sexp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_book_client_get_view_finish			(EBookClient *client, GAsyncResult *result, EBookView **book_view, GError **error);
-gboolean	e_book_client_get_view_sync			(EBookClient *client, const gchar *sexp, EBookView **book_view, GCancellable *cancellable, GError **error);
+gboolean	e_book_client_get_view_finish			(EBookClient *client, GAsyncResult *result, EBookClientView **view, GError **error);
+gboolean	e_book_client_get_view_sync			(EBookClient *client, const gchar *sexp, EBookClientView **view, GCancellable *cancellable, GError **error);
 
 G_END_DECLS
 

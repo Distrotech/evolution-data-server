@@ -8,36 +8,36 @@
 #define NUM_VIEWS 200
 
 static void
-objects_added (ECalView *cal_view, const GList *objects)
+objects_added (ECalClientView *cal_view, const GSList *objects)
 {
-	GList *l;
+	const GSList *l;
 
-	for (l = (GList*)objects; l; l = l->next) {
+	for (l = objects; l; l = l->next) {
 		print_icomp (l->data);
 	}
 }
 
 static void
-objects_removed (ECalView *cal_view, const GList *ids)
+objects_removed (ECalClientView *view, const GSList *ids)
 {
-	GList *l;
+	const GSList *l;
 
-	for (l = (GList*)ids; l; l = l->next) {
-		printf ("   Removed contact: %s\n", (gchar *)l->data);
+	for (l = ids; l; l = l->next) {
+		printf ("   Removed contact: %s\n", (gchar *) l->data);
 	}
 }
 
 static void
-view_complete (ECalView *cal_view, ECalendarStatus status, const gchar *error_msg)
+complete (ECalClientView *view, const GError *error)
 {
-	printf ("view_complete (status == %d, error_msg == %s%s%s)\n", status, error_msg ? "'" : "", error_msg ? error_msg : "NULL", error_msg ? "'" : "");
+	printf ("view_complete (status == %d, error_msg == %s%s%s)\n", error ? error->code : 0, error ? "'" : "", error ? error->message : "NULL", error ? "'" : "");
 }
 
 static gint
 stress_cal_views (ECalClient *cal_client, gboolean in_thread)
 {
-	ECalView *view = NULL;
-	ECalView *new_view;
+	ECalClientView *view = NULL;
+	ECalClientView *new_view;
 	gint i;
 
 	g_return_val_if_fail (cal_client != NULL, -1);
@@ -54,23 +54,23 @@ stress_cal_views (ECalClient *cal_client, gboolean in_thread)
 
 		g_signal_connect (new_view, "objects_added", G_CALLBACK (objects_added), NULL);
 		g_signal_connect (new_view, "objects_removed", G_CALLBACK (objects_removed), NULL);
-		g_signal_connect (new_view, "view_complete", G_CALLBACK (view_complete), NULL);
+		g_signal_connect (new_view, "complete", G_CALLBACK (complete), NULL);
 
-		e_cal_view_start (new_view);
+		e_cal_client_view_start (new_view, NULL);
 
 		if (view) {
 			/* wait 100 ms when in a thread */
 			if (in_thread)
 				g_usleep (100000);
 
-			e_cal_view_stop (view);
+			e_cal_client_view_stop (view, NULL);
 			g_object_unref (view);
 		}
 
 		view = new_view;
 	}
 
-	e_cal_view_stop (view);
+	e_cal_client_view_stop (view, NULL);
 	g_object_unref (view);
 
 	return 0;

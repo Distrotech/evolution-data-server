@@ -32,9 +32,9 @@ subtest_passed (SubTestId id)
 }
 
 static void
-objects_added_cb (GObject *object, GList *objects, gpointer data)
+objects_added_cb (GObject *object, const GSList *objects, gpointer data)
 {
-	GList *l;
+	const GSList *l;
 
 	for (l = objects; l; l = l->next)
                 g_print ("Object added %s (%s)\n", icalcomponent_get_uid (l->data), icalcomponent_get_summary (l->data));
@@ -43,9 +43,9 @@ objects_added_cb (GObject *object, GList *objects, gpointer data)
 }
 
 static void
-objects_modified_cb (GObject *object, GList *objects, gpointer data)
+objects_modified_cb (GObject *object, const GSList *objects, gpointer data)
 {
-	GList *l;
+	const GSList *l;
 
 	for (l = objects; l; l = l->next)
                 g_print ("Object modified %s (%s)\n", icalcomponent_get_uid (l->data), icalcomponent_get_summary (l->data));
@@ -54,9 +54,9 @@ objects_modified_cb (GObject *object, GList *objects, gpointer data)
 }
 
 static void
-objects_removed_cb (GObject *object, GList *objects, gpointer data)
+objects_removed_cb (GObject *object, const GSList *objects, gpointer data)
 {
-	GList *l;
+	const GSList *l;
 
 	for (l = objects; l; l = l->next) {
 		ECalComponentId *id = l->data;
@@ -68,9 +68,9 @@ objects_removed_cb (GObject *object, GList *objects, gpointer data)
 }
 
 static void
-view_complete_cb (GObject *object, ECalendarStatus status, const gchar *error_msg, gpointer data)
+complete_cb (GObject *object, const GError *error, gpointer data)
 {
-        g_print ("View complete (status: %d, error_msg:%s)\n", status, error_msg ? error_msg : "NULL");
+        g_print ("View complete (status: %d, error_msg:%s)\n", error ? error->code : 0, error ? error->message : "NULL");
 
 	subtest_passed (SUBTEST_VIEW_DONE);
 }
@@ -128,7 +128,7 @@ static void
 async_get_view_ready (GObject *source_object, GAsyncResult *result, gpointer user_data)
 {
 	ECalClient *cal_client = E_CAL_CLIENT (source_object);
-	ECalView *view = NULL;
+	ECalClientView *view = NULL;
 	GError *error = NULL;
 
 	g_return_if_fail (cal_client != NULL);
@@ -143,11 +143,11 @@ async_get_view_ready (GObject *source_object, GAsyncResult *result, gpointer use
 	g_signal_connect (view, "objects_added", G_CALLBACK (objects_added_cb), cal_client);
 	g_signal_connect (view, "objects_modified", G_CALLBACK (objects_modified_cb), cal_client);
 	g_signal_connect (view, "objects_removed", G_CALLBACK (objects_removed_cb), cal_client);
-	g_signal_connect (view, "view_complete", G_CALLBACK (view_complete_cb), cal_client);
+	g_signal_connect (view, "complete", G_CALLBACK (complete_cb), cal_client);
 
 	g_object_set_data_full (G_OBJECT (cal_client), "cal-view", view, g_object_unref);
 
-	e_cal_view_start (view);
+	e_cal_client_view_start (view, NULL);
 
 	alter_cal_client (cal_client);
 }
@@ -167,7 +167,7 @@ get_view_async (gpointer user_data)
 gint
 main (gint argc, gchar **argv)
 {
-	ECalView *view = NULL;
+	ECalClientView *view = NULL;
 	ECalClient *cal_client;
 	GError *error = NULL;
 
@@ -192,9 +192,9 @@ main (gint argc, gchar **argv)
 	g_signal_connect (view, "objects_added", G_CALLBACK (objects_added_cb), cal_client);
 	g_signal_connect (view, "objects_modified", G_CALLBACK (objects_modified_cb), cal_client);
 	g_signal_connect (view, "objects_removed", G_CALLBACK (objects_removed_cb), cal_client);
-	g_signal_connect (view, "view_complete", G_CALLBACK (view_complete_cb), cal_client);
+	g_signal_connect (view, "complete", G_CALLBACK (complete_cb), cal_client);
 
-	e_cal_view_start (view);
+	e_cal_client_view_start (view, NULL);
 
 	start_in_thread_with_main_loop (alter_cal_client, cal_client);
 

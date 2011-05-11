@@ -18,17 +18,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef E_CAL_VIEW_PRIVATE_H
-#define E_CAL_VIEW_PRIVATE_H
+#ifndef E_CAL_CLIENT_VIEW_PRIVATE_H
+#define E_CAL_CLIENT_VIEW_PRIVATE_H
 
-#include <libecal/e-cal-types.h>
-#include <libecal/e-cal-view.h>
+#include "libecal/e-cal-client-view.h"
 
 G_BEGIN_DECLS
 
 struct _EGdbusCalView;
+struct _ECalClient;
 
-ECalView *_e_cal_view_new (struct _ECal *client,  struct _EGdbusCalView *gdbus_calview);
+ECalClientView *_e_cal_client_view_new (struct _ECalClient *client,  struct _EGdbusCalView *gdbus_calview);
 
 G_END_DECLS
 

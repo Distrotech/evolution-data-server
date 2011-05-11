@@ -70,6 +70,8 @@ void			e_data_book_view_notify_progress        (EDataBookView *book_view, guint 
 void			e_data_book_view_ref			(EDataBookView *book_view);
 void			e_data_book_view_unref			(EDataBookView *book_view);
 
+/* const */ GHashTable *e_data_book_view_get_restriction	(EDataBookView *view);
+
 G_END_DECLS
 
 #endif /* __E_DATA_BOOK_VIEW_H__ */

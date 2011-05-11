@@ -105,16 +105,17 @@ struct _EGdbusBookViewIface
 
 	/* Signal handlers for receiving D-Bus signals: */
 	void (*objects_added)		(EGdbusBookView *object, const gchar * const *arg_objects);
-	void (*objects_changed)		(EGdbusBookView *object, const gchar * const *arg_objects);
+	void (*objects_modified)	(EGdbusBookView *object, const gchar * const *arg_objects);
 	void (*objects_removed)		(EGdbusBookView *object, const gchar * const *arg_uids);
   
 	void (*progress)		(EGdbusBookView *object, guint arg_percent, const gchar *arg_message);
-	void (*complete)		(EGdbusBookView *object, guint arg_status, const gchar *arg_message);
+	void (*complete)		(EGdbusBookView *object, const gchar * const *arg_error);
 
 	/* Signal handlers for handling D-Bus method calls: */
-	gboolean (*handle_start)	(EGdbusBookView *object, GDBusMethodInvocation *invocation);
-	gboolean (*handle_stop)		(EGdbusBookView *object, GDBusMethodInvocation *invocation);
-	gboolean (*handle_dispose)	(EGdbusBookView *object, GDBusMethodInvocation *invocation);
+	gboolean (*handle_start)		(EGdbusBookView *object, GDBusMethodInvocation *invocation);
+	gboolean (*handle_stop)			(EGdbusBookView *object, GDBusMethodInvocation *invocation);
+	gboolean (*handle_dispose)		(EGdbusBookView *object, GDBusMethodInvocation *invocation);
+	gboolean (*handle_set_restriction)	(EGdbusBookView *object, GDBusMethodInvocation *invocation, const gchar * const *in_only_fields);
 };
 
 /* D-Bus Methods */
@@ -130,18 +131,27 @@ void		e_gdbus_book_view_call_dispose		(GDBusProxy *proxy, GCancellable *cancella
 gboolean	e_gdbus_book_view_call_dispose_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
 gboolean	e_gdbus_book_view_call_dispose_sync	(GDBusProxy *proxy, GCancellable *cancellable, GError **error);
 
+void		e_gdbus_book_view_call_set_restriction		(GDBusProxy *proxy, const gchar * const *in_only_fileds, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean	e_gdbus_book_view_call_set_restriction_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
+gboolean	e_gdbus_book_view_call_set_restriction_sync	(GDBusProxy *proxy, const gchar * const *in_only_fileds, GCancellable *cancellable, GError **error);
+
 /* D-Bus Methods Completion Helpers */
-#define e_gdbus_book_view_complete_start	e_gdbus_complete_sync_method_void
-#define e_gdbus_book_view_complete_stop		e_gdbus_complete_sync_method_void
-#define e_gdbus_book_view_complete_dispose	e_gdbus_complete_sync_method_void
+#define e_gdbus_book_view_complete_start		e_gdbus_complete_sync_method_void
+#define e_gdbus_book_view_complete_stop			e_gdbus_complete_sync_method_void
+#define e_gdbus_book_view_complete_dispose		e_gdbus_complete_sync_method_void
+#define e_gdbus_book_view_complete_set_restriction	e_gdbus_complete_sync_method_void
+
 
 /* D-Bus Signal Emission Helpers */
 void	e_gdbus_book_view_emit_objects_added	(EGdbusBookView *object, const gchar * const *arg_objects);
-void	e_gdbus_book_view_emit_objects_changed	(EGdbusBookView *object, const gchar * const *arg_objects);
+void	e_gdbus_book_view_emit_objects_modified	(EGdbusBookView *object, const gchar * const *arg_objects);
 void	e_gdbus_book_view_emit_objects_removed	(EGdbusBookView *object, const gchar * const *arg_uids);
 
 void	e_gdbus_book_view_emit_progress		(EGdbusBookView *object, guint arg_percent, const gchar *arg_message);
-void	e_gdbus_book_view_emit_complete		(EGdbusBookView *object, guint arg_status, const gchar *arg_message);
+
+gchar **e_gdbus_book_view_encode_error		(const GError *in_error);
+GError *e_gdbus_book_view_decode_error		(const gchar * const *in_strv);
+void	e_gdbus_book_view_emit_complete		(EGdbusBookView *object, const gchar * const *arg_error);
 
 G_END_DECLS
 

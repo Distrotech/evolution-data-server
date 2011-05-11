@@ -33,8 +33,8 @@
 #include "libedata-cal/e-data-cal-types.h"
 
 #include "e-cal-client.h"
+#include "e-cal-client-view-private.h"
 #include "e-cal-component.h"
-#include "e-cal-view-private.h"
 #include "e-cal-check-timezones.h"
 #include "e-cal-time-util.h"
 
@@ -140,17 +140,16 @@ e_cal_client_error_to_string (ECalClientError code)
 }
 
 /**
- * If the GError is a remote error, extract the ECalClientError embedded inside.
- * Otherwise return DBUS_ERROR.
+ * If the specified GError is a remote error, then create a new error
+ * representing the remote error.  If the error is anything else, then
+ * leave it alone.
  */
-static void
-get_client_error_from_gerror (GError *error, GError **client_error)
+static gboolean
+unwrap_dbus_error (GError *error, GError **client_error)
 {
 	#define err(a,b) "org.gnome.evolution.dataserver.Calendar." a, b
-	static struct {
-		const gchar *name;
-		ECalClientError err_code;
-	} cal_errors[] = {
+	static struct EClientErrorsList
+	cal_errors[] = {
 		{ err ("Success",				-1) },
 		{ err ("ObjectNotFound",			E_CAL_CLIENT_ERROR_OBJECT_NOT_FOUND) },
 		{ err ("InvalidObject",				E_CAL_CLIENT_ERROR_INVALID_OBJECT) },
@@ -180,79 +179,11 @@ get_client_error_from_gerror (GError *error, GError **client_error)
 	};
 	#undef err
 
-	g_return_if_fail (client_error != NULL);
-
-	if G_LIKELY (error == NULL)
-		return;
-
-	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR)) {
-		gchar *name;
-		gint i;
-
-		name = g_dbus_error_get_remote_error (error);
-
-		for (i = 0; i < G_N_ELEMENTS (cal_errors); i++) {
-			if (g_ascii_strcasecmp (cal_errors[i].name, name) == 0) {
-				g_free (name);
-				g_dbus_error_strip_remote_error (error);
-
-				*client_error = g_error_new_literal (E_CAL_CLIENT_ERROR, cal_errors[i].err_code, error->message);
-				return;
-			}
-		}
-
-		for (i = 0; i < G_N_ELEMENTS (cl_errors); i++) {
-			if (g_ascii_strcasecmp (cl_errors[i].name, name) == 0) {
-				g_free (name);
-				g_dbus_error_strip_remote_error (error);
-
-				*client_error = g_error_new_literal (E_CLIENT_ERROR, cl_errors[i].err_code, error->message);
-				return;
-			}
-		}
-
-		g_warning (G_STRLOC ": Unmatched error name %s", name);
-		g_free (name);
-
-		g_dbus_error_strip_remote_error (error);
-		*client_error = g_error_new_literal (E_CLIENT_ERROR, E_CLIENT_ERROR_OTHER_ERROR, error->message);
-	} else if (error->domain == E_CAL_CLIENT_ERROR || error->domain == E_CLIENT_ERROR) {
-		*client_error = g_error_copy (error);
-	} else {
-		/* In this case the error was caused by DBus. Dump the message to the
-		   console as otherwise we have no idea what the problem is. */
-		g_debug ("DBus error: %s", error->message);
-		g_dbus_error_strip_remote_error (error);
-
-		*client_error = g_error_new_literal (E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, error->message);
-	}
-}
-
-/**
- * If the specified GError is a remote error, then create a new error
- * representing the remote error.  If the error is anything else, then
- * leave it alone.
- */
-static gboolean
-unwrap_dbus_error (GError *error, GError **client_error)
-{
 	if (error == NULL)
 		return TRUE;
 
-	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR)) {
-		if (client_error)
-			get_client_error_from_gerror (error, client_error);
-
-		g_error_free (error);
-	} else {
-		if (client_error) {
-			if (error->domain == G_DBUS_ERROR)
-				g_dbus_error_strip_remote_error (error);
-			*client_error = error;
-		} else {
-			g_error_free (error);
-		}
-	}
+	if (!e_client_util_unwrap_dbus_error (error, client_error, cal_errors, G_N_ELEMENTS (cal_errors), E_CAL_CLIENT_ERROR, TRUE))
+		e_client_util_unwrap_dbus_error (error, client_error, cl_errors, G_N_ELEMENTS (cl_errors), E_CLIENT_ERROR, FALSE);
 
 	return FALSE;
 }
@@ -1376,7 +1307,7 @@ generate_instances (ECalClient *client, time_t start, time_t end, const gchar *u
 
  try_again:
 		if (!e_cal_client_get_objects_for_uid_sync (client, uid, &objects, NULL, &error)) {
-			if (error->code == E_CALENDAR_STATUS_BUSY && tries >= 10) {
+			if (g_error_matches (error, E_CLIENT_ERROR, E_CLIENT_ERROR_BUSY) && tries >= 10) {
 				tries++;
 				g_usleep (500);
 				g_clear_error (&error);
@@ -3424,7 +3355,7 @@ e_cal_client_get_attachment_uris_sync (ECalClient *client, const gchar *uid, con
  * @callback: callback to call when a result is ready
  * @user_data: user data for the @callback
  *
- * Query @client with @sexp, creating an #ECalView.
+ * Query @client with @sexp, creating an #ECalClientView.
  * The call is finished by e_cal_client_get_view_finish()
  * from the @callback.
  *
@@ -3445,9 +3376,9 @@ e_cal_client_get_view (ECalClient *client, const gchar *sexp, GCancellable *canc
 }
 
 static gboolean
-complete_get_view (ECalClient *client, gboolean res, gchar *view_path, ECalView **cal_view, GError **error)
+complete_get_view (ECalClient *client, gboolean res, gchar *view_path, ECalClientView **view, GError **error)
 {
-	g_return_val_if_fail (cal_view != NULL, FALSE);
+	g_return_val_if_fail (view != NULL, FALSE);
 
 	if (view_path && res && cal_factory_proxy) {
 		EGdbusCalView *gdbus_calview;
@@ -3461,20 +3392,21 @@ complete_get_view (ECalClient *client, gboolean res, gchar *view_path, ECalView 
 								&local_error);
 
 		if (gdbus_calview) {
-			*cal_view = _e_cal_view_new (client, gdbus_calview);
+			*view = _e_cal_client_view_new (client, gdbus_calview);
+			g_object_unref (gdbus_calview);
 		} else {
-			*cal_view = NULL;
+			*view = NULL;
 			res = FALSE;
 		}
 
 		if (local_error)
 			unwrap_dbus_error (local_error, error);
 	} else {
-		*cal_view = NULL;
+		*view = NULL;
 		res = FALSE;
 	}
 
-	if (!*cal_view && error && !*error)
+	if (!*view && error && !*error)
 		g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, _("Cannot get connection to view"));
 
 	g_free (view_path);
@@ -3486,11 +3418,11 @@ complete_get_view (ECalClient *client, gboolean res, gchar *view_path, ECalView 
  * e_cal_client_get_view_finish:
  * @client: an #ECalClient
  * @result: a #GAsyncResult
- * @cal_view: (out) an #ECalView
+ * @view: (out) an #ECalClientView
  * @error: (out): a #GError to set an error, if any
  *
  * Finishes previous call of e_cal_client_get_view().
- * If successful, then the @cal_view is set to newly allocated #ECalView,
+ * If successful, then the @view is set to newly allocated #ECalClientView,
  * which should be freed with g_object_unref().
  *
  * Returns: %TRUE if successful, %FALSE otherwise.
@@ -3498,28 +3430,28 @@ complete_get_view (ECalClient *client, gboolean res, gchar *view_path, ECalView 
  * Since: 3.2
  **/
 gboolean
-e_cal_client_get_view_finish (ECalClient *client, GAsyncResult *result, ECalView **cal_view, GError **error)
+e_cal_client_get_view_finish (ECalClient *client, GAsyncResult *result, ECalClientView **view, GError **error)
 {
 	gboolean res;
 	gchar *view_path = NULL;
 
-	g_return_val_if_fail (cal_view != NULL, FALSE);
+	g_return_val_if_fail (view != NULL, FALSE);
 
 	res = e_client_proxy_call_finish_string (E_CLIENT (client), result, &view_path, error, e_cal_client_get_view);
 
-	return complete_get_view (client, res, view_path, cal_view, error);
+	return complete_get_view (client, res, view_path, view, error);
 }
 
 /**
  * e_cal_client_get_view_sync:
  * @client: an #ECalClient
  * @sexp: an S-expression representing the query.
- * @cal_view: (out) an #ECalView
+ * @view: (out) an #ECalClientView
  * @cancellable: a #GCancellable; can be %NULL
  * @error: (out): a #GError to set an error, if any
  *
- * Query @client with @sexp, creating an #ECalView.
- * If successful, then the @cal_view is set to newly allocated #ECalView,
+ * Query @client with @sexp, creating an #ECalClientView.
+ * If successful, then the @view is set to newly allocated #ECalClientView,
  * which should be freed with g_object_unref().
  *
  * Returns: %TRUE if successful, %FALSE otherwise.
@@ -3527,7 +3459,7 @@ e_cal_client_get_view_finish (ECalClient *client, GAsyncResult *result, ECalView
  * Since: 3.2
  **/
 gboolean
-e_cal_client_get_view_sync (ECalClient *client, const gchar *sexp, ECalView **cal_view, GCancellable *cancellable, GError **error)
+e_cal_client_get_view_sync (ECalClient *client, const gchar *sexp, ECalClientView **view, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
 	gchar *gdbus_sexp = NULL;
@@ -3537,7 +3469,7 @@ e_cal_client_get_view_sync (ECalClient *client, const gchar *sexp, ECalView **ca
 	g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
 	g_return_val_if_fail (client->priv != NULL, FALSE);
 	g_return_val_if_fail (sexp != NULL, FALSE);
-	g_return_val_if_fail (cal_view != NULL, FALSE);
+	g_return_val_if_fail (view != NULL, FALSE);
 
 	if (!client->priv->gdbus_cal) {
 		set_proxy_gone_error (error);
@@ -3548,7 +3480,7 @@ e_cal_client_get_view_sync (ECalClient *client, const gchar *sexp, ECalView **ca
 
 	g_free (gdbus_sexp);
 
-	return complete_get_view (client, res, view_path, cal_view, error);
+	return complete_get_view (client, res, view_path, view, error);
 }
 
 static icaltimezone *

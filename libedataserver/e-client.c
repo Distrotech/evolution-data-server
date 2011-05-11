@@ -1605,6 +1605,83 @@ e_client_unwrap_dbus_error (EClient *client, GError *dbus_error, GError **out_er
 	}
 }
 
+/**
+ * e_client_util_unwrap_dbus_error:
+ * @dbus_error: DBus #GError to unwrap
+ * @client_error: (out): Resulting #GError; can be %NULL
+ * @known_errors: List of known errors against which try to match
+ * @known_errors_count: How many items are stored in @known_errors
+ * @known_errors_domain: Error domain for @known_errors
+ * @fail_when_none_matched: Whether to fail when none of @known_errors matches
+ *
+ * The function takes a @dbus_error and tries to find a match in @known_errors for it,
+ * if it is a G_IO_ERROR, G_IO_ERROR_DBUS_ERROR. If it is anything else then the @dbus_error
+ * is moved to @client_error.
+ *
+ * The @fail_when_none_matched influences behaviour. If it's %TRUE, and none of @known_errors matches,
+ * or this is not a G_IO_ERROR_DBUS_ERROR, then %FALSE is returned and the @client_error
+ * is left without change. Otherwise, the @fail_when_none_matched is %FALSE, the error is always
+ * processed and will result in E_CLIENT_ERROR, E_CLIENT_ERROR_OTHER_ERROR if none of @known_error matches.
+ *
+ * Returns: Whether was @dbus_error processed into @client_error.
+ *
+ * Note: The @dbus_error is automatically freed if returned %TRUE.
+ **/
+gboolean
+e_client_util_unwrap_dbus_error (GError *dbus_error, GError **client_error, const struct EClientErrorsList *known_errors, guint known_errors_count, GQuark known_errors_domain, gboolean fail_when_none_matched)
+{
+	if (!client_error) {
+		if (dbus_error)
+			g_error_free (dbus_error);
+		return TRUE;
+	}
+
+	if (!dbus_error) {
+		*client_error = NULL;
+		return TRUE;
+	}
+
+	if (dbus_error->domain == known_errors_domain) {
+		*client_error = dbus_error;
+		return TRUE;
+	}
+
+	if (known_errors) {
+		if (g_error_matches (dbus_error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR)) {
+			gchar *name;
+			gint ii;
+
+			name = g_dbus_error_get_remote_error (dbus_error);
+
+			for (ii = 0; ii < known_errors_count; ii++) {
+				if (g_ascii_strcasecmp (known_errors[ii].name, name) == 0) {
+					g_free (name);
+
+					g_dbus_error_strip_remote_error (dbus_error);
+					*client_error = g_error_new_literal (known_errors_domain, known_errors[ii].err_code, dbus_error->message);
+					g_error_free (dbus_error);
+					return TRUE;
+				}
+			}
+		}
+	}
+
+	if (fail_when_none_matched)
+		return FALSE;
+
+	if (g_error_matches (dbus_error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR)) {
+		g_dbus_error_strip_remote_error (dbus_error);
+		*client_error = g_error_new_literal (E_CLIENT_ERROR, E_CLIENT_ERROR_OTHER_ERROR, dbus_error->message);
+		g_error_free (dbus_error);
+	} else {
+		if (dbus_error->domain == G_DBUS_ERROR)
+			g_dbus_error_strip_remote_error (dbus_error);
+		*client_error = dbus_error;
+	}
+
+	return TRUE;
+}
+
 typedef struct _EClientAsyncOpData
 {
 	EClient *client;

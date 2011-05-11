@@ -59,6 +59,9 @@ struct _EDataBookViewPrivate {
 	guint idle_id;
 
 	guint flush_id;
+
+	/* restriction which fields is listener interested in */
+	GHashTable *only_fields;
 };
 
 static void e_data_book_view_dispose (GObject *object);
@@ -73,6 +76,43 @@ e_data_book_view_class_init (EDataBookViewClass *klass)
 
 	object_class->dispose = e_data_book_view_dispose;
 	object_class->finalize = e_data_book_view_finalize;
+}
+
+static guint
+str_ic_hash (gconstpointer key)
+{
+	guint32 hash = 5381;
+	const gchar *str = key;
+	gint ii;
+
+	if (!str)
+		return hash;
+
+	for (ii = 0; str[ii]; ii++) {
+		hash = hash * 33 + g_ascii_tolower (str[ii]);
+	}
+
+	return hash;
+}
+
+static gboolean
+str_ic_equal (gconstpointer a, gconstpointer b)
+{
+	const gchar *stra = a, *strb = b;
+	gint ii;
+
+	if (!stra && !strb)
+		return TRUE;
+
+	if (!stra || !strb)
+		return FALSE;
+
+	for (ii = 0; stra[ii] && strb[ii]; ii++) {
+		if (g_ascii_tolower (stra[ii]) != g_ascii_tolower (strb[ii]))
+			return FALSE;
+	}
+
+	return stra[ii] == strb[ii];
 }
 
 /**
@@ -128,7 +168,7 @@ send_pending_changes (EDataBookView *view)
 	if (priv->changes->len == 0)
 		return;
 
-	e_gdbus_book_view_emit_objects_changed (view->priv->gdbus_object, (const gchar * const *) priv->changes->data);
+	e_gdbus_book_view_emit_objects_modified (view->priv->gdbus_object, (const gchar * const *) priv->changes->data);
 	reset_array (priv->changes);
 }
 
@@ -241,6 +281,37 @@ notify_add (EDataBookView *view, const gchar *id, const gchar *vcard)
 			     GUINT_TO_POINTER (1));
 
 	ensure_pending_flush_timeout (view);
+}
+
+static gboolean
+impl_DataBookView_setRestriction (EGdbusBookView *object, GDBusMethodInvocation *invocation, const gchar * const *in_only_fields, EDataBookView *view)
+{
+	EDataBookViewPrivate *priv;
+	gint ii;
+
+	g_return_val_if_fail (in_only_fields != NULL, TRUE);
+
+	priv = view->priv;
+
+	if (priv->only_fields)
+		g_hash_table_destroy (priv->only_fields);
+	priv->only_fields = NULL;
+
+	for (ii = 0; in_only_fields[ii]; ii++) {
+		const gchar *field = in_only_fields[ii];
+
+		if (!*field)
+			continue;
+
+		if (!priv->only_fields)
+			priv->only_fields = g_hash_table_new_full (str_ic_hash, str_ic_equal, g_free, NULL);
+
+		g_hash_table_insert (priv->only_fields, g_strdup (field), GINT_TO_POINTER (1));
+	}
+
+	e_gdbus_book_view_complete_set_restriction (object, invocation, NULL);
+
+	return TRUE;
 }
 
 static void
@@ -457,7 +528,7 @@ void
 e_data_book_view_notify_complete (EDataBookView *book_view, const GError *error)
 {
 	EDataBookViewPrivate *priv = book_view->priv;
-	gchar *gdbus_error_msg = NULL;
+	gchar **strv_error;
 
 	if (!priv->running)
 		return;
@@ -470,12 +541,9 @@ e_data_book_view_notify_complete (EDataBookView *book_view, const GError *error)
 
 	g_mutex_unlock (priv->pending_mutex);
 
-	/* We're done now, so tell the backend to stop?  TODO: this is a bit different to
-	   how the CORBA backend works... */
-
-	e_gdbus_book_view_emit_complete (priv->gdbus_object, error ? error->code : 0, e_util_ensure_gdbus_string (error ? error->message : "", &gdbus_error_msg));
-
-	g_free (gdbus_error_msg);
+	strv_error = e_gdbus_book_view_encode_error (error);
+	e_gdbus_book_view_emit_complete (priv->gdbus_object, (const gchar * const *) strv_error);
+	g_strfreev (strv_error);
 }
 
 /**
@@ -584,6 +652,9 @@ impl_DataBookView_dispose (EGdbusBookView *object, GDBusMethodInvocation *invoca
 {
 	e_gdbus_book_view_complete_dispose (object, invocation, NULL);
 
+	e_book_backend_stop_book_view (book_view->priv->backend, book_view);
+	book_view->priv->running = FALSE;
+
 	g_object_unref (book_view);
 
 	return TRUE;
@@ -601,7 +672,9 @@ e_data_book_view_init (EDataBookView *book_view)
 	g_signal_connect (priv->gdbus_object, "handle-start", G_CALLBACK (impl_DataBookView_start), book_view);
 	g_signal_connect (priv->gdbus_object, "handle-stop", G_CALLBACK (impl_DataBookView_stop), book_view);
 	g_signal_connect (priv->gdbus_object, "handle-dispose", G_CALLBACK (impl_DataBookView_dispose), book_view);
+	g_signal_connect (priv->gdbus_object, "handle-set-restriction", G_CALLBACK (impl_DataBookView_setRestriction), book_view);
 
+	priv->only_fields = NULL;
 	priv->running = FALSE;
 	priv->pending_mutex = g_mutex_new ();
 
@@ -668,6 +741,9 @@ e_data_book_view_finalize (GObject *object)
 	g_array_free (priv->removes, TRUE);
 	g_free (priv->card_query);
 
+	if (priv->only_fields)
+		g_hash_table_destroy (priv->only_fields);
+
 	g_mutex_free (priv->pending_mutex);
 
 	g_hash_table_destroy (priv->ids);
@@ -723,6 +799,26 @@ e_data_book_view_get_backend (EDataBookView *book_view)
 	g_return_val_if_fail (E_IS_DATA_BOOK_VIEW (book_view), NULL);
 
 	return book_view->priv->backend;
+}
+
+/**
+ * e_data_book_view_get_restriction:
+ * @view: A view object.
+ *
+ * Returns: Hash table of field names which the listener is interested in.
+ * Backends can return fully populated objects, but the listener advertised
+ * that it will use only these. Returns %NULL for all available fields.
+ *
+ * Note: The data pointer in the hash table has no special meaning, it's
+ * only GINT_TO_POINTER(1) for easier checking. Also, field names are
+ * compared case insensitively.
+ **/
+/* const */ GHashTable *
+e_data_book_view_get_restriction (EDataBookView *view)
+{
+	g_return_val_if_fail (E_IS_DATA_BOOK_VIEW (view), NULL);
+
+	return view->priv->only_fields;
 }
 
 /**

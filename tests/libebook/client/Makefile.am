@@ -23,7 +23,7 @@ TESTS =								\
 	test-client-examine					\
 	test-client-add-contact					\
 	test-client-get-contact					\
-	test-client-get-book-view				\
+	test-client-get-view					\
 	test-client-modify-contact				\
 	test-client-remove-contact				\
 	test-client-remove-contact-by-uid			\
@@ -63,10 +63,10 @@ test_client_add_contact_LDADD=$(TEST_LIBS)
 test_client_add_contact_CPPFLAGS=$(TEST_CPPFLAGS)
 test_client_examine_LDADD=$(TEST_LIBS)
 test_client_examine_CPPFLAGS=$(TEST_CPPFLAGS)
-test_client_get_book_view_LDADD=$(TEST_LIBS)
-test_client_get_book_view_CPPFLAGS=$(TEST_CPPFLAGS)
 test_client_get_contact_LDADD=$(TEST_LIBS)
 test_client_get_contact_CPPFLAGS=$(TEST_CPPFLAGS)
+test_client_get_view_LDADD=$(TEST_LIBS)
+test_client_get_view_CPPFLAGS=$(TEST_CPPFLAGS)
 test_client_modify_contact_LDADD=$(TEST_LIBS)
 test_client_modify_contact_CPPFLAGS=$(TEST_CPPFLAGS)
 test_client_remove_LDADD=$(TEST_LIBS)

@@ -1228,7 +1228,10 @@ e_cal_backend_stop_view (ECalBackend *backend, EDataCalView *view)
 {
 	g_return_if_fail (backend != NULL);
 	g_return_if_fail (E_IS_CAL_BACKEND (backend));
-	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->stop_view != NULL);
+
+	/* backward compatibility, do not force each backend define this function */
+	if (!E_CAL_BACKEND_GET_CLASS (backend)->stop_view)
+		return;
 
 	(* E_CAL_BACKEND_GET_CLASS (backend)->stop_view) (backend, view);
 }

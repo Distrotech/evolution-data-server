@@ -9,37 +9,37 @@
 #define NUM_VIEWS 200
 
 static void
-contacts_added (EBookView *book_view, const GList *contacts)
+objects_added (EBookClientView *view, const GSList *contacts)
 {
-	GList *l;
+	const GSList *l;
 
-	for (l = (GList*)contacts; l; l = l->next) {
+	for (l = contacts; l; l = l->next) {
 		print_email (l->data);
 	}
 }
 
 static void
-contacts_removed (EBookView *book_view, const GList *ids)
+objects_removed (EBookClientView *view, const GSList *ids)
 {
-	GList *l;
+	const GSList *l;
 
-	for (l = (GList*)ids; l; l = l->next) {
-		printf ("   Removed contact: %s\n", (gchar *)l->data);
+	for (l = ids; l; l = l->next) {
+		printf ("   Removed contact: %s\n", (gchar *) l->data);
 	}
 }
 
 static void
-view_complete (EBookView *book_view, EBookViewStatus status, const gchar *error_msg)
+complete (EBookClientView *view, const GError *error)
 {
-	printf ("view_complete (status == %d, error_msg == %s%s%s)\n", status, error_msg ? "'" : "", error_msg ? error_msg : "NULL", error_msg ? "'" : "");
+	printf ("view_complete (status == %d, error_msg == %s%s%s)\n", error ? error->code : 0, error ? "'" : "", error ? error->message : "NULL", error ? "'" : "");
 }
 
 static gint
 stress_book_views (EBookClient *book_client, gboolean in_thread)
 {
 	EBookQuery *query;
-	EBookView *view = NULL;
-	EBookView *new_view;
+	EBookClientView *view = NULL;
+	EBookClientView *new_view;
 	gchar *sexp;
 	gint i;
 
@@ -60,25 +60,25 @@ stress_book_views (EBookClient *book_client, gboolean in_thread)
 			return 1;
 		}
 
-		g_signal_connect (new_view, "contacts_added", G_CALLBACK (contacts_added), NULL);
-		g_signal_connect (new_view, "contacts_removed", G_CALLBACK (contacts_removed), NULL);
-		g_signal_connect (new_view, "view_complete", G_CALLBACK (view_complete), NULL);
+		g_signal_connect (new_view, "objects-added", G_CALLBACK (objects_added), NULL);
+		g_signal_connect (new_view, "objects-removed", G_CALLBACK (objects_removed), NULL);
+		g_signal_connect (new_view, "complete", G_CALLBACK (complete), NULL);
 
-		e_book_view_start (new_view);
+		e_book_client_view_start (new_view, NULL);
 
 		if (view) {
 			/* wait 100 ms when in a thread */
 			if (in_thread)
 				g_usleep (100000);
 
-			e_book_view_stop (view);
+			e_book_client_view_stop (view, NULL);
 			g_object_unref (view);
 		}
 
 		view = new_view;
 	}
 
-	e_book_view_stop (view);
+	e_book_client_view_stop (view, NULL);
 	g_object_unref (view);
 
 	g_free (sexp);

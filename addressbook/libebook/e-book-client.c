@@ -33,7 +33,7 @@
 #include "e-book-client.h"
 #include "e-contact.h"
 #include "e-name-western.h"
-#include "e-book-view-private.h"
+#include "e-book-client-view-private.h"
 
 #include "e-gdbus-book.h"
 #include "e-gdbus-book-factory.h"
@@ -104,17 +104,16 @@ e_book_client_error_to_string (EBookClientError code)
 }
 
 /**
- * If the GError is a remote error, extract the EBookClientError embedded inside.
- * Otherwise return DBUS_ERROR.
+ * If the specified GError is a remote error, then create a new error
+ * representing the remote error.  If the error is anything else, then
+ * leave it alone.
  */
-static void
-get_client_error_from_gerror (GError *error, GError **client_error)
+static gboolean
+unwrap_dbus_error (GError *error, GError **client_error)
 {
 	#define err(a,b) "org.gnome.evolution.dataserver.AddressBook." a, b
-	static struct {
-		const gchar *name;
-		gint err_code;
-	} book_errors[] = {
+	static struct EClientErrorsList
+	book_errors[] = {
 		{ err ("Success",				-1) },
 		{ err ("ContactNotFound",			E_BOOK_CLIENT_ERROR_CONTACT_NOT_FOUND) },
 		{ err ("ContactIDAlreadyExists",		E_BOOK_CLIENT_ERROR_CONTACT_ID_ALREADY_EXISTS) },
@@ -142,79 +141,11 @@ get_client_error_from_gerror (GError *error, GError **client_error)
 	};
 	#undef err
 
-	g_return_if_fail (client_error != NULL);
-
-	if G_LIKELY (error == NULL)
-		return;
-
-	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR)) {
-		gchar *name;
-		gint i;
-
-		name = g_dbus_error_get_remote_error (error);
-
-		for (i = 0; i < G_N_ELEMENTS (book_errors); i++) {
-			if (g_ascii_strcasecmp (book_errors[i].name, name) == 0) {
-				g_free (name);
-				g_dbus_error_strip_remote_error (error);
-
-				*client_error = g_error_new_literal (E_BOOK_CLIENT_ERROR, book_errors[i].err_code, error->message);
-				return;
-			}
-		}
-
-		for (i = 0; i < G_N_ELEMENTS (cl_errors); i++) {
-			if (g_ascii_strcasecmp (cl_errors[i].name, name) == 0) {
-				g_free (name);
-				g_dbus_error_strip_remote_error (error);
-
-				*client_error = g_error_new_literal (E_CLIENT_ERROR, cl_errors[i].err_code, error->message);
-				return;
-			}
-		}
-
-		g_warning (G_STRLOC ": Unmatched error name %s", name);
-		g_free (name);
-
-		g_dbus_error_strip_remote_error (error);
-		*client_error = g_error_new_literal (E_CLIENT_ERROR, E_CLIENT_ERROR_OTHER_ERROR, error->message);
-	} else if (error->domain == E_BOOK_CLIENT_ERROR || error->domain == E_CLIENT_ERROR) {
-		*client_error = g_error_copy (error);
-	} else {
-		/* In this case the error was caused by DBus. Dump the message to the
-		   console as otherwise we have no idea what the problem is. */
-		g_debug ("DBus error: %s", error->message);
-		g_dbus_error_strip_remote_error (error);
-
-		*client_error = g_error_new_literal (E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, error->message);
-	}
-}
-
-/**
- * If the specified GError is a remote error, then create a new error
- * representing the remote error.  If the error is anything else, then
- * leave it alone.
- */
-static gboolean
-unwrap_dbus_error (GError *error, GError **client_error)
-{
 	if (error == NULL)
 		return TRUE;
 
-	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR)) {
-		if (client_error)
-			get_client_error_from_gerror (error, client_error);
-
-		g_error_free (error);
-	} else {
-		if (client_error) {
-			if (error->domain == G_DBUS_ERROR)
-				g_dbus_error_strip_remote_error (error);
-			*client_error = error;
-		} else {
-			g_error_free (error);
-		}
-	}
+	if (!e_client_util_unwrap_dbus_error (error, client_error, book_errors, G_N_ELEMENTS (book_errors), E_BOOK_CLIENT_ERROR, TRUE))
+		e_client_util_unwrap_dbus_error (error, client_error, cl_errors, G_N_ELEMENTS (cl_errors), E_CLIENT_ERROR, FALSE);
 
 	return FALSE;
 }
@@ -1820,7 +1751,7 @@ e_book_client_get_contacts_sync (EBookClient *client, const gchar *sexp, GSList 
  * @callback: callback to call when a result is ready
  * @user_data: user data for the @callback
  *
- * Query @client with @sexp, creating an #EBookView.
+ * Query @client with @sexp, creating an #EBookClientView.
  * The call is finished by e_book_client_get_view_finish()
  * from the @callback.
  *
@@ -1844,9 +1775,9 @@ e_book_client_get_view (EBookClient *client, const gchar *sexp, GCancellable *ca
 }
 
 static gboolean
-complete_get_view (EBookClient *client, gboolean res, gchar *view_path, EBookView **book_view, GError **error)
+complete_get_view (EBookClient *client, gboolean res, gchar *view_path, EBookClientView **view, GError **error)
 {
-	g_return_val_if_fail (book_view != NULL, FALSE);
+	g_return_val_if_fail (view != NULL, FALSE);
 
 	if (view_path && res && book_factory_proxy) {
 		GError *local_error = NULL;
@@ -1860,20 +1791,21 @@ complete_get_view (EBookClient *client, gboolean res, gchar *view_path, EBookVie
 								&local_error);
 
 		if (gdbus_bookview) {
-			*book_view = _e_book_view_new (client, gdbus_bookview);
+			*view = _e_book_client_view_new (client, gdbus_bookview);
+			g_object_unref (gdbus_bookview);
 		} else {
-			*book_view = NULL;
+			*view = NULL;
 			res = FALSE;
 		}
 
 		if (local_error)
 			unwrap_dbus_error (local_error, error);
 	} else {
-		*book_view = NULL;
+		*view = NULL;
 		res = FALSE;
 	}
 
-	if (!*book_view && error && !*error)
+	if (!*view && error && !*error)
 		g_set_error_literal (error, E_CLIENT_ERROR, E_CLIENT_ERROR_DBUS_ERROR, _("Cannot get connection to view"));
 
 	g_free (view_path);
@@ -1885,11 +1817,11 @@ complete_get_view (EBookClient *client, gboolean res, gchar *view_path, EBookVie
  * e_book_client_get_view_finish:
  * @client: an #EBookClient
  * @result: a #GAsyncResult
- * @book_view: (out) an #EBookView
+ * @view: (out) an #EBookClientView
  * @error: (out): a #GError to set an error, if any
  *
  * Finishes previous call of e_book_client_get_view().
- * If successful, then the @book_view is set to newly allocated #EBookView,
+ * If successful, then the @view is set to newly allocated #EBookClientView,
  * which should be freed with g_object_unref().
  *
  * Returns: %TRUE if successful, %FALSE otherwise.
@@ -1897,28 +1829,28 @@ complete_get_view (EBookClient *client, gboolean res, gchar *view_path, EBookVie
  * Since: 3.2
  **/
 gboolean
-e_book_client_get_view_finish (EBookClient *client, GAsyncResult *result, EBookView **book_view, GError **error)
+e_book_client_get_view_finish (EBookClient *client, GAsyncResult *result, EBookClientView **view, GError **error)
 {
 	gboolean res;
 	gchar *view_path = NULL;
 
-	g_return_val_if_fail (book_view != NULL, FALSE);
+	g_return_val_if_fail (view != NULL, FALSE);
 
 	res = e_client_proxy_call_finish_string (E_CLIENT (client), result, &view_path, error, e_book_client_get_view);
 
-	return complete_get_view (client, res, view_path, book_view, error);
+	return complete_get_view (client, res, view_path, view, error);
 }
 
 /**
  * e_book_client_get_view_sync:
  * @client: an #EBookClient
  * @sexp: an S-expression representing the query
- * @book_view: (out) an #EBookView
+ * @view: (out) an #EBookClientView
  * @cancellable: a #GCancellable; can be %NULL
  * @error: (out): a #GError to set an error, if any
  *
- * Query @client with @sexp, creating an #EBookView.
- * If successful, then the @book_view is set to newly allocated #EBookView,
+ * Query @client with @sexp, creating an #EBookClientView.
+ * If successful, then the @view is set to newly allocated #EBookClientView,
  * which should be freed with g_object_unref().
  *
  * Note: @sexp can be obtained through #EBookQuery, by converting it
@@ -1929,7 +1861,7 @@ e_book_client_get_view_finish (EBookClient *client, GAsyncResult *result, EBookV
  * Since: 3.2
  **/
 gboolean
-e_book_client_get_view_sync (EBookClient *client, const gchar *sexp, EBookView **book_view, GCancellable *cancellable, GError **error)
+e_book_client_get_view_sync (EBookClient *client, const gchar *sexp, EBookClientView **view, GCancellable *cancellable, GError **error)
 {
 	gboolean res;
 	gchar *gdbus_sexp = NULL;
@@ -1939,7 +1871,7 @@ e_book_client_get_view_sync (EBookClient *client, const gchar *sexp, EBookView *
 	g_return_val_if_fail (E_IS_BOOK_CLIENT (client), FALSE);
 	g_return_val_if_fail (client->priv != NULL, FALSE);
 	g_return_val_if_fail (sexp != NULL, FALSE);
-	g_return_val_if_fail (book_view != NULL, FALSE);
+	g_return_val_if_fail (view != NULL, FALSE);
 
 	if (!client->priv->gdbus_book) {
 		set_proxy_gone_error (error);
@@ -1950,7 +1882,7 @@ e_book_client_get_view_sync (EBookClient *client, const gchar *sexp, EBookView *
 
 	g_free (gdbus_sexp);
 
-	return complete_get_view (client, res, view_path, book_view, error);
+	return complete_get_view (client, res, view_path, view, error);
 }
 
 static GDBusProxy *

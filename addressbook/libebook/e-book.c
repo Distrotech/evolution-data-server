@@ -2023,7 +2023,7 @@ e_book_get_book_view (EBook       *book,
 							error);
 
 	if (gdbus_bookview) {
-		*book_view = _e_book_view_new_with_book (book, gdbus_bookview);
+		*book_view = _e_book_view_new (book, gdbus_bookview);
 	} else {
 		*book_view = NULL;
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_DBUS_EXCEPTION,
@@ -2061,7 +2061,7 @@ get_book_view_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 							NULL,
 							&error);
 		if (gdbus_bookview) {
-			view = _e_book_view_new_with_book (data->book, gdbus_bookview);
+			view = _e_book_view_new (data->book, gdbus_bookview);
 		}
 	}
 
