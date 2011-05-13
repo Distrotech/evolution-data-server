@@ -1136,6 +1136,36 @@ e_cal_backend_get_attachment_uris (ECalBackend *backend, EDataCal *cal, guint32 
 }
 
 /**
+ * e_cal_backend_discard_alarm:
+ * @backend: an #ECalBackend
+ * @cal: an #EDataCal
+ * @opid: the ID to use for this operation
+ * @cancellable: a #GCancellable for the operation
+ * @uid: Unique identifier for a calendar object.
+ * @rid: ID for the object's recurrence to discard alarm in.
+ * @auid: Unique identifier of the alarm itself.
+ *
+ * Discards alarm @auid from the object identified by @uid and @rid.
+ * This might be finished with e_data_cal_respond_discard_alarm().
+ * Default implementation of this method returns Not Supported error.
+ **/
+void
+e_cal_backend_discard_alarm (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid, const gchar *auid)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (E_IS_CAL_BACKEND (backend));
+	g_return_if_fail (uid != NULL);
+	g_return_if_fail (auid != NULL);
+
+	if (!E_CAL_BACKEND_GET_CLASS (backend)->discard_alarm) {
+		e_data_cal_respond_discard_alarm (cal, opid, e_data_cal_create_error (NotSupported, NULL));
+		return;
+	}
+
+	(* E_CAL_BACKEND_GET_CLASS (backend)->discard_alarm) (backend, cal, opid, cancellable, uid, rid, auid);
+}
+
+/**
  * e_cal_backend_get_timezone:
  * @backend: an #ECalBackend
  * @cal: an #EDataCal

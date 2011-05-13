@@ -47,6 +47,7 @@ struct _ECalBackendSyncClass {
 	void	(* receive_objects_sync)	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *calobj, GError **error);
 	void	(* send_objects_sync)		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *calobj, GSList **users, gchar **modified_calobj, GError **error);
 	void	(* get_attachment_uris_sync)	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *uid, const gchar *rid, GSList **attachments, GError **error);
+	void	(* discard_alarm_sync)		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *uid, const gchar *rid, const gchar *auid, GError **error);
 	void	(* get_timezone_sync)		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *tzid, gchar **tzobject, GError **error);
 	void	(* add_timezone_sync)		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *tzobject, GError **error);
 };
@@ -70,6 +71,7 @@ void	e_cal_backend_sync_remove_object	(ECalBackendSync *backend, EDataCal *cal, 
 void	e_cal_backend_sync_receive_objects	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *calobj, GError **error);
 void	e_cal_backend_sync_send_objects		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *calobj, GSList **users, gchar **modified_calobj, GError **error);
 void	e_cal_backend_sync_get_attachment_uris	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *uid, const gchar *rid, GSList **attachments, GError **error);
+void	e_cal_backend_sync_discard_alarm	(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *uid, const gchar *rid, const gchar *auid, GError **error);
 void	e_cal_backend_sync_get_timezone		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *tzid, gchar **tzobject, GError **error);
 void	e_cal_backend_sync_add_timezone		(ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *tzobject, GError **error);
 

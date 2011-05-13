@@ -173,6 +173,10 @@ void		e_cal_client_get_attachment_uris		(ECalClient *client, const gchar *uid, c
 gboolean	e_cal_client_get_attachment_uris_finish		(ECalClient *client, GAsyncResult *result, GSList **attachment_uris, GError **error);
 gboolean	e_cal_client_get_attachment_uris_sync		(ECalClient *client, const gchar *uid, const gchar *rid, GSList **attachment_uris, GCancellable *cancellable, GError **error);
 
+void		e_cal_client_discard_alarm			(ECalClient *client, const gchar *uid, const gchar *rid, const gchar *auid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean	e_cal_client_discard_alarm_finish		(ECalClient *client, GAsyncResult *result, GError **error);
+gboolean	e_cal_client_discard_alarm_sync			(ECalClient *client, const gchar *uid, const gchar *rid, const gchar *auid, GCancellable *cancellable, GError **error);
+
 void		e_cal_client_get_view				(ECalClient *client, const gchar *sexp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_cal_client_get_view_finish			(ECalClient *client, GAsyncResult *result, ECalClientView **view, GError **error);
 gboolean	e_cal_client_get_view_sync			(ECalClient *client, const gchar *sexp, ECalClientView **view, GCancellable *cancellable, GError **error);

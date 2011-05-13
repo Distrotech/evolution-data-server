@@ -155,6 +155,9 @@ struct _EGdbusCalIface
 	gboolean (*handle_get_attachment_uris)		(EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar * const *in_uid_rid);
 	void	 (*get_attachment_uris_done)		(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar ***out_attachments);
 
+	gboolean (*handle_discard_alarm)		(EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar * const *in_uid_rid_auid);
+	void	 (*discard_alarm_done)			(EGdbusCal *object, guint arg_opid, const GError *arg_error);
+
 	gboolean (*handle_get_view)			(EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar *in_sexp);
 	void	 (*get_view_done)			(EGdbusCal *object, guint arg_opid, const GError *arg_error, gchar **out_view_path);
 
@@ -244,6 +247,12 @@ void		e_gdbus_cal_call_get_attachment_uris		(GDBusProxy *proxy, const gchar * co
 gboolean	e_gdbus_cal_call_get_attachment_uris_finish	(GDBusProxy *proxy, GAsyncResult *result, gchar ***out_attachments, GError **error);
 gboolean	e_gdbus_cal_call_get_attachment_uris_sync	(GDBusProxy *proxy, const gchar * const *in_uid_rid, gchar ***out_attachments, GCancellable *cancellable, GError **error);
 
+gchar **	e_gdbus_cal_encode_discard_alarm		(const gchar *in_uid, const gchar *in_rid, const gchar *in_auid);
+gboolean	e_gdbus_cal_decode_discard_alarm		(const gchar * const *in_strv, gchar **out_uid, gchar **out_rid, gchar **out_auid);
+void		e_gdbus_cal_call_discard_alarm			(GDBusProxy *proxy, const gchar * const *in_uid_rid_auid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean	e_gdbus_cal_call_discard_alarm_finish		(GDBusProxy *proxy, GAsyncResult *result, GError **error);
+gboolean	e_gdbus_cal_call_discard_alarm_sync		(GDBusProxy *proxy, const gchar * const *in_uid_rid_auid, GCancellable *cancellable, GError **error);
+
 void		e_gdbus_cal_call_get_view			(GDBusProxy *proxy, const gchar *in_sexp, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_gdbus_cal_call_get_view_finish		(GDBusProxy *proxy, GAsyncResult *result, gchar **out_view_path, GError **error);
 gboolean	e_gdbus_cal_call_get_view_sync			(GDBusProxy *proxy, const gchar *in_sexp, gchar **out_view_path, GCancellable *cancellable, GError **error);
@@ -284,6 +293,7 @@ gboolean	e_gdbus_cal_call_close_sync			(GDBusProxy *proxy, GCancellable *cancell
 #define e_gdbus_cal_complete_receive_objects		e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_send_objects		e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_get_attachment_uris	e_gdbus_complete_async_method
+#define e_gdbus_cal_complete_discard_alarm		e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_get_view			e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_get_timezone		e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_add_timezone		e_gdbus_complete_async_method
@@ -307,6 +317,7 @@ void e_gdbus_cal_emit_remove_object_done		(EGdbusCal *object, guint arg_opid, co
 void e_gdbus_cal_emit_receive_objects_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_send_objects_done			(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar * const *out_calobj_users);
 void e_gdbus_cal_emit_get_attachment_uris_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar * const *out_attachments);
+void e_gdbus_cal_emit_discard_alarm_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_get_view_done			(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_view_path);
 void e_gdbus_cal_emit_get_timezone_done			(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_object);
 void e_gdbus_cal_emit_add_timezone_done			(EGdbusCal *object, guint arg_opid, const GError *arg_error);

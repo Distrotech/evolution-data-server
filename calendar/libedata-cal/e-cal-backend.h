@@ -84,6 +84,7 @@ struct _ECalBackendClass {
 	void	(* receive_objects)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj);
 	void	(* send_objects)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj);
 	void	(* get_attachment_uris)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid);
+	void	(* discard_alarm)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid, const gchar *auid);
 	void	(* get_timezone)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *tzid);
 	void	(* add_timezone)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *tzobject);
 
@@ -136,6 +137,7 @@ void		e_cal_backend_remove_object		(ECalBackend *backend, EDataCal *cal, guint32
 void		e_cal_backend_receive_objects		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj);
 void		e_cal_backend_send_objects		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *calobj);
 void		e_cal_backend_get_attachment_uris	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid);
+void		e_cal_backend_discard_alarm		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid, const gchar *auid);
 void		e_cal_backend_get_timezone		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *tzid);
 void		e_cal_backend_add_timezone		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *tzobject);
 icaltimezone *	e_cal_backend_internal_get_timezone	(ECalBackend *backend, const gchar *tzid);

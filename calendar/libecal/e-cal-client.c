@@ -3348,6 +3348,98 @@ e_cal_client_get_attachment_uris_sync (ECalClient *client, const gchar *uid, con
 }
 
 /**
+ * e_cal_client_discard_alarm:
+ * @client: an #ECalClient
+ * @uid: Unique identifier for a calendar component
+ * @rid: Recurrence identifier
+ * @auid: Alarm identifier to remove
+ * @cancellable: a #GCancellable; can be %NULL
+ * @callback: callback to call when a result is ready
+ * @user_data: user data for the @callback
+ *
+ * Removes alarm @auid from a given component identified by @uid and @rid.
+ * The call is finished by e_cal_client_discard_alarm_finish() from
+ * the @callback.
+ *
+ * Since: 3.2
+ **/
+void
+e_cal_client_discard_alarm (ECalClient *client, const gchar *uid, const gchar *rid, const gchar *auid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	gchar **strv;
+
+	g_return_if_fail (uid != NULL);
+	g_return_if_fail (auid != NULL);
+
+	strv = e_gdbus_cal_encode_discard_alarm (uid, rid, auid);
+
+	e_client_proxy_call_strv (E_CLIENT (client), (const gchar * const *) strv, cancellable, callback, user_data, e_cal_client_discard_alarm,
+			e_gdbus_cal_call_discard_alarm,
+			e_gdbus_cal_call_discard_alarm_finish, NULL, NULL, NULL, NULL);
+
+	g_strfreev (strv);
+}
+
+/**
+ * e_cal_client_discard_alarm_finish:
+ * @client: an #ECalClient
+ * @result: a #GAsyncResult
+ * @error: (out): a #GError to set an error, if any
+ *
+ * Finishes previous call of e_cal_client_discard_alarm().
+ *
+ * Returns: %TRUE if successful, %FALSE otherwise.
+ *
+ * Since: 3.2
+ **/
+gboolean
+e_cal_client_discard_alarm_finish (ECalClient *client, GAsyncResult *result, GError **error)
+{
+	return e_client_proxy_call_finish_void (E_CLIENT (client), result, error, e_cal_client_discard_alarm);
+}
+
+/**
+ * e_cal_client_discard_alarm_sync:
+ * @client: an #ECalClient
+ * @uid: Unique identifier for a calendar component
+ * @rid: Recurrence identifier
+ * @auid: Alarm identifier to remove
+ * @cancellable: a #GCancellable; can be %NULL
+ * @error: (out): a #GError to set an error, if any
+ *
+ * Removes alarm @auid from a given component identified by @uid and @rid.
+ *
+ * Returns: %TRUE if successful, %FALSE otherwise.
+ *
+ * Since: 3.2
+ **/
+gboolean
+e_cal_client_discard_alarm_sync (ECalClient *client, const gchar *uid, const gchar *rid, const gchar *auid, GCancellable *cancellable, GError **error)
+{
+	gboolean res;
+	gchar **strv;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
+	g_return_val_if_fail (client->priv != NULL, FALSE);
+	g_return_val_if_fail (uid != NULL, FALSE);
+	g_return_val_if_fail (auid != NULL, FALSE);
+
+	if (!client->priv->gdbus_cal) {
+		set_proxy_gone_error (error);
+		return FALSE;
+	}
+
+	strv = e_gdbus_cal_encode_discard_alarm (uid, rid, auid);
+
+	res = e_client_proxy_call_sync_strv__void (E_CLIENT (client), (const gchar * const *) strv, cancellable, error, e_gdbus_cal_call_discard_alarm_sync);
+
+	g_strfreev (strv);
+
+	return res;
+}
+
+/**
  * e_cal_client_get_view:
  * @client: an #ECalClient
  * @sexp: an S-expression representing the query.

@@ -72,6 +72,7 @@ typedef enum {
 	OP_RECEIVE_OBJECTS,
 	OP_SEND_OBJECTS,
 	OP_GET_ATTACHMENT_URIS,
+	OP_DISCARD_ALARM,
 	OP_GET_VIEW,
 	OP_GET_TIMEZONE,
 	OP_ADD_TIMEZONE,
@@ -97,6 +98,12 @@ typedef struct {
 			gchar *uid;
 			gchar *rid;
 		} ur;
+		/* OP_DISCARD_ALARM */
+		struct _ura {
+			gchar *uid;
+			gchar *rid;
+			gchar *auid;
+		} ura;
 		/* OP_GET_OBJECT_LIST */
 		/* OP_GET_VIEW */
 		gchar *sexp;
@@ -229,6 +236,12 @@ operation_thread (gpointer data, gpointer user_data)
 		e_cal_backend_get_attachment_uris (backend, op->cal, op->id, op->cancellable, op->d.ur.uid, op->d.ur.rid && *op->d.ur.rid ? op->d.ur.rid : NULL);
 		g_free (op->d.ur.uid);
 		g_free (op->d.ur.rid);
+		break;
+	case OP_DISCARD_ALARM:
+		e_cal_backend_discard_alarm (backend, op->cal, op->id, op->cancellable, op->d.ura.uid, op->d.ura.rid && *op->d.ura.rid ? op->d.ura.rid : NULL, op->d.ura.auid);
+		g_free (op->d.ura.uid);
+		g_free (op->d.ura.rid);
+		g_free (op->d.ura.auid);
 		break;
 	case OP_GET_VIEW:
 		if (op->d.sexp) {
@@ -766,6 +779,20 @@ impl_Cal_getAttachmentUris (EGdbusCal *object, GDBusMethodInvocation *invocation
 }
 
 static gboolean
+impl_Cal_discardAlarm (EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar * const *in_uid_rid_auid, EDataCal *cal)
+{
+	OperationData *op;
+
+	op = op_new (OP_DISCARD_ALARM, cal);
+	g_return_val_if_fail (e_gdbus_cal_decode_discard_alarm (in_uid_rid_auid, &op->d.ura.uid, &op->d.ura.rid, &op->d.ura.auid), FALSE);
+
+	e_gdbus_cal_complete_discard_alarm (cal->priv->gdbus_object, invocation, op->id);
+	e_operation_pool_push (ops_pool, op);
+
+	return TRUE;
+}
+
+static gboolean
 impl_Cal_getView (EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar *in_sexp, EDataCal *cal)
 {
 	OperationData *op;
@@ -1204,7 +1231,8 @@ e_data_cal_respond_send_objects (EDataCal *cal, guint32 opid, GError *error, con
  * @error: Operation error, if any, automatically freed if passed it.
  * @attachment_uris: List of retrieved attachment uri's.
  *
- * Notifies listeners of the completion of the get_attachment_uris method call.+ */
+ * Notifies listeners of the completion of the get_attachment_uris method call.
+ **/
 void
 e_data_cal_respond_get_attachment_uris (EDataCal *cal, guint32 opid, GError *error, const GSList *attachment_uris)
 {
@@ -1220,6 +1248,27 @@ e_data_cal_respond_get_attachment_uris (EDataCal *cal, guint32 opid, GError *err
 	e_gdbus_cal_emit_get_attachment_uris_done (cal->priv->gdbus_object, opid, error, (const gchar * const *) strv_attachment_uris);
 
 	g_strfreev (strv_attachment_uris);
+	if (error)
+		g_error_free (error);
+}
+
+/**
+ * e_data_cal_respond_discard_alarm:
+ * @cal: A calendar client interface.
+ * @error: Operation error, if any, automatically freed if passed it.
+ *
+ * Notifies listeners of the completion of the discard_alarm method call.
+ **/
+void
+e_data_cal_respond_discard_alarm (EDataCal *cal, guint32 opid, GError *error)
+{
+	op_complete (cal, opid);
+
+	/* Translators: This is prefix to a detailed error message */
+	g_prefix_error (&error, "%s", _("Could not discard alarm: "));
+
+	e_gdbus_cal_emit_discard_alarm_done (cal->priv->gdbus_object, opid, error);
+
 	if (error)
 		g_error_free (error);
 }
@@ -1384,6 +1433,7 @@ e_data_cal_init (EDataCal *ecal)
 	g_signal_connect (gdbus_object, "handle-receive-objects", G_CALLBACK (impl_Cal_receiveObjects), ecal);
 	g_signal_connect (gdbus_object, "handle-send-objects", G_CALLBACK (impl_Cal_sendObjects), ecal);
 	g_signal_connect (gdbus_object, "handle-get-attachment-uris", G_CALLBACK (impl_Cal_getAttachmentUris), ecal);
+	g_signal_connect (gdbus_object, "handle-discard-alarm", G_CALLBACK (impl_Cal_discardAlarm), ecal);
 	g_signal_connect (gdbus_object, "handle-get-view", G_CALLBACK (impl_Cal_getView), ecal);
 	g_signal_connect (gdbus_object, "handle-get-timezone", G_CALLBACK (impl_Cal_getTimezone), ecal);
 	g_signal_connect (gdbus_object, "handle-add-timezone", G_CALLBACK (impl_Cal_addTimezone), ecal);

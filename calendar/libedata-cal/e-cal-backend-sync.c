@@ -397,6 +397,28 @@ e_cal_backend_sync_get_attachment_uris (ECalBackendSync *backend, EDataCal *cal,
 }
 
 /**
+ * e_cal_backend_sync_discard_alarm:
+ * @backend: An ECalBackendSync object.
+ * @cal: An EDataCal object.
+ * @cancellable: a #GCancellable for the operation
+ * @uid: Unique id of the calendar object.
+ * @rid: Recurrence id of the calendar object.
+ * @auid: Alarm ID to remove.
+ * @error: Out parameter for a #GError.
+ *
+ * Calls the discard_alarm_sync method on the given backend.
+ **/
+void
+e_cal_backend_sync_discard_alarm (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, const gchar *uid, const gchar *rid, const gchar *auid, GError **error)
+{
+	e_return_data_cal_error_if_fail (backend && E_IS_CAL_BACKEND_SYNC (backend), InvalidArg);
+	e_return_data_cal_error_if_fail (uid, InvalidArg);
+	e_return_data_cal_error_if_fail (auid, InvalidArg);
+
+	LOCK_WRAPPER (discard_alarm_sync, (backend, cal, cancellable, uid, rid, auid, error));
+}
+
+/**
  * e_cal_backend_sync_get_timezone:
  * @backend: An ECalBackendSync object.
  * @cal: An EDataCal object.
@@ -660,6 +682,16 @@ cal_backend_get_attachment_uris (ECalBackend *backend, EDataCal *cal, guint32 op
 }
 
 static void
+cal_backend_discard_alarm (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid, const gchar *auid)
+{
+	GError *error = NULL;
+
+	e_cal_backend_sync_discard_alarm (E_CAL_BACKEND_SYNC (backend), cal, cancellable, uid, rid, auid, &error);
+
+	e_data_cal_respond_discard_alarm (cal, opid, error);
+}
+
+static void
 cal_backend_get_timezone (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *tzid)
 {
 	GError *error = NULL;
@@ -835,6 +867,7 @@ e_cal_backend_sync_class_init (ECalBackendSyncClass *klass)
 	backend_class->receive_objects		= cal_backend_receive_objects;
 	backend_class->send_objects		= cal_backend_send_objects;
 	backend_class->get_attachment_uris	= cal_backend_get_attachment_uris;
+	backend_class->discard_alarm		= cal_backend_discard_alarm;
 	backend_class->get_timezone		= cal_backend_get_timezone;
 	backend_class->add_timezone		= cal_backend_add_timezone;
 	backend_class->internal_get_timezone	= cal_backend_internal_get_timezone;

@@ -3588,7 +3588,7 @@ e_cal_get_alarms_for_object (ECal *ecal, const ECalComponentId *id,
  *
  * Returns: TRUE if the operation was successful, FALSE otherwise.
  *
- * Deprecated: 3.2: This function has been dropped completely.
+ * Deprecated: 3.2: Use e_cal_client_discard_alarm_sync() instead.
  */
 gboolean
 e_cal_discard_alarm (ECal *ecal, ECalComponent *comp, const gchar *auid, GError **error)
