@@ -38,11 +38,19 @@ complete (EBookClientView *view, const GError *error)
 static void
 setup_and_start_view (EBookClientView *view)
 {
+	GError *error = NULL;
+
 	g_signal_connect (view, "objects-added", G_CALLBACK (objects_added), NULL);
 	g_signal_connect (view, "objects-removed", G_CALLBACK (objects_removed), NULL);
 	g_signal_connect (view, "complete", G_CALLBACK (complete), NULL);
 
-	e_book_client_view_start (view, NULL);
+	e_book_client_view_set_fields_of_interest (view, NULL, &error);
+	if (error)
+		report_error ("set fields of interest", &error);
+
+	e_book_client_view_start (view, &error);
+	if (error)
+		report_error ("start view", &error);
 }
 
 static void

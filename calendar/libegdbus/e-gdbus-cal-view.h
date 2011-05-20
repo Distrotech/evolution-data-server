@@ -108,7 +108,7 @@ struct _EGdbusCalViewIface
 	gboolean (*handle_start)		(EGdbusCalView *object, GDBusMethodInvocation *invocation);
 	gboolean (*handle_stop)			(EGdbusCalView *object, GDBusMethodInvocation *invocation);
 	gboolean (*handle_dispose)		(EGdbusCalView *object, GDBusMethodInvocation *invocation);
-	gboolean (*handle_set_restriction)	(EGdbusCalView *object, GDBusMethodInvocation *invocation, const gchar * const *in_only_fields);
+	gboolean (*handle_set_fields_of_interest)(EGdbusCalView *object, GDBusMethodInvocation *invocation, const gchar * const *in_only_fields);
 };
 
 /* D-Bus Methods */
@@ -124,15 +124,15 @@ void		e_gdbus_cal_view_call_dispose		(GDBusProxy *proxy, GCancellable *cancellab
 gboolean	e_gdbus_cal_view_call_dispose_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
 gboolean	e_gdbus_cal_view_call_dispose_sync	(GDBusProxy *proxy, GCancellable *cancellable, GError **error);
 
-void		e_gdbus_cal_view_call_set_restriction		(GDBusProxy *proxy, const gchar * const *in_only_fileds, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_cal_view_call_set_restriction_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
-gboolean	e_gdbus_cal_view_call_set_restriction_sync	(GDBusProxy *proxy, const gchar * const *in_only_fileds, GCancellable *cancellable, GError **error);
+void		e_gdbus_cal_view_call_set_fields_of_interest		(GDBusProxy *proxy, const gchar * const *in_only_fileds, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean	e_gdbus_cal_view_call_set_fields_of_interest_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
+gboolean	e_gdbus_cal_view_call_set_fields_of_interest_sync	(GDBusProxy *proxy, const gchar * const *in_only_fileds, GCancellable *cancellable, GError **error);
 
 /* D-Bus Methods Completion Helpers */
-#define e_gdbus_cal_view_complete_start			e_gdbus_complete_sync_method_void
-#define e_gdbus_cal_view_complete_stop			e_gdbus_complete_sync_method_void
-#define e_gdbus_cal_view_complete_dispose		e_gdbus_complete_sync_method_void
-#define e_gdbus_cal_view_complete_set_restriction	e_gdbus_complete_sync_method_void
+#define e_gdbus_cal_view_complete_start				e_gdbus_complete_sync_method_void
+#define e_gdbus_cal_view_complete_stop				e_gdbus_complete_sync_method_void
+#define e_gdbus_cal_view_complete_dispose			e_gdbus_complete_sync_method_void
+#define e_gdbus_cal_view_complete_set_fields_of_interest	e_gdbus_complete_sync_method_void
 
 /* D-Bus Signal Emission Helpers */
 void e_gdbus_cal_view_emit_objects_added	(EGdbusCalView *object, const gchar * const *arg_objects);

@@ -147,6 +147,9 @@ async_get_view_ready (GObject *source_object, GAsyncResult *result, gpointer use
 
 	g_object_set_data_full (G_OBJECT (cal_client), "cal-view", view, g_object_unref);
 
+	e_cal_client_view_set_fields_of_interest (view, NULL, &error);
+	if (error)
+		report_error ("set fields of interest", &error);
 	e_cal_client_view_start (view, NULL);
 
 	alter_cal_client (cal_client);
@@ -194,6 +197,9 @@ main (gint argc, gchar **argv)
 	g_signal_connect (view, "objects_removed", G_CALLBACK (objects_removed_cb), cal_client);
 	g_signal_connect (view, "complete", G_CALLBACK (complete_cb), cal_client);
 
+	e_cal_client_view_set_fields_of_interest (view, NULL, &error);
+	if (error)
+		report_error ("set fields of interest", &error);
 	e_cal_client_view_start (view, NULL);
 
 	start_in_thread_with_main_loop (alter_cal_client, cal_client);

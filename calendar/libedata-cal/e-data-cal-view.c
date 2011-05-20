@@ -62,8 +62,8 @@ struct _EDataCalViewPrivate {
 	GMutex *pending_mutex;
 	guint flush_id;
 
-	/* restriction which fields is listener interested in */
-	GHashTable *only_fields;
+	/* which fields is listener interested in */
+	GHashTable *fields_of_interest;
 };
 
 G_DEFINE_TYPE (EDataCalView, e_data_cal_view, G_TYPE_OBJECT);
@@ -389,32 +389,32 @@ impl_DataCalView_dispose (EGdbusCalView *object, GDBusMethodInvocation *invocati
 }
 
 static gboolean
-impl_DataCalView_setRestriction (EGdbusCalView *object, GDBusMethodInvocation *invocation, const gchar * const *in_only_fields, EDataCalView *view)
+impl_DataCalView_setFieldsOfInterest (EGdbusCalView *object, GDBusMethodInvocation *invocation, const gchar * const *in_fields_of_interest, EDataCalView *view)
 {
 	EDataCalViewPrivate *priv;
 	gint ii;
 
-	g_return_val_if_fail (in_only_fields != NULL, TRUE);
+	g_return_val_if_fail (in_fields_of_interest != NULL, TRUE);
 
 	priv = view->priv;
 
-	if (priv->only_fields)
-		g_hash_table_destroy (priv->only_fields);
-	priv->only_fields = NULL;
+	if (priv->fields_of_interest)
+		g_hash_table_destroy (priv->fields_of_interest);
+	priv->fields_of_interest = NULL;
 
-	for (ii = 0; in_only_fields[ii]; ii++) {
-		const gchar *field = in_only_fields[ii];
+	for (ii = 0; in_fields_of_interest[ii]; ii++) {
+		const gchar *field = in_fields_of_interest[ii];
 
 		if (!*field)
 			continue;
 
-		if (!priv->only_fields)
-			priv->only_fields = g_hash_table_new_full (str_ic_hash, str_ic_equal, g_free, NULL);
+		if (!priv->fields_of_interest)
+			priv->fields_of_interest = g_hash_table_new_full (str_ic_hash, str_ic_equal, g_free, NULL);
 
-		g_hash_table_insert (priv->only_fields, g_strdup (field), GINT_TO_POINTER (1));
+		g_hash_table_insert (priv->fields_of_interest, g_strdup (field), GINT_TO_POINTER (1));
 	}
 
-	e_gdbus_cal_view_complete_set_restriction (object, invocation, NULL);
+	e_gdbus_cal_view_complete_set_fields_of_interest (object, invocation, NULL);
 
 	return TRUE;
 }
@@ -476,14 +476,14 @@ e_data_cal_view_init (EDataCalView *view)
 	g_signal_connect (priv->gdbus_object, "handle-start", G_CALLBACK (impl_DataCalView_start), view);
 	g_signal_connect (priv->gdbus_object, "handle-stop", G_CALLBACK (impl_DataCalView_stop), view);
 	g_signal_connect (priv->gdbus_object, "handle-dispose", G_CALLBACK (impl_DataCalView_dispose), view);
-	g_signal_connect (priv->gdbus_object, "handle-set-restriction", G_CALLBACK (impl_DataCalView_setRestriction), view);
+	g_signal_connect (priv->gdbus_object, "handle-set-fields-of-interest", G_CALLBACK (impl_DataCalView_setFieldsOfInterest), view);
 
 	priv->backend = NULL;
 	priv->started = FALSE;
 	priv->stopped = FALSE;
 	priv->complete = FALSE;
 	priv->sexp = NULL;
-	priv->only_fields = NULL;
+	priv->fields_of_interest = NULL;
 
 	priv->adds = g_array_sized_new (TRUE, TRUE, sizeof (gchar *), THRESHOLD_ITEMS);
 	priv->changes = g_array_sized_new (TRUE, TRUE, sizeof (gchar *), THRESHOLD_ITEMS);
@@ -552,8 +552,8 @@ e_data_cal_view_finalize (GObject *object)
 
 	g_hash_table_destroy (priv->ids);
 
-	if (priv->only_fields)
-		g_hash_table_destroy (priv->only_fields);
+	if (priv->fields_of_interest)
+		g_hash_table_destroy (priv->fields_of_interest);
 
 	g_mutex_free (priv->pending_mutex);
 
@@ -670,7 +670,7 @@ e_data_cal_view_is_completed (EDataCalView *view)
 }
 
 /**
- * e_data_cal_view_get_restriction:
+ * e_data_cal_view_get_fields_of_interest:
  * @view: A view object.
  *
  * Returns: Hash table of field names which the listener is interested in.
@@ -682,11 +682,11 @@ e_data_cal_view_is_completed (EDataCalView *view)
  * compared case insensitively.
  **/
 /* const */ GHashTable *
-e_data_cal_view_get_restriction (EDataCalView *view)
+e_data_cal_view_get_fields_of_interest (EDataCalView *view)
 {
 	g_return_val_if_fail (E_IS_DATA_CAL_VIEW (view), NULL);
 
-	return view->priv->only_fields;
+	return view->priv->fields_of_interest;
 }
 
 /**

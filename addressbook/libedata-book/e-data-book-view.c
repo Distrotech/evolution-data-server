@@ -60,8 +60,8 @@ struct _EDataBookViewPrivate {
 
 	guint flush_id;
 
-	/* restriction which fields is listener interested in */
-	GHashTable *only_fields;
+	/* which fields is listener interested in */
+	GHashTable *fields_of_interest;
 };
 
 static void e_data_book_view_dispose (GObject *object);
@@ -284,32 +284,32 @@ notify_add (EDataBookView *view, const gchar *id, const gchar *vcard)
 }
 
 static gboolean
-impl_DataBookView_setRestriction (EGdbusBookView *object, GDBusMethodInvocation *invocation, const gchar * const *in_only_fields, EDataBookView *view)
+impl_DataBookView_setFieldsOfInterest (EGdbusBookView *object, GDBusMethodInvocation *invocation, const gchar * const *in_fields_of_interest, EDataBookView *view)
 {
 	EDataBookViewPrivate *priv;
 	gint ii;
 
-	g_return_val_if_fail (in_only_fields != NULL, TRUE);
+	g_return_val_if_fail (in_fields_of_interest != NULL, TRUE);
 
 	priv = view->priv;
 
-	if (priv->only_fields)
-		g_hash_table_destroy (priv->only_fields);
-	priv->only_fields = NULL;
+	if (priv->fields_of_interest)
+		g_hash_table_destroy (priv->fields_of_interest);
+	priv->fields_of_interest = NULL;
 
-	for (ii = 0; in_only_fields[ii]; ii++) {
-		const gchar *field = in_only_fields[ii];
+	for (ii = 0; in_fields_of_interest[ii]; ii++) {
+		const gchar *field = in_fields_of_interest[ii];
 
 		if (!*field)
 			continue;
 
-		if (!priv->only_fields)
-			priv->only_fields = g_hash_table_new_full (str_ic_hash, str_ic_equal, g_free, NULL);
+		if (!priv->fields_of_interest)
+			priv->fields_of_interest = g_hash_table_new_full (str_ic_hash, str_ic_equal, g_free, NULL);
 
-		g_hash_table_insert (priv->only_fields, g_strdup (field), GINT_TO_POINTER (1));
+		g_hash_table_insert (priv->fields_of_interest, g_strdup (field), GINT_TO_POINTER (1));
 	}
 
-	e_gdbus_book_view_complete_set_restriction (object, invocation, NULL);
+	e_gdbus_book_view_complete_set_fields_of_interest (object, invocation, NULL);
 
 	return TRUE;
 }
@@ -672,9 +672,9 @@ e_data_book_view_init (EDataBookView *book_view)
 	g_signal_connect (priv->gdbus_object, "handle-start", G_CALLBACK (impl_DataBookView_start), book_view);
 	g_signal_connect (priv->gdbus_object, "handle-stop", G_CALLBACK (impl_DataBookView_stop), book_view);
 	g_signal_connect (priv->gdbus_object, "handle-dispose", G_CALLBACK (impl_DataBookView_dispose), book_view);
-	g_signal_connect (priv->gdbus_object, "handle-set-restriction", G_CALLBACK (impl_DataBookView_setRestriction), book_view);
+	g_signal_connect (priv->gdbus_object, "handle-set-fields-of-interest", G_CALLBACK (impl_DataBookView_setFieldsOfInterest), book_view);
 
-	priv->only_fields = NULL;
+	priv->fields_of_interest = NULL;
 	priv->running = FALSE;
 	priv->pending_mutex = g_mutex_new ();
 
@@ -741,8 +741,8 @@ e_data_book_view_finalize (GObject *object)
 	g_array_free (priv->removes, TRUE);
 	g_free (priv->card_query);
 
-	if (priv->only_fields)
-		g_hash_table_destroy (priv->only_fields);
+	if (priv->fields_of_interest)
+		g_hash_table_destroy (priv->fields_of_interest);
 
 	g_mutex_free (priv->pending_mutex);
 
@@ -802,7 +802,7 @@ e_data_book_view_get_backend (EDataBookView *book_view)
 }
 
 /**
- * e_data_book_view_get_restriction:
+ * e_data_book_view_get_fields_of_interest:
  * @view: A view object.
  *
  * Returns: Hash table of field names which the listener is interested in.
@@ -814,11 +814,11 @@ e_data_book_view_get_backend (EDataBookView *book_view)
  * compared case insensitively.
  **/
 /* const */ GHashTable *
-e_data_book_view_get_restriction (EDataBookView *view)
+e_data_book_view_get_fields_of_interest (EDataBookView *view)
 {
 	g_return_val_if_fail (E_IS_DATA_BOOK_VIEW (view), NULL);
 
-	return view->priv->only_fields;
+	return view->priv->fields_of_interest;
 }
 
 /**

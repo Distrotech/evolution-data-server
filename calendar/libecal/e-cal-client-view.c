@@ -486,20 +486,24 @@ e_cal_client_view_stop (ECalClientView *view, GError **error)
 }
 
 /**
- * e_cal_client_view_set_restriction:
+ * e_cal_client_view_set_fields_of_interest:
  * @view: An #ECalClientView object
- * @only_fields: List of field names to restrict result on
+ * @fields_of_interest: List of field names in which the client is interested
  * @error: A #GError
  *
  * Client can instruct server to which fields it is interested in only, thus
  * the server can return less data over the wire. The server can still return
  * complete objects, this is just a hint to it that the listed fields will
- * be used only. The UID/RID fields are returned always. Initial views has
- * no restriction, and using %NULL for @only_fields will unset any previous
+ * be used only. The UID/RID fields are returned always. Initial views has no fields
+ * of interest and using %NULL for @fields_of_interest will unset any previous
  * changes.
+ *
+ * Some backends can use summary information of its cache to create artifical
+ * objects, which will omit stored object parsing. If this cannot be done then
+ * it will simply return object as is stored in the cache.
  **/
 void
-e_cal_client_view_set_restriction (ECalClientView *view, const GSList *only_fields, GError **error)
+e_cal_client_view_set_fields_of_interest (ECalClientView *view, const GSList *fields_of_interest, GError **error)
 {
 	ECalClientViewPrivate *priv;
 
@@ -512,12 +516,12 @@ e_cal_client_view_set_restriction (ECalClientView *view, const GSList *only_fiel
 		GError *local_error = NULL;
 		gchar **strv;
 
-		strv = e_client_util_slist_to_strv (only_fields);
-		e_gdbus_cal_view_call_set_restriction_sync (priv->gdbus_calview, (const gchar * const *) strv, NULL, &local_error);
+		strv = e_client_util_slist_to_strv (fields_of_interest);
+		e_gdbus_cal_view_call_set_fields_of_interest_sync (priv->gdbus_calview, (const gchar * const *) strv, NULL, &local_error);
 		g_strfreev (strv);
 
 		e_client_util_unwrap_dbus_error (local_error, error, NULL, 0, 0, FALSE);
 	} else {
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR, _("Cannot set restriction, D-Bus proxy gone"));
+		g_set_error (error, G_IO_ERROR, G_IO_ERROR_DBUS_ERROR, _("Cannot set fields of interest, D-Bus proxy gone"));
 	}
 }

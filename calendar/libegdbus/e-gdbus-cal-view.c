@@ -43,7 +43,7 @@ enum
 	__START_METHOD,
 	__STOP_METHOD,
 	__DISPOSE_METHOD,
-	__SET_RESTRICTION_METHOD,
+	__SET_FIELDS_OF_INTEREST_METHOD,
 	__LAST_SIGNAL
 };
 
@@ -108,10 +108,10 @@ e_gdbus_cal_view_default_init (EGdbusCalViewIface *iface)
 	E_INIT_GDBUS_SIGNAL_STRV	(EGdbusCalViewIface, "Complete",	complete, __COMPLETE_SIGNAL)
 
 	/* GObject signals definitions for D-Bus methods: */
-	E_INIT_GDBUS_METHOD_VOID	(EGdbusCalViewIface, "start",		start, __START_METHOD)
-	E_INIT_GDBUS_METHOD_VOID	(EGdbusCalViewIface, "stop",		stop, __STOP_METHOD)
-	E_INIT_GDBUS_METHOD_VOID	(EGdbusCalViewIface, "dispose",		dispose, __DISPOSE_METHOD)
-	E_INIT_GDBUS_METHOD_STRV	(EGdbusCalViewIface, "setRestriction",	set_restriction, __SET_RESTRICTION_METHOD)
+	E_INIT_GDBUS_METHOD_VOID	(EGdbusCalViewIface, "start",			start, __START_METHOD)
+	E_INIT_GDBUS_METHOD_VOID	(EGdbusCalViewIface, "stop",			stop, __STOP_METHOD)
+	E_INIT_GDBUS_METHOD_VOID	(EGdbusCalViewIface, "dispose",			dispose, __DISPOSE_METHOD)
+	E_INIT_GDBUS_METHOD_STRV	(EGdbusCalViewIface, "setFieldsOfInterest",	set_fields_of_interest, __SET_FIELDS_OF_INTEREST_METHOD)
 }
 
 void
@@ -169,21 +169,21 @@ e_gdbus_cal_view_call_dispose_sync (GDBusProxy *proxy, GCancellable *cancellable
 }
 
 void
-e_gdbus_cal_view_call_set_restriction (GDBusProxy *proxy, const gchar * const *in_only_fields, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+e_gdbus_cal_view_call_set_fields_of_interest (GDBusProxy *proxy, const gchar * const *in_only_fields, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-	e_gdbus_proxy_method_call_strv ("setRestriction", proxy, in_only_fields, cancellable, callback, user_data);
+	e_gdbus_proxy_method_call_strv ("setFieldsOfInterest", proxy, in_only_fields, cancellable, callback, user_data);
 }
 
 gboolean
-e_gdbus_cal_view_call_set_restriction_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error)
+e_gdbus_cal_view_call_set_fields_of_interest_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error)
 {
 	return e_gdbus_proxy_method_call_finish_void (proxy, result, error);
 }
 
 gboolean
-e_gdbus_cal_view_call_set_restriction_sync (GDBusProxy *proxy, const gchar * const *in_only_fields, GCancellable *cancellable, GError **error)
+e_gdbus_cal_view_call_set_fields_of_interest_sync (GDBusProxy *proxy, const gchar * const *in_only_fields, GCancellable *cancellable, GError **error)
 {
-	return e_gdbus_proxy_method_call_sync_strv__void ("setRestriction", proxy, in_only_fields, cancellable, error);
+	return e_gdbus_proxy_method_call_sync_strv__void ("setFieldsOfInterest", proxy, in_only_fields, cancellable, error);
 }
 
 void
@@ -225,14 +225,14 @@ E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal_view, Complete, error, "as")
 E_DECLARE_GDBUS_SYNC_METHOD_0	(cal_view, start)
 E_DECLARE_GDBUS_SYNC_METHOD_0	(cal_view, stop)
 E_DECLARE_GDBUS_SYNC_METHOD_0	(cal_view, dispose)
-E_DECLARE_GDBUS_SYNC_METHOD_1	(cal_view, setRestriction, only_fields, "as")
+E_DECLARE_GDBUS_SYNC_METHOD_1	(cal_view, setFieldsOfInterest, fields_of_interest, "as")
 
 static const GDBusMethodInfo * const e_gdbus_cal_view_method_info_pointers[] =
 {
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal_view, start),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal_view, stop),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal_view, dispose),
-	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal_view, setRestriction),
+	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal_view, setFieldsOfInterest),
 	NULL
 };
 

@@ -115,7 +115,7 @@ struct _EGdbusBookViewIface
 	gboolean (*handle_start)		(EGdbusBookView *object, GDBusMethodInvocation *invocation);
 	gboolean (*handle_stop)			(EGdbusBookView *object, GDBusMethodInvocation *invocation);
 	gboolean (*handle_dispose)		(EGdbusBookView *object, GDBusMethodInvocation *invocation);
-	gboolean (*handle_set_restriction)	(EGdbusBookView *object, GDBusMethodInvocation *invocation, const gchar * const *in_only_fields);
+	gboolean (*handle_set_fields_of_interest)(EGdbusBookView *object, GDBusMethodInvocation *invocation, const gchar * const *in_only_fields);
 };
 
 /* D-Bus Methods */
@@ -131,15 +131,15 @@ void		e_gdbus_book_view_call_dispose		(GDBusProxy *proxy, GCancellable *cancella
 gboolean	e_gdbus_book_view_call_dispose_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
 gboolean	e_gdbus_book_view_call_dispose_sync	(GDBusProxy *proxy, GCancellable *cancellable, GError **error);
 
-void		e_gdbus_book_view_call_set_restriction		(GDBusProxy *proxy, const gchar * const *in_only_fileds, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_book_view_call_set_restriction_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
-gboolean	e_gdbus_book_view_call_set_restriction_sync	(GDBusProxy *proxy, const gchar * const *in_only_fileds, GCancellable *cancellable, GError **error);
+void		e_gdbus_book_view_call_set_fields_of_interest		(GDBusProxy *proxy, const gchar * const *in_only_fileds, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean	e_gdbus_book_view_call_set_fields_of_interest_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
+gboolean	e_gdbus_book_view_call_set_fields_of_interest_sync	(GDBusProxy *proxy, const gchar * const *in_only_fileds, GCancellable *cancellable, GError **error);
 
 /* D-Bus Methods Completion Helpers */
-#define e_gdbus_book_view_complete_start		e_gdbus_complete_sync_method_void
-#define e_gdbus_book_view_complete_stop			e_gdbus_complete_sync_method_void
-#define e_gdbus_book_view_complete_dispose		e_gdbus_complete_sync_method_void
-#define e_gdbus_book_view_complete_set_restriction	e_gdbus_complete_sync_method_void
+#define e_gdbus_book_view_complete_start			e_gdbus_complete_sync_method_void
+#define e_gdbus_book_view_complete_stop				e_gdbus_complete_sync_method_void
+#define e_gdbus_book_view_complete_dispose			e_gdbus_complete_sync_method_void
+#define e_gdbus_book_view_complete_set_fields_of_interest	e_gdbus_complete_sync_method_void
 
 
 /* D-Bus Signal Emission Helpers */
