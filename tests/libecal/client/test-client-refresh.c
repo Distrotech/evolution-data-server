@@ -12,7 +12,9 @@ test_sync (ECalClient *cal_client)
 {
 	GError *error = NULL;
 
-	if (!e_cal_client_refresh_sync (cal_client, NULL, &error)) {
+	g_print ("Refresh supported: %s\n", e_client_check_refresh_supported (E_CLIENT (cal_client)) ? "yes" : "no");
+
+	if (!e_client_refresh_sync (E_CLIENT (cal_client), NULL, &error)) {
 		report_error ("refresh sync", &error);
 		return FALSE;
 	}
@@ -29,7 +31,7 @@ async_refresh_result_ready (GObject *source_object, GAsyncResult *result, gpoint
 
 	cal_client = E_CAL_CLIENT (source_object);
 
-	if (!e_cal_client_refresh_finish (cal_client, result, &error)) {
+	if (!e_client_refresh_finish (E_CLIENT (cal_client), result, &error)) {
 		report_error ("refresh finish", &error);
 		stop_main_loop (1);
 		return;
@@ -52,7 +54,9 @@ test_sync_in_idle (gpointer user_data)
 		return FALSE;
 	}
 
-	e_cal_client_refresh (cal_client, NULL, async_refresh_result_ready, NULL);
+	g_print ("Refresh supported: %s\n", e_client_check_refresh_supported (E_CLIENT (cal_client)) ? "yes" : "no");
+
+	e_client_refresh (E_CLIENT (cal_client), NULL, async_refresh_result_ready, NULL);
 
 	return FALSE;
 }

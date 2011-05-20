@@ -21,6 +21,7 @@ libclient_test_utils_la_LIBADD = 				\
 TESTS =								\
 	test-client-remove					\
 	test-client-examine					\
+	test-client-refresh					\
 	test-client-add-contact					\
 	test-client-get-contact					\
 	test-client-get-view					\
@@ -69,6 +70,8 @@ test_client_get_view_LDADD=$(TEST_LIBS)
 test_client_get_view_CPPFLAGS=$(TEST_CPPFLAGS)
 test_client_modify_contact_LDADD=$(TEST_LIBS)
 test_client_modify_contact_CPPFLAGS=$(TEST_CPPFLAGS)
+test_client_refresh_LDADD=$(TEST_LIBS)
+test_client_refresh_CPPFLAGS=$(TEST_CPPFLAGS)
 test_client_remove_LDADD=$(TEST_LIBS)
 test_client_remove_CPPFLAGS=$(TEST_CPPFLAGS)
 test_client_remove_contact_LDADD=$(TEST_LIBS)

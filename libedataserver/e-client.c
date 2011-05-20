@@ -555,6 +555,25 @@ e_client_check_capability (EClient *client, const gchar *capability)
 	return FALSE;
 }
 
+/**
+ * e_client_check_refresh_supported:
+ * @client: A client.
+ *
+ * Checks whether a client supports explicit refreshing (see e_client_refresh()).
+ *
+ * Returns: TRUE if the client supports refreshing, FALSE otherwise.
+ *
+ * Since: 3.2
+ **/
+gboolean
+e_client_check_refresh_supported (EClient *client)
+{
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_CLIENT (client), FALSE);
+
+	return e_client_check_capability (client, "refresh-supported");
+}
+
 /* capabilities - comma-separated list of capabilities; can be NULL to unset */
 void
 e_client_set_capabilities (EClient *client, const gchar *capabilities)
@@ -1249,6 +1268,93 @@ e_client_remove_sync (EClient *client, GCancellable *cancellable, GError **error
 	g_return_val_if_fail (klass->remove_sync != NULL, FALSE);
 
 	return klass->remove_sync (client, cancellable, error);
+}
+
+/**
+ * e_client_refresh:
+ * @client: an #EClient
+ * @cancellable: a #GCancellable; can be %NULL
+ * @callback: callback to call when a result is ready
+ * @user_data: user data for the @callback
+ *
+ * Initiates refresh on the @client. Finishing the method doesn't mean
+ * that the refresh is done, backend only notifies whether it started
+ * refreshing or not. Use e_client_check_refresh_supported() to check
+ * whether the backend supports this method.
+ * The call is finished by e_client_refresh_finish() from the @callback.
+ *
+ * Since: 3.2
+ **/
+void
+e_client_refresh (EClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	EClientClass *klass;
+
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (client->priv != NULL);
+	g_return_if_fail (callback != NULL);
+
+	klass = E_CLIENT_GET_CLASS (client);
+	g_return_if_fail (klass != NULL);
+	g_return_if_fail (klass->refresh != NULL);
+
+	klass->refresh (client, cancellable, callback, user_data);
+}
+
+/**
+ * e_client_refresh_finish:
+ * @client: an #EClient
+ * @result: a #GAsyncResult
+ * @error: (out): a #GError to set an error, if any
+ *
+ * Finishes previous call of e_client_refresh().
+ *
+ * Returns: %TRUE if successful, %FALSE otherwise.
+ *
+ * Since: 3.2
+ **/
+gboolean
+e_client_refresh_finish (EClient *client, GAsyncResult *result, GError **error)
+{
+	EClientClass *klass;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_CLIENT (client), FALSE);
+	g_return_val_if_fail (client->priv != NULL, FALSE);
+
+	klass = E_CLIENT_GET_CLASS (client);
+	g_return_val_if_fail (klass != NULL, FALSE);
+	g_return_val_if_fail (klass->refresh_finish != NULL, FALSE);
+
+	return klass->refresh_finish (client, result, error);
+}
+
+/**
+ * e_client_refresh_sync:
+ * @client: an #EClient
+ * @cancellable: a #GCancellable; can be %NULL
+ * @error: (out): a #GError to set an error, if any
+ *
+ * Initiates refresh on the @client. Finishing the method doesn't mean
+ * that the refresh is done, backend only notifies whether it started
+ * refreshing or not. Use e_client_check_refresh_supported() to check
+ * whether the backend supports this method.
+ *
+ * Returns: %TRUE if successful, %FALSE otherwise.
+ *
+ * Since: 3.2
+ **/
+gboolean
+e_client_refresh_sync (EClient *client, GCancellable *cancellable, GError **error)
+{
+	EClientClass *klass;
+
+	klass = E_CLIENT_GET_CLASS (client);
+	g_return_val_if_fail (klass != NULL, FALSE);
+	g_return_val_if_fail (klass->refresh_sync != NULL, FALSE);
+
+	return klass->refresh_sync (client, cancellable, error);
 }
 
 /**

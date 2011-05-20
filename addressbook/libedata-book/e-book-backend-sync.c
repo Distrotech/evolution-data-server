@@ -110,6 +110,27 @@ e_book_backend_sync_remove (EBookBackendSync *backend,
 }
 
 /**
+ * e_book_backend_sync_refresh:
+ * @backend: An EBookBackendSync object.
+ * @book: An EDataBook object.
+ * @cancellable: a #GCancellable for the operation
+ * @error: Out parameter for a #GError.
+ *
+ * Calls the refresh_sync method on the given backend.
+ *
+ * Since: 3.2
+ */
+void
+e_book_backend_sync_refresh  (EBookBackendSync *backend, EDataBook *book, GCancellable *cancellable, GError **error)
+{
+	e_return_data_book_error_if_fail (E_IS_BOOK_BACKEND_SYNC (backend), E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_if_fail (E_IS_DATA_BOOK (book), E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_if_fail (E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->refresh_sync, E_DATA_BOOK_STATUS_NOT_SUPPORTED);
+
+	(* E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->refresh_sync) (backend, book, cancellable, error);
+}
+
+/**
  * e_book_backend_sync_get_backend_property:
  * @backend: an #EBookBackendSync
  * @book: an #EDataBook
@@ -332,6 +353,16 @@ book_backend_remove (EBookBackend *backend,
 }
 
 static void
+book_backend_refresh (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)
+{
+	GError *error = NULL;
+
+	e_book_backend_sync_refresh (E_BOOK_BACKEND_SYNC (backend), book, cancellable, &error);
+
+	e_data_book_respond_refresh (book, opid, error);
+}
+
+static void
 book_backend_get_backend_property (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *prop_name)
 {
 	GError *error = NULL;
@@ -514,6 +545,7 @@ e_book_backend_sync_class_init (EBookBackendSyncClass *klass)
 	backend_class->open			= book_backend_open;
 	backend_class->authenticate_user	= book_backend_authenticate_user;
 	backend_class->remove			= book_backend_remove;
+	backend_class->refresh			= book_backend_refresh;
 	backend_class->get_backend_property	= book_backend_get_backend_property;
 	backend_class->set_backend_property	= book_backend_set_backend_property;
 	backend_class->create_contact		= book_backend_create_contact;

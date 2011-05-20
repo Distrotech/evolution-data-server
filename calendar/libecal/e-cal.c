@@ -2272,7 +2272,7 @@ e_cal_get_organizer_must_accept (ECal *ecal)
  *
  * Since: 2.30
  *
- * Deprecated: 3.2: Use e_cal_client_check_refresh_supported() instead.
+ * Deprecated: 3.2: Use e_client_check_refresh_supported() instead.
  */
 gboolean
 e_cal_get_refresh_supported (ECal *ecal)

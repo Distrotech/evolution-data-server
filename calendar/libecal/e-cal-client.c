@@ -973,25 +973,6 @@ e_cal_client_check_save_schedules (ECalClient *client)
 }
 
 /**
- * e_cal_client_check_refresh_supported:
- * @client: A calendar client.
- *
- * Checks whether a calendar supports explicit refreshing (see e_cal_client_refresh()).
- *
- * Returns: TRUE if the calendar supports refreshing, FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_cal_client_check_refresh_supported (ECalClient *client)
-{
-	g_return_val_if_fail (client != NULL, FALSE);
-	g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
-
-	return e_client_check_capability (E_CLIENT (client), CAL_STATIC_CAPABILITY_REFRESH_SUPPORTED);
-}
-
-/**
  * e_cal_client_check_organizer_must_attend:
  * @client: A calendar client.
  *
@@ -1894,6 +1875,40 @@ cal_client_remove_sync (EClient *client, GCancellable *cancellable, GError **err
 	return e_client_proxy_call_sync_void__void (client, cancellable, error, e_gdbus_cal_call_remove_sync);
 }
 
+static void
+cal_client_refresh (EClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	e_client_proxy_call_void (client, cancellable, callback, user_data, cal_client_refresh,
+			e_gdbus_cal_call_refresh,
+			e_gdbus_cal_call_refresh_finish, NULL, NULL, NULL, NULL);
+}
+
+static gboolean
+cal_client_refresh_finish (EClient *client, GAsyncResult *result, GError **error)
+{
+	return e_client_proxy_call_finish_void (client, result, error, cal_client_refresh);
+}
+
+static gboolean
+cal_client_refresh_sync (EClient *client, GCancellable *cancellable, GError **error)
+{
+	ECalClient *cal_client;
+
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
+
+	cal_client = E_CAL_CLIENT (client);
+	g_return_val_if_fail (cal_client != NULL, FALSE);
+	g_return_val_if_fail (cal_client->priv != NULL, FALSE);
+
+	if (!cal_client->priv->gdbus_cal) {
+		set_proxy_gone_error (error);
+		return FALSE;
+	}
+
+	return e_client_proxy_call_sync_void__void (client, cancellable, error, e_gdbus_cal_call_refresh_sync);
+}
+
 static gboolean
 complete_string_exchange (gboolean res, gchar *out_string, gchar **result, GError **error)
 {
@@ -2024,72 +2039,6 @@ e_cal_client_get_default_object_sync (ECalClient *client, icalcomponent **icalco
 	res = e_client_proxy_call_sync_string__string (E_CLIENT (client), CAL_BACKEND_PROPERTY_DEFAULT_OBJECT, &out_string, cancellable, error, e_gdbus_cal_call_get_backend_property_sync);
 
 	return complete_get_object (res, out_string, icalcomp, error);
-}
-
-/**
- * e_cal_client_refresh:
- * @client: an #ECalClient
- * @cancellable: a #GCancellable; can be %NULL
- * @callback: callback to call when a result is ready
- * @user_data: user data for the @callback
- *
- * Invokes refresh on a calendar. See @e_cal_client_get_refresh_supported().
- * The call is finished by e_cal_client_refresh_finish() from
- * the @callback.
- *
- * Since: 3.2
- **/
-void
-e_cal_client_refresh (ECalClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_client_proxy_call_void (E_CLIENT (client), cancellable, callback, user_data, e_cal_client_refresh,
-			e_gdbus_cal_call_refresh,
-			e_gdbus_cal_call_refresh_finish, NULL, NULL, NULL, NULL);
-}
-
-/**
- * e_cal_client_refresh_finish:
- * @client: an #ECalClient
- * @result: a #GAsyncResult
- * @error: (out): a #GError to set an error, if any
- *
- * Finishes previous call of e_cal_client_refresh().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_cal_client_refresh_finish (ECalClient *client, GAsyncResult *result, GError **error)
-{
-	return e_client_proxy_call_finish_void (E_CLIENT (client), result, error, e_cal_client_refresh);
-}
-
-/**
- * e_cal_client_refresh_sync:
- * @client: an #ECalClient
- * @cancellable: a #GCancellable; can be %NULL
- * @error: (out): a #GError to set an error, if any
- *
- * Invokes refresh on a calendar. See @e_cal_client_get_refresh_supported().
- *
- * Returns: %TRUE if successful, %FALSE otherwise.
- *
- * Since: 3.2
- **/
-gboolean
-e_cal_client_refresh_sync (ECalClient *client, GCancellable *cancellable, GError **error)
-{
-	g_return_val_if_fail (client != NULL, FALSE);
-	g_return_val_if_fail (E_IS_CAL_CLIENT (client), FALSE);
-	g_return_val_if_fail (client->priv != NULL, FALSE);
-
-	if (!client->priv->gdbus_cal) {
-		set_proxy_gone_error (error);
-		return FALSE;
-	}
-
-	return e_client_proxy_call_sync_void__void (E_CLIENT (client), cancellable, error, e_gdbus_cal_call_refresh_sync);
 }
 
 /**
@@ -4141,6 +4090,9 @@ e_cal_client_class_init (ECalClientClass *klass)
 	client_class->remove				= cal_client_remove;
 	client_class->remove_finish			= cal_client_remove_finish;
 	client_class->remove_sync			= cal_client_remove_sync;
+	client_class->refresh				= cal_client_refresh;
+	client_class->refresh_finish			= cal_client_refresh_finish;
+	client_class->refresh_sync			= cal_client_refresh_sync;
 
 	signals[FREE_BUSY_DATA] = g_signal_new (
 		"free-busy-data",

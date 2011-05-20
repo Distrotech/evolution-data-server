@@ -99,6 +99,10 @@ struct _EClientClass {
 	gboolean	(* remove_finish) (EClient *client, GAsyncResult *result, GError **error);
 	gboolean	(* remove_sync) (EClient *client, GCancellable *cancellable, GError **error);
 
+	void		(* refresh) (EClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+	gboolean	(* refresh_finish) (EClient *client, GAsyncResult *result, GError **error);
+	gboolean	(* refresh_sync) (EClient *client, GCancellable *cancellable, GError **error);
+
 	void		(* handle_authentication) (EClient *client, const ECredentials *credentials);
 	gchar *		(* retrieve_capabilities) (EClient *client);
 
@@ -115,6 +119,7 @@ ESource *	e_client_get_source			(EClient *client);
 const gchar *	e_client_get_uri			(EClient *client);
 const GSList *	e_client_get_capabilities		(EClient *client);
 gboolean	e_client_check_capability		(EClient *client, const gchar *capability);
+gboolean	e_client_check_refresh_supported	(EClient *client);
 gboolean	e_client_is_readonly			(EClient *client);
 gboolean	e_client_is_online			(EClient *client);
 gboolean	e_client_is_opened			(EClient *client);
@@ -136,6 +141,10 @@ gboolean	e_client_open_sync			(EClient *client, gboolean only_if_exists, GCancel
 void		e_client_remove				(EClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_client_remove_finish			(EClient *client, GAsyncResult *result, GError **error);
 gboolean	e_client_remove_sync			(EClient *client, GCancellable *cancellable, GError **error);
+
+void		e_client_refresh			(EClient *client, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean	e_client_refresh_finish			(EClient *client, GAsyncResult *result, GError **error);
+gboolean	e_client_refresh_sync			(EClient *client, GCancellable *cancellable, GError **error);
 
 /* utility functions */
 gchar **	e_client_util_slist_to_strv		(const GSList *strings);

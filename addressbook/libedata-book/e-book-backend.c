@@ -413,6 +413,36 @@ e_book_backend_remove (EBookBackend *backend,
 }
 
 /**
+ * e_book_backend_refresh:
+ * @backend: an #EBookBackend
+ * @book: an #EDataBook
+ * @opid: the ID to use for this operation
+ * @cancellable: a #GCancellable for the operation
+ *
+ * Refreshes the address book being accessed by the given backend.
+ * This might be finished with e_data_book_respond_refresh(),
+ * and it might be called as soon as possible; it doesn't mean
+ * that the refreshing is done after calling that, the backend
+ * is only notifying client whether it started the refresh process
+ * or not.
+ *
+ * Since: 3.2
+ **/
+void
+e_book_backend_refresh (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
+
+	if (e_book_backend_is_opening (backend))
+		e_data_book_respond_refresh (book, opid, EDB_OPENING_ERROR);
+	else if (!E_BOOK_BACKEND_GET_CLASS (backend)->refresh)
+		e_data_book_respond_refresh (book, opid, e_data_book_create_error (E_DATA_BOOK_STATUS_NOT_SUPPORTED, NULL));
+	else
+		(* E_BOOK_BACKEND_GET_CLASS (backend)->refresh) (backend, book, opid, cancellable);
+}
+
+/**
  * e_book_backend_create_contact:
  * @backend: an #EBookBackend
  * @book: an #EDataBook

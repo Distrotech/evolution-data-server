@@ -988,7 +988,11 @@ e_cal_backend_remove (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancel
  * @cancellable: a #GCancellable for the operation
  *
  * Refreshes the calendar being accessed by the given backend.
- * This might be finished with e_data_cal_respond_refresh().
+ * This might be finished with e_data_cal_respond_refresh(),
+ * and it might be called as soon as possible; it doesn't mean
+ * that the refreshing is done after calling that, the backend
+ * is only notifying client whether it started the refresh process
+ * or not.
  *
  * Since: 2.30
  **/
@@ -997,10 +1001,11 @@ e_cal_backend_refresh (ECalBackend *backend, EDataCal *cal, guint32 opid, GCance
 {
 	g_return_if_fail (backend != NULL);
 	g_return_if_fail (E_IS_CAL_BACKEND (backend));
-	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->refresh != NULL);
 
 	if (e_cal_backend_is_opening (backend))
 		e_data_cal_respond_refresh (cal, opid, EDC_OPENING_ERROR);
+	else if (!E_CAL_BACKEND_GET_CLASS (backend)->refresh)
+		e_data_cal_respond_refresh (cal, opid, EDC_ERROR (UnsupportedMethod));
 	else
 		(* E_CAL_BACKEND_GET_CLASS (backend)->refresh) (backend, cal, opid, cancellable);
 }

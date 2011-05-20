@@ -106,7 +106,6 @@ void			e_cal_client_set_default_timezone	(ECalClient *client, /* const */ icalti
 /* Check predefined capabilities */
 gboolean		e_cal_client_check_one_alarm_only	(ECalClient *client);
 gboolean		e_cal_client_check_save_schedules	(ECalClient *client);
-gboolean		e_cal_client_check_refresh_supported	(ECalClient *client);
 gboolean		e_cal_client_check_organizer_must_attend(ECalClient *client);
 gboolean		e_cal_client_check_organizer_must_accept(ECalClient *client);
 gboolean		e_cal_client_check_recurrences_no_master(ECalClient *client);

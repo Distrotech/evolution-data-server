@@ -135,6 +135,7 @@ guint		e_data_book_register_gdbus_object		(EDataBook *cal, GDBusConnection *conn
 
 void		e_data_book_respond_open			(EDataBook *book, guint32 opid, GError *error);
 void		e_data_book_respond_remove			(EDataBook *book, guint32 opid, GError *error);
+void		e_data_book_respond_refresh			(EDataBook *book, guint32 opid, GError *error);
 void		e_data_book_respond_get_backend_property	(EDataBook *book, guint32 opid, GError *error, const gchar *prop_value);
 void		e_data_book_respond_set_backend_property	(EDataBook *book, guint32 opid, GError *error);
 void		e_data_book_respond_create			(EDataBook *book, guint32 opid, GError *error, const EContact *contact);

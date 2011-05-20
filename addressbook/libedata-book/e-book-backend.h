@@ -70,6 +70,7 @@ struct _EBookBackendClass {
 	void	(* set_online)			(EBookBackend *backend, gboolean is_online);
 	void	(* authenticate_user)		(EBookBackend *backend, GCancellable *cancellable, ECredentials *credentials);
 
+	void	(* refresh)			(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
 	void	(* create_contact)		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *vcard);
 	void	(* remove_contacts)		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const GSList *id_list);
 	void	(* modify_contact)		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *vcard);
@@ -107,6 +108,7 @@ void		e_book_backend_set_backend_property (EBookBackend *backend, EDataBook *boo
 
 void		e_book_backend_open		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, gboolean only_if_exists);
 void		e_book_backend_remove		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
+void		e_book_backend_refresh		(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable);
 void		e_book_backend_create_contact	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *vcard);
 void		e_book_backend_remove_contacts	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const GSList *id_list);
 void		e_book_backend_modify_contact	(EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, const gchar *vcard);

@@ -56,6 +56,7 @@ static EOperationPool *ops_pool = NULL;
 typedef enum {
 	OP_OPEN,
 	OP_REMOVE,
+	OP_REFRESH,
 	OP_GET_CONTACT,
 	OP_GET_CONTACTS,
 	OP_AUTHENTICATE,
@@ -101,9 +102,10 @@ typedef struct {
 			gchar *prop_value;
 		} sbp;
 
-		/* - OP_REMOVE */
-		/* - OP_CANCEL_ALL */
-		/* - OP_CLOSE */
+		/* OP_REMOVE */
+		/* OP_REFRESH */
+		/* OP_CANCEL_ALL */
+		/* OP_CLOSE */
 	} d;
 } OperationData;
 
@@ -160,6 +162,9 @@ operation_thread (gpointer data, gpointer user_data)
 		break;
 	case OP_REMOVE:
 		e_book_backend_remove (backend, op->book, op->id, op->cancellable);
+		break;
+	case OP_REFRESH:
+		e_book_backend_refresh (backend, op->book, op->id, op->cancellable);
 		break;
 	case OP_GET_BACKEND_PROPERTY:
 		e_book_backend_get_backend_property (backend, op->book, op->id, op->cancellable, op->d.prop_name);
@@ -497,6 +502,19 @@ impl_Book_remove (EGdbusBook *object, GDBusMethodInvocation *invocation, EDataBo
 }
 
 static gboolean
+impl_Book_refresh (EGdbusBook *object, GDBusMethodInvocation *invocation, EDataBook *book)
+{
+	OperationData *op;
+
+	op = op_new (OP_REFRESH, book);
+
+	e_gdbus_book_complete_refresh (book->priv->gdbus_object, invocation, op->id);
+	e_operation_pool_push (ops_pool, op);
+
+	return TRUE;
+}
+
+static gboolean
 impl_Book_getContact (EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar *in_uid, EDataBook *book)
 {
 	OperationData *op;
@@ -751,6 +769,29 @@ e_data_book_respond_remove (EDataBook *book, guint opid, GError *error)
 		e_book_backend_set_is_removed (book->priv->backend, TRUE);
 }
 
+/**
+ * e_data_book_respond_refresh:
+ * @book: An addressbook client interface.
+ * @error: Operation error, if any, automatically freed if passed it.
+ *
+ * Notifies listeners of the completion of the refresh method call.
+ *
+ * Since: 3.2
+ */
+void
+e_data_book_respond_refresh (EDataBook *book, guint32 opid, GError *error)
+{
+	op_complete (book, opid);
+
+	/* Translators: This is prefix to a detailed error message */
+	g_prefix_error (&error, "%s", _("Cannot refresh address book: "));
+
+	e_gdbus_book_emit_refresh_done (book->priv->gdbus_object, opid, error);
+
+	if (error)
+		g_error_free (error);
+}
+
 void
 e_data_book_respond_get_backend_property (EDataBook *book, guint32 opid, GError *error, const gchar *prop_value)
 {
@@ -985,6 +1026,7 @@ e_data_book_init (EDataBook *ebook)
 	gdbus_object = ebook->priv->gdbus_object;
 	g_signal_connect (gdbus_object, "handle-open", G_CALLBACK (impl_Book_open), ebook);
 	g_signal_connect (gdbus_object, "handle-remove", G_CALLBACK (impl_Book_remove), ebook);
+	g_signal_connect (gdbus_object, "handle-refresh", G_CALLBACK (impl_Book_refresh), ebook);
 	g_signal_connect (gdbus_object, "handle-get-contact", G_CALLBACK (impl_Book_getContact), ebook);
 	g_signal_connect (gdbus_object, "handle-get-contact-list", G_CALLBACK (impl_Book_getContactList), ebook);
 	g_signal_connect (gdbus_object, "handle-authenticate-user", G_CALLBACK (impl_Book_authenticateUser), ebook);

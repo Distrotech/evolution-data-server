@@ -44,6 +44,8 @@ enum
 	__OPEN_DONE_SIGNAL,
 	__REMOVE_METHOD,
 	__REMOVE_DONE_SIGNAL,
+	__REFRESH_METHOD,
+	__REFRESH_DONE_SIGNAL,
 	__GET_CONTACT_METHOD,
 	__GET_CONTACT_DONE_SIGNAL,
 	__GET_CONTACT_LIST_METHOD,
@@ -117,6 +119,7 @@ E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV    (GDBUS_BOOK_INTERFACE_NAME, opened)
 
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_BOOK_INTERFACE_NAME, open)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_BOOK_INTERFACE_NAME, remove)
+E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_BOOK_INTERFACE_NAME, refresh)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_BOOK_INTERFACE_NAME, get_contact)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRV	(GDBUS_BOOK_INTERFACE_NAME, get_contact_list)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_BOOK_INTERFACE_NAME, add_contact)
@@ -145,6 +148,7 @@ e_gdbus_book_default_init (EGdbusBookIface *iface)
 	/* GObject signals definitions for D-Bus methods: */
 	E_INIT_GDBUS_METHOD_ASYNC_BOOLEAN__VOID	(EGdbusBookIface, "open",			open, __OPEN_METHOD, __OPEN_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_VOID__VOID	(EGdbusBookIface, "remove",			remove, __REMOVE_METHOD, __REMOVE_DONE_SIGNAL)
+	E_INIT_GDBUS_METHOD_ASYNC_VOID__VOID	(EGdbusBookIface, "refresh",			refresh, __REFRESH_METHOD, __REFRESH_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRING(EGdbusBookIface, "getContact",			get_contact, __GET_CONTACT_METHOD, __GET_CONTACT_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRV	(EGdbusBookIface, "getContactList",		get_contact_list, __GET_CONTACT_LIST_METHOD, __GET_CONTACT_LIST_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRING(EGdbusBookIface, "addContact",			add_contact, __ADD_CONTACT_METHOD, __ADD_CONTACT_DONE_SIGNAL)
@@ -197,6 +201,26 @@ e_gdbus_book_call_remove_sync (GDBusProxy *proxy, GCancellable *cancellable, GEr
 	return e_gdbus_proxy_call_sync_void__void (proxy, cancellable, error,
 		e_gdbus_book_call_remove,
 		e_gdbus_book_call_remove_finish);
+}
+
+void
+e_gdbus_book_call_refresh (GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	e_gdbus_proxy_call_void ("refresh", e_gdbus_book_call_refresh, E_GDBUS_ASYNC_OP_KEEPER (proxy), cancellable, callback, user_data);
+}
+
+gboolean
+e_gdbus_book_call_refresh_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error)
+{
+	return e_gdbus_proxy_finish_call_void (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, error, e_gdbus_book_call_refresh);
+}
+
+gboolean
+e_gdbus_book_call_refresh_sync (GDBusProxy *proxy, GCancellable *cancellable, GError **error)
+{
+	return e_gdbus_proxy_call_sync_void__void (proxy, cancellable, error,
+		e_gdbus_book_call_refresh,
+		e_gdbus_book_call_refresh_finish);
 }
 
 void
@@ -478,6 +502,7 @@ e_gdbus_book_emit_ ## _mname ## _done (EGdbusBook *object, guint arg_opid, const
 
 DECLARE_EMIT_DONE_SIGNAL_0 (open,			__OPEN_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_0 (remove,			__REMOVE_DONE_SIGNAL)
+DECLARE_EMIT_DONE_SIGNAL_0 (refresh,			__REFRESH_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_1 (get_contact,		__GET_CONTACT_DONE_SIGNAL, const gchar *)
 DECLARE_EMIT_DONE_SIGNAL_1 (get_contact_list,		__GET_CONTACT_LIST_DONE_SIGNAL, const gchar * const *)
 DECLARE_EMIT_DONE_SIGNAL_1 (add_contact,		__ADD_CONTACT_DONE_SIGNAL, const gchar *)
@@ -528,6 +553,7 @@ E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (book, opened, error, "as")
 
 E_DECLARE_GDBUS_ASYNC_METHOD_1			(book, open, only_if_exists, "b")
 E_DECLARE_GDBUS_ASYNC_METHOD_0			(book, remove)
+E_DECLARE_GDBUS_ASYNC_METHOD_0			(book, refresh)
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(book, getContact, uid, "s", vcard, "s")
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(book, getContactList, query, "s", vcards, "as")
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(book, addContact, vcard, "s", uid, "s")
@@ -546,6 +572,7 @@ static const GDBusMethodInfo * const e_gdbus_book_method_info_pointers[] =
 {
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, open),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, remove),
+	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, refresh),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, getContact),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, getContactList),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, addContact),
@@ -571,6 +598,7 @@ static const GDBusSignalInfo * const e_gdbus_book_signal_info_pointers[] =
 
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, open_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, remove_done),
+	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, refresh_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, getContact_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, getContactList_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, addContact_done),
@@ -775,6 +803,7 @@ e_gdbus_book_proxy_init (EGdbusBookProxy *proxy)
 
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (open);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (remove);
+	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (refresh);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRING (get_contact);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRV   (get_contact_list);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRING (add_contact);
