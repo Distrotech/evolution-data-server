@@ -76,7 +76,7 @@ G_DEFINE_TYPE (ECalClient, e_cal_client, E_TYPE_CLIENT)
  *   Preferred way of retrieving this property is by
  *   calling e_cal_client_get_default_object().
  *
- * See also: @CLIENT_BACKEND_PROPERTY_LOADED,
+ * See also: @CLIENT_BACKEND_PROPERTY_OPENED, @CLIENT_BACKEND_PROPERTY_OPENING,
  *   @CLIENT_BACKEND_PROPERTY_ONLINE, @CLIENT_BACKEND_PROPERTY_READONLY
  *   @CLIENT_BACKEND_PROPERTY_CACHE_DIR, @CLIENT_BACKEND_PROPERTY_CAPABILITIES
  **/
@@ -157,6 +157,7 @@ unwrap_dbus_error (GError *error, GError **client_error)
 		{ err ("NoSuchCal",				E_CAL_CLIENT_ERROR_NO_SUCH_CALENDAR) },
 		{ err ("UnknownUser",				E_CAL_CLIENT_ERROR_UNKNOWN_USER) },
 	}, cl_errors[] = {
+		{ err ("Busy",					E_CLIENT_ERROR_BUSY) },
 		{ err ("InvalidArg",				E_CLIENT_ERROR_INVALID_ARG) },
 		{ err ("RepositoryOffline",			E_CLIENT_ERROR_REPOSITORY_OFFLINE) },
 		{ err ("PermissionDenied",			E_CLIENT_ERROR_PERMISSION_DENIED) },
@@ -403,6 +404,22 @@ auth_required_cb (EGdbusCal *object, const gchar * const *credentials_strv, ECal
 }
 
 static void
+opened_cb (EGdbusCal *object, const gchar * const *error_strv, ECalClient *client)
+{
+	GError *error = NULL;
+
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CAL_CLIENT (client));
+	g_return_if_fail (error_strv != NULL);
+	g_return_if_fail (e_gdbus_templates_decode_error (error_strv, &error));
+
+	e_client_emit_opened (E_CLIENT (client), error);
+
+	if (error)
+		g_error_free (error);
+}
+
+static void
 free_busy_data_cb (EGdbusCal *object, const gchar * const *free_busy_strv, ECalClient *client)
 {
 	GSList *ecalcomps = NULL;
@@ -570,6 +587,7 @@ e_cal_client_new (ESource *source, ECalClientSourceType source_type, GError **er
 	g_signal_connect (client->priv->gdbus_cal, "readonly", G_CALLBACK (readonly_cb), client);
 	g_signal_connect (client->priv->gdbus_cal, "online", G_CALLBACK (online_cb), client);
 	g_signal_connect (client->priv->gdbus_cal, "auth-required", G_CALLBACK (auth_required_cb), client);
+	g_signal_connect (client->priv->gdbus_cal, "opened", G_CALLBACK (opened_cb), client);
 	g_signal_connect (client->priv->gdbus_cal, "free-busy-data", G_CALLBACK (free_busy_data_cb), client);
 
 	return client;

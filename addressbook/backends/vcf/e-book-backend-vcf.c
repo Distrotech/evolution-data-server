@@ -541,7 +541,6 @@ e_book_backend_vcf_extract_path_from_uri (const gchar *uri)
 
 static void
 e_book_backend_vcf_authenticate_user (EBookBackendSync *backend,
-				      EDataBook *book,
 				      GCancellable *cancellable,
 				      ECredentials *credentials,
 				      GError **perror)
@@ -628,10 +627,9 @@ e_book_backend_vcf_open (EBookBackendSync        *backend,
 
 	load_file (bvcf, fd);
 
-	e_book_backend_set_is_loaded (E_BOOK_BACKEND (backend), TRUE);
-	e_book_backend_set_is_readonly (E_BOOK_BACKEND (backend), readonly);
 	e_book_backend_notify_readonly (E_BOOK_BACKEND (backend), readonly);
 	e_book_backend_notify_online (E_BOOK_BACKEND (backend), TRUE);
+	e_book_backend_notify_opened (E_BOOK_BACKEND (backend), NULL);
 
 	g_free (uri);
 }
@@ -671,7 +669,7 @@ e_book_backend_vcf_get_backend_property (EBookBackendSync *backend, EDataBook *b
 static void
 e_book_backend_vcf_set_online (EBookBackend *backend, gboolean is_online)
 {
-	if (e_book_backend_is_loaded (backend))
+	if (e_book_backend_is_opened (backend))
 		e_book_backend_notify_online (backend, TRUE);
 }
 

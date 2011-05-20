@@ -1661,3 +1661,50 @@ e_gdbus_proxy_method_call_sync_strv__string (const gchar *method_name, GDBusProx
 {
 	return proxy_method_call_sync (method_name, E_GDBUS_TYPE_STRV, in_strv, E_GDBUS_TYPE_STRING, out_string, proxy, cancellable, error);
 }
+
+/* free returned pointer with g_strfreev() */
+gchar **
+e_gdbus_templates_encode_error (const GError *in_error)
+{
+	gchar **strv;
+
+	strv = g_new0 (gchar *, 3);
+
+	if (!in_error) {
+		strv[0] = g_strdup ("");
+		strv[1] = g_strdup ("");
+	} else {
+		gchar *dbus_error_name = g_dbus_error_encode_gerror (in_error);
+
+		strv[0] = e_util_utf8_make_valid (dbus_error_name ? dbus_error_name : "");
+		strv[1] = e_util_utf8_make_valid (in_error->message);
+
+		g_free (dbus_error_name);
+	}
+
+	return strv;
+}
+
+/* free *out_error with g_error_free(), if not NULL */
+gboolean
+e_gdbus_templates_decode_error (const gchar * const *in_strv, GError **out_error)
+{
+	const gchar *error_name, *error_message;
+
+	g_return_val_if_fail (out_error != NULL, FALSE);
+
+	*out_error = NULL;
+
+	g_return_val_if_fail (in_strv != NULL, FALSE);
+	g_return_val_if_fail (in_strv[0] != NULL, FALSE);
+	g_return_val_if_fail (in_strv[1] != NULL, FALSE);
+	g_return_val_if_fail (in_strv[2] == NULL, FALSE);
+
+	error_name = in_strv[0];
+	error_message = in_strv[1];
+
+	if (error_name && *error_name && error_message)
+		*out_error = g_dbus_error_new_for_dbus_error (error_name, error_message);
+
+	return TRUE;
+}

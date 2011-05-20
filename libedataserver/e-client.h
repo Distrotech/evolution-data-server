@@ -36,7 +36,8 @@
 #define E_IS_CLIENT_CLASS(k)	(G_TYPE_CHECK_CLASS_TYPE ((k), E_TYPE_CLIENT))
 #define E_CLIENT_GET_CLASS(obj)	(G_TYPE_INSTANCE_GET_CLASS ((obj), E_TYPE_CLIENT, EClientClass))
 
-#define CLIENT_BACKEND_PROPERTY_LOADED			"loaded"
+#define CLIENT_BACKEND_PROPERTY_OPENED			"opened"
+#define CLIENT_BACKEND_PROPERTY_OPENING			"opening"
 #define CLIENT_BACKEND_PROPERTY_ONLINE			"online"
 #define CLIENT_BACKEND_PROPERTY_READONLY		"readonly"
 #define CLIENT_BACKEND_PROPERTY_CACHE_DIR		"cache-dir"
@@ -103,6 +104,7 @@ struct _EClientClass {
 
 	/* signals */
 	gboolean	(* authenticate) (EClient *client, ECredentials *credentials);
+	void		(* opened) (EClient *client, const GError *error);
 	void		(* backend_error) (EClient *client, const gchar *error_msg);
 	void		(* backend_died) (EClient *client);
 };

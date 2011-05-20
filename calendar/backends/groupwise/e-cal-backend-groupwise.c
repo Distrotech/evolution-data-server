@@ -1150,7 +1150,6 @@ connect_to_server (ECalBackendGroupwise *cbgw, GError **perror)
 		}
 
 		e_cal_backend_store_load (priv->store);
-		e_cal_backend_set_is_loaded (E_CAL_BACKEND (backend), TRUE);
 
 		/* spawn a new thread for opening the calendar */
 		thread = g_thread_create ((GThreadFunc) cache_init, cbgw, FALSE, &error);
@@ -1378,6 +1377,7 @@ e_cal_backend_groupwise_open (ECalBackendSync *backend, EDataCal *cal, GCancella
 		if (!display_contents || !g_str_equal (display_contents, "1")) {
 			PRIV_UNLOCK (priv);
 			g_propagate_error (perror, EDC_ERROR (RepositoryOffline));
+			e_cal_backend_notify_opened (E_CAL_BACKEND (backend), EDC_ERROR (RepositoryOffline));
 			return;
 		}
 
@@ -1388,26 +1388,35 @@ e_cal_backend_groupwise_open (ECalBackendSync *backend, EDataCal *cal, GCancella
 			if (!priv->store) {
 				PRIV_UNLOCK (priv);
 				g_propagate_error (perror, EDC_ERROR_EX (OtherError, _("Could not create cache file")));
+				e_cal_backend_notify_opened (E_CAL_BACKEND (backend), EDC_ERROR_EX (OtherError, _("Could not create cache file")));
 				return;
 			}
 		}
 
 		e_cal_backend_store_load (priv->store);
-		e_cal_backend_set_is_loaded (E_CAL_BACKEND (backend), TRUE);
+		e_cal_backend_notify_opened (E_CAL_BACKEND (backend), NULL);
 		PRIV_UNLOCK (priv);
 		return;
 	}
 
-	if (priv->credentials)
-		connect_to_server (cbgw, perror);
-	else
-		e_cal_backend_notify_auth_required (E_CAL_BACKEND (cbgw), priv->credentials);
+	if (priv->credentials) {
+		GError *local_error = NULL;
+
+		connect_to_server (cbgw, &local_error);
+
+		if (!local_error)
+			e_cal_backend_notify_opened (E_CAL_BACKEND (backend), NULL);
+		else
+			g_propagate_error (perror, local_error);
+	} else {
+		e_cal_backend_notify_auth_required (E_CAL_BACKEND (cbgw), TRUE, priv->credentials);
+	}
 
 	PRIV_UNLOCK (priv);
 }
 
 static void
-e_cal_backend_groupwise_authenticate_user (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, ECredentials *credentials, GError **error)
+e_cal_backend_groupwise_authenticate_user (ECalBackendSync *backend, GCancellable *cancellable, ECredentials *credentials, GError **error)
 {
 	ECalBackendGroupwise        *cbgw;
 	ECalBackendGroupwisePrivate *priv;
@@ -1474,8 +1483,8 @@ e_cal_backend_groupwise_set_online (ECalBackend *backend, gboolean is_online)
 		priv->read_only = FALSE;
 		e_cal_backend_notify_online (backend, priv->is_online);
 		e_cal_backend_notify_readonly (backend, priv->read_only);
-		if (e_cal_backend_is_loaded (backend))
-			e_cal_backend_notify_auth_required (backend, priv->credentials);
+		if (e_cal_backend_is_opened (backend))
+			e_cal_backend_notify_auth_required (backend, TRUE, priv->credentials);
 	} else {
 		/* FIXME: make sure we update the cache before closing the connection */
 		in_offline (cbgw);

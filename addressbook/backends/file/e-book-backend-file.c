@@ -741,7 +741,6 @@ e_book_backend_file_extract_path_from_source (ESource *source)
 
 static void
 e_book_backend_file_authenticate_user (EBookBackendSync *backend,
-				       EDataBook *book,
 				       GCancellable *cancellable,
 				       ECredentials *credentials,
 				       GError **perror)
@@ -1102,10 +1101,9 @@ e_book_backend_file_open (EBookBackendSync       *backend,
 		}
 	}
 
-	e_book_backend_set_is_loaded (E_BOOK_BACKEND (backend), TRUE);
-	e_book_backend_set_is_readonly (E_BOOK_BACKEND (backend), readonly);
 	e_book_backend_notify_online (E_BOOK_BACKEND (backend), TRUE);
 	e_book_backend_notify_readonly (E_BOOK_BACKEND (backend), readonly);
+	e_book_backend_notify_opened (E_BOOK_BACKEND (backend), NULL /* Success */);
 }
 
 static gboolean
@@ -1212,7 +1210,7 @@ e_book_backend_file_get_backend_property (EBookBackendSync *backend, EDataBook *
 static void
 e_book_backend_file_set_online (EBookBackend *backend, gboolean is_online)
 {
-	if (e_book_backend_is_loaded (backend))
+	if (e_book_backend_is_opened (backend))
 		e_book_backend_notify_online (backend, TRUE);
 }
 

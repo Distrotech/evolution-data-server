@@ -978,13 +978,14 @@ e_cal_backend_contacts_open (ECalBackendSync *backend, EDataCal *cal, GCancellab
 			g_error_free (error);
 
 		g_propagate_error (perror, EDC_ERROR (OtherError));
+		e_cal_backend_notify_opened (E_CAL_BACKEND (backend), EDC_ERROR (OtherError));
 		return;
 	}
 
 	priv->addressbook_loaded = TRUE;
-	e_cal_backend_set_is_loaded (E_CAL_BACKEND (backend), TRUE);
 	e_cal_backend_notify_readonly (E_CAL_BACKEND (backend), TRUE);
 	e_cal_backend_notify_online (E_CAL_BACKEND (backend), TRUE);
+	e_cal_backend_notify_opened (E_CAL_BACKEND (backend), NULL);
 }
 
 /* Add_timezone handler for the file backend */

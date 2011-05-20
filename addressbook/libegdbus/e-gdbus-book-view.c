@@ -210,50 +210,6 @@ e_gdbus_book_view_emit_progress (EGdbusBookView *object, guint arg_percent, cons
 	g_signal_emit (object, signals[__PROGRESS_SIGNAL], 0, arg_percent, arg_message);
 }
 
-/* free returned pointer with g_strfreev() */
-gchar **
-e_gdbus_book_view_encode_error (const GError *in_error)
-{
-	gchar **strv;
-
-	strv = g_new0 (gchar *, 3);
-
-	if (!in_error) {
-		strv[0] = g_strdup ("");
-		strv[1] = g_strdup ("");
-	} else {
-		gchar *dbus_error_name = g_dbus_error_encode_gerror (in_error);
-
-		strv[0] = e_util_utf8_make_valid (dbus_error_name ? dbus_error_name : "");
-		strv[1] = e_util_utf8_make_valid (in_error->message);
-
-		g_free (dbus_error_name);
-	}
-
-	return strv;
-}
-
-/* free returned pointer with g_error_free(), of not NULL */
-GError *
-e_gdbus_book_view_decode_error (const gchar * const *in_strv)
-{
-	GError *error = NULL;
-	const gchar *error_name, *error_message;
-
-	g_return_val_if_fail (in_strv != NULL, NULL);
-	g_return_val_if_fail (in_strv[0] != NULL, NULL);
-	g_return_val_if_fail (in_strv[1] != NULL, NULL);
-	g_return_val_if_fail (in_strv[2] == NULL, NULL);
-
-	error_name = in_strv[0];
-	error_message = in_strv[1];
-
-	if (error_name && *error_name && error_message)
-		error = g_dbus_error_new_for_dbus_error (error_name, error_message);
-
-	return error;
-}
-
 void
 e_gdbus_book_view_emit_complete (EGdbusBookView *object, const gchar * const *arg_error)
 {

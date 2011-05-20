@@ -81,7 +81,6 @@ e_cal_backend_sync_open (ECalBackendSync *backend, EDataCal *cal, GCancellable *
 /**
  * e_cal_backend_sync_authenticate_user:
  * @backend: an #ECalBackendSync
- * @cal: an #EDataCal
  * @cancellable: a #GCancellable for the operation
  * @credentials: an #ECredentials to authenticate with
  * @error: #GError to set, when something fails
@@ -89,13 +88,12 @@ e_cal_backend_sync_open (ECalBackendSync *backend, EDataCal *cal, GCancellable *
  * Authenticates @backend with given @credentials.
  **/
 void
-e_cal_backend_sync_authenticate_user (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, ECredentials *credentials, GError **error)
+e_cal_backend_sync_authenticate_user (ECalBackendSync *backend, GCancellable *cancellable, ECredentials *credentials, GError **error)
 {
 	e_return_data_cal_error_if_fail (E_IS_CAL_BACKEND_SYNC (backend), InvalidArg);
-	e_return_data_cal_error_if_fail (E_IS_DATA_CAL (cal), InvalidArg);
 	e_return_data_cal_error_if_fail (credentials, InvalidArg);
 
-	LOCK_WRAPPER (authenticate_user_sync, (backend, cal, cancellable, credentials, error));
+	LOCK_WRAPPER (authenticate_user_sync, (backend, cancellable, credentials, error));
 }
 
 /**
@@ -498,13 +496,13 @@ cal_backend_open (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellabl
 }
 
 static void
-cal_backend_authenticate_user (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, ECredentials *credentials)
+cal_backend_authenticate_user (ECalBackend *backend, GCancellable *cancellable, ECredentials *credentials)
 {
 	GError *error = NULL;
 
-	e_cal_backend_sync_authenticate_user (E_CAL_BACKEND_SYNC (backend), cal, cancellable, credentials, &error);
+	e_cal_backend_sync_authenticate_user (E_CAL_BACKEND_SYNC (backend), cancellable, credentials, &error);
 
-	e_data_cal_respond_authenticate_user (cal, opid, error);
+	e_cal_backend_notify_opened (backend, error);
 }
 
 static void

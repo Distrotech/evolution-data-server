@@ -541,7 +541,7 @@ e_data_book_view_notify_complete (EDataBookView *book_view, const GError *error)
 
 	g_mutex_unlock (priv->pending_mutex);
 
-	strv_error = e_gdbus_book_view_encode_error (error);
+	strv_error = e_gdbus_templates_encode_error (error);
 	e_gdbus_book_view_emit_complete (priv->gdbus_object, (const gchar * const *) strv_error);
 	g_strfreev (strv_error);
 }

@@ -2485,16 +2485,18 @@ caldav_do_open (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellab
 
 		if (g_error_matches (local_error, E_DATA_CAL_ERROR, AuthenticationRequired) || g_error_matches (local_error, E_DATA_CAL_ERROR, AuthenticationFailed)) {
 			g_clear_error (&local_error);
-			e_cal_backend_notify_auth_required (E_CAL_BACKEND (cbdav), priv->credentials);
+			e_cal_backend_notify_auth_required (E_CAL_BACKEND (cbdav), TRUE, priv->credentials);
+		} else {
+			e_cal_backend_notify_opened (E_CAL_BACKEND (backend), NULL);
 		}
 
 		if (local_error)
 			g_propagate_error (perror, local_error);
 	} else {
 		priv->read_only = TRUE;
+		e_cal_backend_notify_opened (E_CAL_BACKEND (backend), NULL);
 	}
 
-	e_cal_backend_set_is_loaded (E_CAL_BACKEND (backend), priv->loaded);
 	e_cal_backend_notify_readonly (E_CAL_BACKEND (backend), priv->read_only);
 	e_cal_backend_notify_online (E_CAL_BACKEND (backend), priv->is_online);
 
@@ -2502,7 +2504,7 @@ caldav_do_open (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellab
 }
 
 static void
-caldav_authenticate_user (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, ECredentials *credentials, GError **error)
+caldav_authenticate_user (ECalBackendSync *backend, GCancellable *cancellable, ECredentials *credentials, GError **error)
 {
 	ECalBackendCalDAV        *cbdav;
 	ECalBackendCalDAVPrivate *priv;
@@ -2517,7 +2519,7 @@ caldav_authenticate_user (ECalBackendSync *backend, EDataCal *cal, GCancellable 
 
 	if (!credentials || !e_credentials_has_key (credentials, E_CREDENTIALS_KEY_USERNAME)) {
 		g_mutex_unlock (priv->busy_lock);
-		g_propagate_error (error, EDC_ERROR (AuthenticationFailed));
+		g_propagate_error (error, EDC_ERROR (AuthenticationRequired));
 		return;
 	}
 
@@ -2591,8 +2593,6 @@ caldav_remove (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellabl
 		/* wait until the slave died */
 		g_cond_wait (priv->slave_gone_cond, priv->busy_lock);
 	}
-
-	e_cal_backend_set_is_loaded (E_CAL_BACKEND (backend), priv->loaded);
 
 	g_mutex_unlock (priv->busy_lock);
 }

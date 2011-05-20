@@ -3130,8 +3130,6 @@ update_address_book_cache (gpointer data)
 
 static void
 e_book_backend_groupwise_authenticate_user (EBookBackend *backend,
-					    EDataBook    *book,
-					    guint32       opid,
 					    GCancellable *cancellable,
 					    ECredentials *credentials)
 {
@@ -3163,13 +3161,13 @@ e_book_backend_groupwise_authenticate_user (EBookBackend *backend,
 
 		e_book_backend_notify_readonly (backend, TRUE);
 		e_book_backend_notify_online (backend, FALSE);
-		e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (SUCCESS));
+		e_book_backend_notify_opened (backend, NULL /* Success */);
 		return;
 	}
 
 	if (priv->cnc) { /*we have already authenticated to server */
 		printf("already authenticated\n");
-		e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (SUCCESS));
+		e_book_backend_notify_opened (backend, NULL /* Success */);
 		return;
 	}
 
@@ -3182,9 +3180,9 @@ e_book_backend_groupwise_authenticate_user (EBookBackend *backend,
 
 	if (!E_IS_GW_CONNECTION (priv->cnc)) {
 		if (error.status == E_GW_CONNECTION_STATUS_INVALID_PASSWORD)
-			e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (AUTHENTICATION_FAILED));
+			e_book_backend_notify_opened (backend, EDB_ERROR (AUTHENTICATION_FAILED));
 		else
-			e_data_book_respond_authenticate_user (book, opid, EDB_ERROR_FAILED_STATUS (OTHER_ERROR, error.status));
+			e_book_backend_notify_opened (backend, EDB_ERROR_FAILED_STATUS (OTHER_ERROR, error.status));
 		return;
 	}
 
@@ -3198,7 +3196,7 @@ e_book_backend_groupwise_authenticate_user (EBookBackend *backend,
 			status = e_gw_connection_create_book (priv->cnc, priv->book_name,  &id);
 			is_writable = TRUE;
 			if (status != E_GW_CONNECTION_STATUS_OK ) {
-				e_data_book_respond_authenticate_user (book, opid, EDB_ERROR_FAILED_STATUS (OTHER_ERROR, status));
+				e_book_backend_notify_opened (backend, EDB_ERROR_FAILED_STATUS (OTHER_ERROR, status));
 				return;
 			}
 		}
@@ -3206,18 +3204,17 @@ e_book_backend_groupwise_authenticate_user (EBookBackend *backend,
 	if (id != NULL) {
 		priv->container_id = g_strdup (id);
 		g_free (id);
-		e_book_backend_set_is_readonly (backend, !is_writable);
 		e_book_backend_notify_readonly (backend, !is_writable);
 		e_book_backend_notify_online (backend, TRUE);
 		priv->is_readonly = !is_writable;
 		e_gw_connection_get_categories (priv->cnc, &priv->categories_by_id, &priv->categories_by_name);
-		if (!e_gw_connection_get_version (priv->cnc))
-			e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (INVALID_SERVER_VERSION));
-		else
-			e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (SUCCESS));
+		/* if (!e_gw_connection_get_version (priv->cnc))
+			/ * error means failure, thus do not send this further * /
+			e_book_backend_notify_opened (backend, EDB_ERROR (INVALID_SERVER_VERSION));
+		else */
+			e_book_backend_notify_opened (backend, EDB_ERROR (SUCCESS));
 	} else {
-		e_book_backend_set_is_loaded (backend, FALSE);
-		e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (NO_SUCH_BOOK));
+		e_book_backend_notify_opened (backend, EDB_ERROR (NO_SUCH_BOOK));
 	}
 
 	/* initialize summary file */
@@ -3228,7 +3225,7 @@ e_book_backend_groupwise_authenticate_user (EBookBackend *backend,
 						    SUMMARY_FLUSH_TIMEOUT);
 
 	if (!ebgw->priv->file_db) {
-		e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (OTHER_ERROR));
+		e_book_backend_notify_opened (backend, EDB_ERROR (OTHER_ERROR));
 		return;
 	}
 	if (e_book_backend_db_cache_is_populated (ebgw->priv->file_db)) {
@@ -3496,8 +3493,6 @@ e_book_backend_groupwise_open (EBookBackend	*backend,
 	priv->use_ssl = g_strdup (use_ssl);
 	priv->only_if_exists = only_if_exists;
 
-	e_book_backend_set_is_loaded (E_BOOK_BACKEND (backend), TRUE);
-	e_book_backend_set_is_readonly (E_BOOK_BACKEND (backend), TRUE);
 	e_book_backend_notify_readonly (backend, TRUE);
 	e_book_backend_notify_online (backend, priv->is_online);
 
@@ -3523,6 +3518,8 @@ e_book_backend_groupwise_open (EBookBackend	*backend,
 	}*/
 
 	e_data_book_respond_open (book, opid, NULL /* Success */);
+	if (!priv->is_online)
+		e_book_backend_notify_opened (backend, NULL /* Success */);
 }
 
 static void
@@ -3611,7 +3608,7 @@ e_book_backend_groupwise_set_online (EBookBackend *backend, gboolean is_online)
 		printf ("\ne_book_backend_groupwise_set_mode...\n");
 	bg = E_BOOK_BACKEND_GROUPWISE (backend);
 	bg->priv->is_online = is_online;
-	if (e_book_backend_is_loaded (backend)) {
+	if (e_book_backend_is_opened (backend)) {
 		if (!is_online) {
 			e_book_backend_notify_readonly (backend, TRUE);
 			e_book_backend_notify_online (backend, FALSE);
@@ -3622,7 +3619,7 @@ e_book_backend_groupwise_set_online (EBookBackend *backend, gboolean is_online)
 		} else {
 			e_book_backend_notify_readonly (backend, bg->priv->is_readonly);
 			e_book_backend_notify_online (backend, TRUE);
-			e_book_backend_notify_auth_required (backend, NULL);
+			e_book_backend_notify_auth_required (backend, TRUE, NULL);
 		}
 	}
 }

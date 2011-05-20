@@ -163,17 +163,17 @@ enum {
 		(GDBusAnnotationInfo **) NULL,								\
 	};
 
-#define E_DECLARE_GDBUS_SYNC_METHOD_0(_where, _name)							\
-	static const GDBusMethodInfo e_gdbus_ ## _where ## _method_ ## _name =				\
+#define E_DECLARE_GDBUS_SYNC_METHOD_0(_where, _mname)							\
+	static const GDBusMethodInfo e_gdbus_ ## _where ## _method_ ## _mname =				\
 	{												\
 		-1,											\
-		(gchar *) # _name,									\
+		(gchar *) # _mname,									\
 		(GDBusArgInfo **) NULL,									\
 		(GDBusArgInfo **) NULL,									\
 		(GDBusAnnotationInfo **) NULL,								\
 	};
 
-#define E_DECLARE_GDBUS_SYNC_METHOD_1(_where, _name, _p1_name, _p1_type)				\
+#define E_DECLARE_GDBUS_SYNC_METHOD_1(_where, _mname, _p1_name, _p1_type)				\
 	E_DECLARE_GDBUS_ARG (_where, _mname, method_in, _p1_name, _p1_type)				\
 													\
 	static const GDBusArgInfo * const e_gdbus_ ## _where ## _method_in_arg_pointers_ ## _mname[] =	\
@@ -182,10 +182,10 @@ enum {
 		NULL											\
 	};												\
 													\
-	static const GDBusMethodInfo e_gdbus_ ## _where ## _method_ ## _name =				\
+	static const GDBusMethodInfo e_gdbus_ ## _where ## _method_ ## _mname =				\
 	{												\
 		-1,											\
-		(gchar *) # _name,									\
+		(gchar *) # _mname,									\
 		(GDBusArgInfo **) &e_gdbus_ ## _where ## _method_in_arg_pointers_ ## _mname,		\
 		(GDBusArgInfo **) NULL,									\
 		(GDBusAnnotationInfo **) NULL,								\
@@ -741,6 +741,9 @@ gboolean e_gdbus_proxy_method_call_sync_strv__void	(const gchar *method_name, GD
 gboolean e_gdbus_proxy_method_call_sync_uint__void	(const gchar *method_name, GDBusProxy *proxy, guint in_uint, GCancellable *cancellable, GError **error);
 gboolean e_gdbus_proxy_method_call_sync_string__string	(const gchar *method_name, GDBusProxy *proxy, const gchar *in_string, gchar **out_string, GCancellable *cancellable, GError **error);
 gboolean e_gdbus_proxy_method_call_sync_strv__string	(const gchar *method_name, GDBusProxy *proxy, const gchar * const *in_strv, gchar **out_string, GCancellable *cancellable, GError **error);
+
+gchar ** e_gdbus_templates_encode_error	(const GError *in_error);
+gboolean e_gdbus_templates_decode_error	(const gchar * const *in_strv, GError **out_error);
 
 G_END_DECLS
 

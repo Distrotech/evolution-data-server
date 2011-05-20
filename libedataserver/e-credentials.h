@@ -39,6 +39,7 @@ typedef struct _ECredentials
 #define E_CREDENTIALS_KEY_AUTH_DOMAIN	"auth-domain"
 #define E_CREDENTIALS_KEY_PROMPT_TITLE	"prompt-title"
 #define E_CREDENTIALS_KEY_PROMPT_TEXT	"prompt-text"
+#define E_CREDENTIALS_KEY_PROMPT_REASON	"prompt-reason"
 #define E_CREDENTIALS_KEY_PROMPT_KEY	"prompt-key"
 #define E_CREDENTIALS_KEY_PROMPT_FLAGS	"prompt-flags"
 

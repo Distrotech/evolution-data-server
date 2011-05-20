@@ -514,7 +514,7 @@ e_cal_backend_weather_open (ECalBackendSync *backend, EDataCal *cal, GCancellabl
 
 		/* do we require to load this new store */
 		e_cal_backend_store_load (priv->store);
-		e_cal_backend_set_is_loaded (E_CAL_BACKEND (backend), TRUE);
+		e_cal_backend_notify_opened (E_CAL_BACKEND (backend), NULL);
 
 		if (!priv->is_online)
 			return;
@@ -523,7 +523,7 @@ e_cal_backend_weather_open (ECalBackendSync *backend, EDataCal *cal, GCancellabl
 			priv->begin_retrival_id = g_idle_add ((GSourceFunc) begin_retrieval_cb, cbw);
 	}
 
-	e_cal_backend_set_is_loaded (E_CAL_BACKEND (backend), TRUE);
+	e_cal_backend_notify_opened (E_CAL_BACKEND (backend), NULL);
 }
 
 static void
@@ -740,7 +740,7 @@ e_cal_backend_weather_set_online (ECalBackend *backend, gboolean is_online)
 	cbw = E_CAL_BACKEND_WEATHER (backend);
 	priv = cbw->priv;
 
-	loaded = e_cal_backend_is_loaded (backend);
+	loaded = e_cal_backend_is_opened (backend);
 
 	if ((priv->is_online ? 1: 0) != (is_online ? 1 : 0)) {
 		priv->is_online = is_online;

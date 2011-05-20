@@ -107,14 +107,12 @@ struct _EGdbusCalIface
 	void	(*readonly)				(EGdbusCal *object, gboolean arg_is_readonly);
 	void	(*online)				(EGdbusCal *object, gboolean arg_is_online);
 	void	(*auth_required)			(EGdbusCal *object, const gchar * const *arg_credentials);
+	void	(*opened)				(EGdbusCal *object, const gchar * const *arg_error);
 	void	(*free_busy_data)			(EGdbusCal *object, const gchar * const *arg_free_busy);
 
 	/* Signal handlers for handling D-Bus method calls: */
 	gboolean (*handle_open)				(EGdbusCal *object, GDBusMethodInvocation *invocation, gboolean in_only_if_exists);
 	void	 (*open_done)				(EGdbusCal *object, guint arg_opid, const GError *arg_error);
-
-	gboolean (*handle_authenticate_user)		(EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar * const *in_credentials);
-	void	 (*authenticate_user_done)		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 
 	gboolean (*handle_remove)			(EGdbusCal *object, GDBusMethodInvocation *invocation);
 	void	 (*remove_done)				(EGdbusCal *object, guint arg_opid, const GError *arg_error);
@@ -167,6 +165,7 @@ struct _EGdbusCalIface
 	gboolean (*handle_add_timezone)			(EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar *in_tzobject);
 	void	 (*add_timezone_done)			(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 
+	gboolean (*handle_authenticate_user)		(EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar * const *in_credentials);
 	gboolean (*handle_cancel_operation)		(EGdbusCal *object, GDBusMethodInvocation *invocation, guint in_opid);
 	gboolean (*handle_cancel_all)			(EGdbusCal *object, GDBusMethodInvocation *invocation);
 	gboolean (*handle_close)			(EGdbusCal *object, GDBusMethodInvocation *invocation);
@@ -176,10 +175,6 @@ struct _EGdbusCalIface
 void		e_gdbus_cal_call_open				(GDBusProxy *proxy, gboolean in_only_if_exists, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_gdbus_cal_call_open_finish			(GDBusProxy *proxy, GAsyncResult *result, GError **error);
 gboolean	e_gdbus_cal_call_open_sync			(GDBusProxy *proxy, gboolean in_only_if_exists, GCancellable *cancellable, GError **error);
-
-void		e_gdbus_cal_call_authenticate_user		(GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
-gboolean	e_gdbus_cal_call_authenticate_user_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
-gboolean	e_gdbus_cal_call_authenticate_user_sync		(GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GError **error);
 
 void		e_gdbus_cal_call_remove				(GDBusProxy *proxy, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_gdbus_cal_call_remove_finish			(GDBusProxy *proxy, GAsyncResult *result, GError **error);
@@ -265,6 +260,10 @@ void		e_gdbus_cal_call_add_timezone			(GDBusProxy *proxy, const gchar *in_tzobje
 gboolean	e_gdbus_cal_call_add_timezone_finish		(GDBusProxy *proxy, GAsyncResult *result, GError **error);
 gboolean	e_gdbus_cal_call_add_timezone_sync		(GDBusProxy *proxy, const gchar *in_tzobject, GCancellable *cancellable, GError **error);
 
+void		e_gdbus_cal_call_authenticate_user		(GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean	e_gdbus_cal_call_authenticate_user_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
+gboolean	e_gdbus_cal_call_authenticate_user_sync		(GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GError **error);
+
 void		e_gdbus_cal_call_cancel_operation		(GDBusProxy *proxy, guint in_opid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean	e_gdbus_cal_call_cancel_operation_finish	(GDBusProxy *proxy, GAsyncResult *result, GError **error);
 gboolean	e_gdbus_cal_call_cancel_operation_sync		(GDBusProxy *proxy, guint in_opid, GCancellable *cancellable, GError **error);
@@ -279,7 +278,6 @@ gboolean	e_gdbus_cal_call_close_sync			(GDBusProxy *proxy, GCancellable *cancell
 
 /* D-Bus Methods Completion Helpers */
 #define e_gdbus_cal_complete_open			e_gdbus_complete_async_method
-#define e_gdbus_cal_complete_authenticate_user		e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_remove			e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_refresh			e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_get_backend_property	e_gdbus_complete_async_method
@@ -297,12 +295,12 @@ gboolean	e_gdbus_cal_call_close_sync			(GDBusProxy *proxy, GCancellable *cancell
 #define e_gdbus_cal_complete_get_view			e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_get_timezone		e_gdbus_complete_async_method
 #define e_gdbus_cal_complete_add_timezone		e_gdbus_complete_async_method
+#define e_gdbus_cal_complete_authenticate_user		e_gdbus_complete_sync_method_void
 #define e_gdbus_cal_complete_cancel_operation		e_gdbus_complete_sync_method_void
 #define e_gdbus_cal_complete_cancel_all			e_gdbus_complete_sync_method_void
 #define e_gdbus_cal_complete_close			e_gdbus_complete_sync_method_void
 
 void e_gdbus_cal_emit_open_done				(EGdbusCal *object, guint arg_opid, const GError *arg_error);
-void e_gdbus_cal_emit_authenticate_user_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_remove_done			(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_refresh_done			(EGdbusCal *object, guint arg_opid, const GError *arg_error);
 void e_gdbus_cal_emit_get_backend_property_done		(EGdbusCal *object, guint arg_opid, const GError *arg_error, const gchar *out_prop_value);
@@ -327,6 +325,7 @@ void e_gdbus_cal_emit_backend_error	(EGdbusCal *object, const gchar *arg_message
 void e_gdbus_cal_emit_readonly		(EGdbusCal *object, gboolean arg_is_readonly);
 void e_gdbus_cal_emit_online		(EGdbusCal *object, gint arg_is_online);
 void e_gdbus_cal_emit_auth_required	(EGdbusCal *object, const gchar * const *arg_credentials);
+void e_gdbus_cal_emit_opened		(EGdbusCal *object, const gchar * const *arg_error);
 void e_gdbus_cal_emit_free_busy_data	(EGdbusCal *object, const gchar * const *arg_free_busy);
 
 G_END_DECLS

@@ -14,7 +14,8 @@ get_known_prop_names (void)
 {
 	GSList *prop_names = NULL;
 
-	prop_names = g_slist_append (prop_names, (gpointer) CLIENT_BACKEND_PROPERTY_LOADED);
+	prop_names = g_slist_append (prop_names, (gpointer) CLIENT_BACKEND_PROPERTY_OPENED);
+	prop_names = g_slist_append (prop_names, (gpointer) CLIENT_BACKEND_PROPERTY_OPENING);
 	prop_names = g_slist_append (prop_names, (gpointer) CLIENT_BACKEND_PROPERTY_ONLINE);
 	prop_names = g_slist_append (prop_names, (gpointer) CLIENT_BACKEND_PROPERTY_READONLY);
 	prop_names = g_slist_append (prop_names, (gpointer) CLIENT_BACKEND_PROPERTY_CACHE_DIR);
@@ -87,6 +88,7 @@ print_values (const ExtraValues *evals, EClient *client)
 
 	g_print ("\treadonly:%s\n", e_client_is_readonly (client) ? "yes" : "no");
 	g_print ("\tonline:%s\n", e_client_is_online (client) ? "yes" : "no");
+	g_print ("\topened:%s\n", e_client_is_opened (client) ? "yes" : "no");
 	g_print ("\tcapabilities: ");
 	values = e_client_get_capabilities (client);
 	if (!values) {
@@ -360,8 +362,6 @@ in_main_thread_idle_cb (gpointer unused)
 {
 	g_print ("* run in main thread with mainloop running\n");
 	foreach_configured_source (check_source_sync);
-	foreach_configured_source (check_source_sync);
-	foreach_configured_source (check_source_sync);
 	g_print ("---------------------------------------------------------\n\n");
 
 	g_print ("* run in main thread async\n");
@@ -377,8 +377,6 @@ worker_thread (gpointer unused)
 {
 	g_print ("* run in dedicated thread with mainloop running\n");
 	foreach_configured_source (check_source_sync);
-	foreach_configured_source (check_source_sync);
-	foreach_configured_source (check_source_sync);
 	g_print ("---------------------------------------------------------\n\n");
 
 	g_idle_add (in_main_thread_idle_cb, NULL);
@@ -392,8 +390,6 @@ main (gint argc, gchar **argv)
 	main_initialize ();
 
 	g_print ("* run in main thread without mainloop\n");
-	foreach_configured_source (check_source_sync);
-	foreach_configured_source (check_source_sync);
 	foreach_configured_source (check_source_sync);
 	g_print ("---------------------------------------------------------\n\n");
 

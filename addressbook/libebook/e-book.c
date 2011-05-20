@@ -3632,6 +3632,7 @@ get_status_from_error (GError *error)
 		EBookStatus err_code;
 	} errors[] = {
 		{ err ("Success",				E_BOOK_ERROR_OK) },
+		{ err ("Busy",					E_BOOK_ERROR_BUSY) },
 		{ err ("RepositoryOffline",			E_BOOK_ERROR_REPOSITORY_OFFLINE) },
 		{ err ("PermissionDenied",			E_BOOK_ERROR_PERMISSION_DENIED) },
 		{ err ("ContactNotFound",			E_BOOK_ERROR_CONTACT_NOT_FOUND) },

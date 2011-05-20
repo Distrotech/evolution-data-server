@@ -131,7 +131,6 @@ ESource *	e_data_cal_get_source				(EDataCal *cal);
 guint		e_data_cal_register_gdbus_object		(EDataCal *cal, GDBusConnection *connection, const gchar *object_path, GError **error);
 
 void		e_data_cal_respond_open				(EDataCal *cal, guint32 opid, GError *error);
-void		e_data_cal_respond_authenticate_user		(EDataCal *cal, guint32 opid, GError *error);
 void		e_data_cal_respond_remove			(EDataCal *cal, guint32 opid, GError *error);
 void		e_data_cal_respond_refresh			(EDataCal *cal, guint32 opid, GError *error);
 void		e_data_cal_respond_get_backend_property		(EDataCal *cal, guint32 opid, GError *error, const gchar *prop_value);
@@ -154,6 +153,7 @@ void		e_data_cal_report_error				(EDataCal *cal, const gchar *message);
 void		e_data_cal_report_readonly			(EDataCal *cal, gboolean is_readonly);
 void		e_data_cal_report_online			(EDataCal *cal, gboolean is_online);
 void		e_data_cal_report_auth_required			(EDataCal *cal, const ECredentials *credentials);
+void		e_data_cal_report_opened			(EDataCal *cal, const GError *error);
 void		e_data_cal_report_free_busy_data		(EDataCal *cal, const GSList *freebusy);
 
 G_END_DECLS

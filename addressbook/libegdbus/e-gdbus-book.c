@@ -39,10 +39,9 @@ enum
 	__READONLY_SIGNAL,
 	__ONLINE_SIGNAL,
 	__AUTH_REQUIRED_SIGNAL,
+	__OPENED_SIGNAL,
 	__OPEN_METHOD,
 	__OPEN_DONE_SIGNAL,
-	__AUTHENTICATE_USER_METHOD,
-	__AUTHENTICATE_USER_DONE_SIGNAL,
 	__REMOVE_METHOD,
 	__REMOVE_DONE_SIGNAL,
 	__GET_CONTACT_METHOD,
@@ -61,6 +60,7 @@ enum
 	__SET_BACKEND_PROPERTY_DONE_SIGNAL,
 	__GET_VIEW_METHOD,
 	__GET_VIEW_DONE_SIGNAL,
+	__AUTHENTICATE_USER_METHOD,
 	__CANCEL_OPERATION_METHOD,
 	__CANCEL_ALL_METHOD,
 	__CLOSE_METHOD,
@@ -113,9 +113,9 @@ E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRING  (GDBUS_BOOK_INTERFACE_NAME, backend
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_BOOLEAN (GDBUS_BOOK_INTERFACE_NAME, readonly)
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_BOOLEAN (GDBUS_BOOK_INTERFACE_NAME, online)
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV    (GDBUS_BOOK_INTERFACE_NAME, auth_required)
+E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV    (GDBUS_BOOK_INTERFACE_NAME, opened)
 
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_BOOK_INTERFACE_NAME, open)
-E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_BOOK_INTERFACE_NAME, authenticate_user)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_BOOK_INTERFACE_NAME, remove)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_BOOK_INTERFACE_NAME, get_contact)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRV	(GDBUS_BOOK_INTERFACE_NAME, get_contact_list)
@@ -140,10 +140,10 @@ e_gdbus_book_default_init (EGdbusBookIface *iface)
 	E_INIT_GDBUS_SIGNAL_BOOLEAN		(EGdbusBookIface, "readonly",		readonly,	__READONLY_SIGNAL)
 	E_INIT_GDBUS_SIGNAL_BOOLEAN		(EGdbusBookIface, "online",		online,		__ONLINE_SIGNAL)
 	E_INIT_GDBUS_SIGNAL_STRV   		(EGdbusBookIface, "auth_required", 	auth_required,	__AUTH_REQUIRED_SIGNAL)
+	E_INIT_GDBUS_SIGNAL_STRV   		(EGdbusBookIface, "opened", 		opened,		__OPENED_SIGNAL)
 
 	/* GObject signals definitions for D-Bus methods: */
 	E_INIT_GDBUS_METHOD_ASYNC_BOOLEAN__VOID	(EGdbusBookIface, "open",			open, __OPEN_METHOD, __OPEN_DONE_SIGNAL)
-	E_INIT_GDBUS_METHOD_ASYNC_STRV__VOID	(EGdbusBookIface, "authenticateUser",		authenticate_user, __AUTHENTICATE_USER_METHOD, __AUTHENTICATE_USER_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_VOID__VOID	(EGdbusBookIface, "remove",			remove, __REMOVE_METHOD, __REMOVE_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRING(EGdbusBookIface, "getContact",			get_contact, __GET_CONTACT_METHOD, __GET_CONTACT_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRV	(EGdbusBookIface, "getContactList",		get_contact_list, __GET_CONTACT_LIST_METHOD, __GET_CONTACT_LIST_DONE_SIGNAL)
@@ -153,6 +153,7 @@ e_gdbus_book_default_init (EGdbusBookIface *iface)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRING(EGdbusBookIface, "getBackendProperty",		get_backend_property, __GET_BACKEND_PROPERTY_METHOD, __GET_BACKEND_PROPERTY_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRV__VOID	(EGdbusBookIface, "setBackendProperty",		set_backend_property, __SET_BACKEND_PROPERTY_METHOD, __SET_BACKEND_PROPERTY_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRING(EGdbusBookIface, "getView",			get_view, __GET_VIEW_METHOD, __GET_VIEW_DONE_SIGNAL)
+	E_INIT_GDBUS_METHOD_STRV		(EGdbusBookIface, "authenticateUser",		authenticate_user, __AUTHENTICATE_USER_METHOD)
 	E_INIT_GDBUS_METHOD_UINT		(EGdbusBookIface, "cancelOperation",		cancel_operation, __CANCEL_OPERATION_METHOD)
 	E_INIT_GDBUS_METHOD_VOID		(EGdbusBookIface, "cancelAll",			cancel_all, __CANCEL_ALL_METHOD)
 	E_INIT_GDBUS_METHOD_VOID		(EGdbusBookIface, "close",			close, __CLOSE_METHOD)
@@ -176,26 +177,6 @@ e_gdbus_book_call_open_sync (GDBusProxy *proxy, gboolean in_only_if_exists, GCan
 	return e_gdbus_proxy_call_sync_boolean__void (proxy, in_only_if_exists, cancellable, error,
 		e_gdbus_book_call_open,
 		e_gdbus_book_call_open_finish);
-}
-
-void
-e_gdbus_book_call_authenticate_user (GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_gdbus_proxy_call_strv ("authenticateUser", e_gdbus_book_call_authenticate_user, E_GDBUS_ASYNC_OP_KEEPER (proxy), in_credentials, cancellable, callback, user_data);
-}
-
-gboolean
-e_gdbus_book_call_authenticate_user_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error)
-{
-	return e_gdbus_proxy_finish_call_void (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, error, e_gdbus_book_call_authenticate_user);
-}
-
-gboolean
-e_gdbus_book_call_authenticate_user_sync (GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GError **error)
-{
-	return e_gdbus_proxy_call_sync_strv__void (proxy, in_credentials, cancellable, error,
-		e_gdbus_book_call_authenticate_user,
-		e_gdbus_book_call_authenticate_user_finish);
 }
 
 void
@@ -410,6 +391,24 @@ e_gdbus_book_call_get_view_sync (GDBusProxy *proxy, const gchar *in_query, gchar
 }
 
 void
+e_gdbus_book_call_authenticate_user (GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	e_gdbus_proxy_method_call_strv ("authenticateUser", proxy, in_credentials, cancellable, callback, user_data);
+}
+
+gboolean
+e_gdbus_book_call_authenticate_user_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error)
+{
+	return e_gdbus_proxy_method_call_finish_void (proxy, result, error);
+}
+
+gboolean
+e_gdbus_book_call_authenticate_user_sync (GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GError **error)
+{
+	return e_gdbus_proxy_method_call_sync_strv__void ("authenticateUser", proxy, in_credentials, cancellable, error);
+}
+
+void
 e_gdbus_book_call_cancel_operation (GDBusProxy *proxy, guint in_opid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	e_gdbus_proxy_method_call_uint ("cancelOperation", proxy, in_opid, cancellable, callback, user_data);
@@ -478,7 +477,6 @@ e_gdbus_book_emit_ ## _mname ## _done (EGdbusBook *object, guint arg_opid, const
 }
 
 DECLARE_EMIT_DONE_SIGNAL_0 (open,			__OPEN_DONE_SIGNAL)
-DECLARE_EMIT_DONE_SIGNAL_0 (authenticate_user,		__AUTHENTICATE_USER_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_0 (remove,			__REMOVE_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_1 (get_contact,		__GET_CONTACT_DONE_SIGNAL, const gchar *)
 DECLARE_EMIT_DONE_SIGNAL_1 (get_contact_list,		__GET_CONTACT_LIST_DONE_SIGNAL, const gchar * const *)
@@ -516,13 +514,19 @@ e_gdbus_book_emit_auth_required (EGdbusBook *object, const gchar * const *arg_cr
 	g_signal_emit (object, signals[__AUTH_REQUIRED_SIGNAL], 0, arg_credentials);
 }
 
+void
+e_gdbus_book_emit_opened (EGdbusBook *object, const gchar * const *arg_error)
+{
+	g_signal_emit (object, signals[__OPENED_SIGNAL], 0, arg_error);
+}
+
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (book, backend_error, message, "s")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (book, readonly, is_readonly, "b")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (book, online, is_online, "b")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (book, auth_required, credentials, "as")
+E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (book, opened, error, "as")
 
 E_DECLARE_GDBUS_ASYNC_METHOD_1			(book, open, only_if_exists, "b")
-E_DECLARE_GDBUS_ASYNC_METHOD_1			(book, authenticateUser, credentials, "as")
 E_DECLARE_GDBUS_ASYNC_METHOD_0			(book, remove)
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(book, getContact, uid, "s", vcard, "s")
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(book, getContactList, query, "s", vcards, "as")
@@ -533,6 +537,7 @@ E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(book, getBackendProperty, prop_name,
 E_DECLARE_GDBUS_ASYNC_METHOD_1			(book, setBackendProperty, prop_name_value, "as")
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(book, getView, query, "s", view, "s")
 
+E_DECLARE_GDBUS_SYNC_METHOD_1			(book, authenticateUser, credentials, "as")
 E_DECLARE_GDBUS_SYNC_METHOD_1			(book, cancelOperation, opid, "u")
 E_DECLARE_GDBUS_SYNC_METHOD_0			(book, cancelAll)
 E_DECLARE_GDBUS_SYNC_METHOD_0			(book, close)
@@ -540,7 +545,6 @@ E_DECLARE_GDBUS_SYNC_METHOD_0			(book, close)
 static const GDBusMethodInfo * const e_gdbus_book_method_info_pointers[] =
 {
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, open),
-	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, authenticateUser),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, remove),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, getContact),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, getContactList),
@@ -550,6 +554,7 @@ static const GDBusMethodInfo * const e_gdbus_book_method_info_pointers[] =
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, getBackendProperty),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, setBackendProperty),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, getView),
+	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, authenticateUser),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, cancelOperation),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, cancelAll),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (book, close),
@@ -562,9 +567,9 @@ static const GDBusSignalInfo * const e_gdbus_book_signal_info_pointers[] =
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, readonly),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, online),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, auth_required),
+	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, opened),
 
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, open_done),
-	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, authenticateUser_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, remove_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, getContact_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (book, getContactList_done),
@@ -769,7 +774,6 @@ e_gdbus_book_proxy_init (EGdbusBookProxy *proxy)
 	proxy->priv->pending_ops = e_gdbus_async_op_keeper_create_pending_ops (E_GDBUS_ASYNC_OP_KEEPER (proxy));
 
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (open);
-	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (authenticate_user);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (remove);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRING (get_contact);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRV   (get_contact_list);

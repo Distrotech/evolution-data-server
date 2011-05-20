@@ -148,9 +148,6 @@ void	e_gdbus_book_view_emit_objects_modified	(EGdbusBookView *object, const gcha
 void	e_gdbus_book_view_emit_objects_removed	(EGdbusBookView *object, const gchar * const *arg_uids);
 
 void	e_gdbus_book_view_emit_progress		(EGdbusBookView *object, guint arg_percent, const gchar *arg_message);
-
-gchar **e_gdbus_book_view_encode_error		(const GError *in_error);
-GError *e_gdbus_book_view_decode_error		(const gchar * const *in_strv);
 void	e_gdbus_book_view_emit_complete		(EGdbusBookView *object, const gchar * const *arg_error);
 
 G_END_DECLS

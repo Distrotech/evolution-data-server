@@ -33,7 +33,8 @@ typedef enum {
 	E_CLIENT_SOURCE_TYPE_CONTACTS,
 	E_CLIENT_SOURCE_TYPE_EVENTS,
 	E_CLIENT_SOURCE_TYPE_MEMOS,
-	E_CLIENT_SOURCE_TYPE_TASKS
+	E_CLIENT_SOURCE_TYPE_TASKS,
+	E_CLIENT_SOURCE_TYPE_LAST
 } EClientSourceType;
 
 typedef gboolean (* EClientUtilsAuthenticateHandler) (EClient *client, ECredentials *credentials, gpointer user_data);
@@ -46,6 +47,11 @@ EClient *	e_client_utils_new_default		(EClientSourceType source_type, GError **e
 gboolean	e_client_utils_set_default		(EClient *client, EClientSourceType source_type, GError **error);
 gboolean	e_client_utils_set_default_source	(ESource *source, EClientSourceType source_type, GError **error);
 gboolean	e_client_utils_get_sources		(ESourceList **sources, EClientSourceType source_type, GError **error);
+
+void		e_client_utils_open_new			(ESource *source, EClientSourceType source_type, gboolean only_if_exists,
+							 EClientUtilsAuthenticateHandler auth_handler, gpointer auth_handler_user_data,
+							 GCancellable *cancellable, GAsyncReadyCallback async_cb, gpointer async_cb_user_data);
+gboolean	e_client_utils_open_new_finish		(GAsyncResult *result, EClient **client, GError **error);
 
 gboolean	e_client_utils_authenticate_handler	(EClient *client, ECredentials *credentials, gpointer unused_user_data);
 gboolean	e_credentials_authenticate_helper	(ECredentials *credentials, GtkWindow *parent, gboolean *remember_password);

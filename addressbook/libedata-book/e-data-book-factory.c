@@ -313,12 +313,6 @@ impl_BookFactory_getBook (EGdbusBookFactory *object, GDBusMethodInvocation *invo
 		return TRUE;
 	}
 
-	/* Remove a pending exit */
-	if (priv->exit_timeout) {
-		g_source_remove (priv->exit_timeout);
-		priv->exit_timeout = 0;
-	}
-
 	g_mutex_lock (priv->backends_lock);
 
 	source = e_source_new_from_standalone_xml (in_source);
@@ -380,6 +374,12 @@ impl_BookFactory_getBook (EGdbusBookFactory *object, GDBusMethodInvocation *invo
 		g_error_free (error);
 
 		return TRUE;
+	}
+
+	/* Remove a pending exit */
+	if (priv->exit_timeout) {
+		g_source_remove (priv->exit_timeout);
+		priv->exit_timeout = 0;
 	}
 
 	path = construct_book_factory_path ();

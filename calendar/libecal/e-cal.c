@@ -230,6 +230,7 @@ get_status_from_error (const GError *error)
 		ECalendarStatus err_code;
 	} errors[] = {
 		{ err ("Success",				E_CALENDAR_STATUS_OK) },
+		{ err ("Busy",					E_CALENDAR_STATUS_BUSY) },
 		{ err ("RepositoryOffline",			E_CALENDAR_STATUS_REPOSITORY_OFFLINE) },
 		{ err ("PermissionDenied",			E_CALENDAR_STATUS_PERMISSION_DENIED) },
 		{ err ("InvalidRange",				E_CALENDAR_STATUS_OTHER_ERROR) },

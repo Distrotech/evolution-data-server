@@ -61,6 +61,7 @@ enum {
 
 enum {
 	AUTHENTICATE,
+	OPENED,
 	BACKEND_ERROR,
 	BACKEND_DIED,
 	LAST_SIGNAL
@@ -73,8 +74,10 @@ G_DEFINE_ABSTRACT_TYPE (EClient, e_client, G_TYPE_OBJECT)
 
 /**
  * Well-known client backend properties, which are common for each #EClient:
- * @CLIENT_BACKEND_PROPERTY_LOADED: Is set to "TRUE" or "FALSE" depending
- *   on the backend's loaded state.
+ * @CLIENT_BACKEND_PROPERTY_OPENED: Is set to "TRUE" or "FALSE" depending
+ *   whether the backend is fully opened.
+ * @CLIENT_BACKEND_PROPERTY_OPENING: Is set to "TRUE" or "FALSE" depending
+ *   whether the backend is processing its opening phase.
  * @CLIENT_BACKEND_PROPERTY_ONLINE: Is set to "TRUE" or "FALSE" depending
  *   on the backend's loaded state. See also e_client_is_online().
  * @CLIENT_BACKEND_PROPERTY_READONLY: Is set to "TRUE" or "FALSE" depending
@@ -325,6 +328,17 @@ e_client_class_init (EClientClass *klass)
 		G_TYPE_BOOLEAN, 1,
 		G_TYPE_POINTER);
 
+	signals[OPENED] = g_signal_new (
+		"opened",
+		G_OBJECT_CLASS_TYPE (klass),
+		G_SIGNAL_RUN_LAST,
+		G_STRUCT_OFFSET (EClientClass, opened),
+		NULL, NULL,
+		g_cclosure_marshal_VOID__BOXED,
+		G_TYPE_NONE, 1,
+		G_TYPE_ERROR);
+
+
 	signals[BACKEND_ERROR] = g_signal_new (
 		"backend-error",
 		G_OBJECT_CLASS_TYPE (klass),
@@ -370,8 +384,15 @@ client_operation_thread (gpointer data, gpointer user_data)
 
 	switch (op_data->op) {
 	case E_CLIENT_OP_AUTHENTICATE:
-		if (e_client_emit_authenticate (op_data->client, op_data->d.credentials))
+		if (e_client_emit_authenticate (op_data->client, op_data->d.credentials)) {
 			client_handle_authentication (op_data->client, op_data->d.credentials);
+		} else {
+			GError *error;
+
+			error = g_error_new_literal (E_CLIENT_ERROR, E_CLIENT_ERROR_AUTHENTICATION_REQUIRED, e_client_error_to_string (E_CLIENT_ERROR_AUTHENTICATION_REQUIRED));
+			e_client_emit_opened (op_data->client, error);
+			g_error_free (error);
+		}
 		e_credentials_free (op_data->d.credentials);
 		break;
 	}
@@ -643,9 +664,13 @@ e_client_set_online (EClient *client, gboolean is_online)
  * e_client_is_opened:
  * @client: an #EClient
  *
- * Check if this @client has been opened.
+ * Check if this @client is fully opened. This includes
+ * everything from e_client_open() call up to the authentication,
+ * if required by a backend. Client cannot do any other operation
+ * during the opening phase except of authenticate or cancel it.
+ * Every other operation results in an %E_CLIENT_ERROR_BUSY error.
  *
- * Returns: %TRUE if this @client has been opened, otherwise %FALSE.
+ * Returns: %TRUE if this @client is fully opened, otherwise %FALSE.
  *
  * Since: 3.2.
  **/
@@ -828,6 +853,28 @@ e_client_emit_authenticate (EClient *client, ECredentials *credentials)
 	g_signal_emit (client, signals[AUTHENTICATE], 0, credentials, &handled);
 
 	return handled;
+}
+
+void
+e_client_emit_opened (EClient *client, const GError *dbus_error)
+{
+	GError *local_error = NULL;
+
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_CLIENT (client));
+	g_return_if_fail (client->priv != NULL);
+
+	client->priv->opened = dbus_error == NULL;
+
+	if (dbus_error) {
+		local_error = g_error_copy (dbus_error);
+		e_client_unwrap_dbus_error (client, local_error, &local_error);
+	}
+
+	g_signal_emit (client, signals[OPENED], 0, local_error);
+
+	if (local_error)
+		g_error_free (local_error);
 }
 
 void
@@ -1084,7 +1131,6 @@ gboolean
 e_client_open_finish (EClient *client, GAsyncResult *result, GError **error)
 {
 	EClientClass *klass;
-	gboolean res;
 
 	g_return_val_if_fail (client != NULL, FALSE);
 	g_return_val_if_fail (E_IS_CLIENT (client), FALSE);
@@ -1094,11 +1140,7 @@ e_client_open_finish (EClient *client, GAsyncResult *result, GError **error)
 	g_return_val_if_fail (klass != NULL, FALSE);
 	g_return_val_if_fail (klass->open_finish != NULL, FALSE);
 
-	res = klass->open_finish (client, result, error);
-
-	client->priv->opened = res;
-
-	return res;
+	return klass->open_finish (client, result, error);
 }
 
 /**
@@ -1118,17 +1160,12 @@ gboolean
 e_client_open_sync (EClient *client, gboolean only_if_exists, GCancellable *cancellable, GError **error)
 {
 	EClientClass *klass;
-	gboolean res;
 
 	klass = E_CLIENT_GET_CLASS (client);
 	g_return_val_if_fail (klass != NULL, FALSE);
 	g_return_val_if_fail (klass->open_sync != NULL, FALSE);
 
-	res = klass->open_sync (client, only_if_exists, cancellable, error);
-
-	client->priv->opened = res;
-
-	return res;
+	return klass->open_sync (client, only_if_exists, cancellable, error);
 }
 
 /**
@@ -1663,6 +1700,8 @@ e_client_util_unwrap_dbus_error (GError *dbus_error, GError **client_error, cons
 					return TRUE;
 				}
 			}
+
+			g_free (name);
 		}
 	}
 

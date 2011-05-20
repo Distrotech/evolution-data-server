@@ -124,13 +124,13 @@ progress_cb (EGdbusBookView *object, guint percent, const gchar *message, EBookV
 static void
 complete_cb (EGdbusBookView *object, const gchar * const *in_error_strv, EBookView *book_view)
 {
-	GError *error;
+	GError *error = NULL;
 	EBookViewStatus bv_status = E_BOOK_VIEW_ERROR_OTHER_ERROR;
 
 	if (!book_view->priv->running)
 		return;
 
-	error = e_gdbus_book_view_decode_error (in_error_strv);
+	g_return_if_fail (e_gdbus_templates_decode_error (in_error_strv, &error));
 
 	switch (error ? error->code : E_DATA_BOOK_STATUS_SUCCESS) {
 	case E_DATA_BOOK_STATUS_SUCCESS:

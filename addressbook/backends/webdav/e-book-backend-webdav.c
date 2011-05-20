@@ -1094,7 +1094,7 @@ e_book_backend_webdav_get_contact_list (EBookBackend *backend, EDataBook *book, 
 }
 
 static void
-e_book_backend_webdav_authenticate_user (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, ECredentials *credentials)
+e_book_backend_webdav_authenticate_user (EBookBackend *backend, GCancellable *cancellable, ECredentials *credentials)
 {
 	EBookBackendWebdav        *webdav = E_BOOK_BACKEND_WEBDAV (backend);
 	EBookBackendWebdavPrivate *priv   = webdav->priv;
@@ -1116,9 +1116,9 @@ e_book_backend_webdav_authenticate_user (EBookBackend *backend, EDataBook *book,
 		e_credentials_util_safe_free_string (priv->password);
 		priv->password = NULL;
 
-		e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (AUTHENTICATION_FAILED));
+		e_book_backend_notify_opened (backend, EDB_ERROR (AUTHENTICATION_FAILED));
 	} else {
-		e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (SUCCESS));
+		e_book_backend_notify_opened (backend, EDB_ERROR (SUCCESS));
 	}
 }
 
@@ -1176,7 +1176,7 @@ e_book_backend_webdav_open (EBookBackend *backend, EDataBook *book, guint opid, 
 
 	uri = e_source_get_uri (source);
 	if (uri == NULL) {
-		e_data_book_respond_open (book, opid, EDB_ERROR_EX (OTHER_ERROR, "No uri given for addressbook"));
+		e_book_backend_respond_opened (backend, book, opid, EDB_ERROR_EX (OTHER_ERROR, "No uri given for addressbook"));
 		return;
 	}
 
@@ -1184,7 +1184,7 @@ e_book_backend_webdav_open (EBookBackend *backend, EDataBook *book, guint opid, 
 	g_free (uri);
 
 	if (!suri) {
-		e_data_book_respond_open (book, opid, EDB_ERROR_EX (OTHER_ERROR, "Invalid uri given for addressbook"));
+		e_book_backend_respond_opened (backend, book, opid, EDB_ERROR_EX (OTHER_ERROR, "Invalid uri given for addressbook"));
 		return;
 	}
 
@@ -1194,14 +1194,14 @@ e_book_backend_webdav_open (EBookBackend *backend, EDataBook *book, guint opid, 
 
 	if (!priv->is_online && !priv->marked_for_offline ) {
 		soup_uri_free (suri);
-		e_data_book_respond_open (book, opid, EDB_ERROR (OFFLINE_UNAVAILABLE));
+		e_book_backend_respond_opened (backend, book, opid, EDB_ERROR (OFFLINE_UNAVAILABLE));
 		return;
 	}
 
 	if (!suri->scheme || !g_str_equal (suri->scheme, "webdav")) {
 		/* the book is not for us */
 		soup_uri_free (suri);
-		e_data_book_respond_open (book, opid, EDB_ERROR_EX (OTHER_ERROR, "Not a webdav uri"));
+		e_book_backend_respond_opened (backend, book, opid, EDB_ERROR_EX (OTHER_ERROR, "Not a webdav uri"));
 		return;
 	}
 
@@ -1242,7 +1242,7 @@ e_book_backend_webdav_open (EBookBackend *backend, EDataBook *book, guint opid, 
 	priv->uri = soup_uri_to_string (suri, FALSE);
 	if (!priv->uri) {
 		soup_uri_free (suri);
-		e_data_book_respond_open (book, opid, EDB_ERROR_EX (OTHER_ERROR, "Cannot transform SoupURI to string"));
+		e_book_backend_respond_opened (backend, book, opid, EDB_ERROR_EX (OTHER_ERROR, "Cannot transform SoupURI to string"));
 		return;
 	}
 
@@ -1261,10 +1261,8 @@ e_book_backend_webdav_open (EBookBackend *backend, EDataBook *book, guint opid, 
 	proxy_settings_changed (priv->proxy, priv);
 	webdav_debug_setup (priv->session);
 
-	e_book_backend_notify_auth_required (backend, NULL);
-	e_book_backend_set_is_loaded (backend, TRUE);
+	e_book_backend_notify_auth_required (backend, TRUE, NULL);
 	e_book_backend_notify_online (backend, TRUE);
-	e_book_backend_set_is_readonly (backend, FALSE);
 	e_book_backend_notify_readonly (backend, FALSE);
 
 	soup_uri_free (suri);
@@ -1286,15 +1284,13 @@ e_book_backend_webdav_set_online (EBookBackend *backend, gboolean is_online)
 	webdav->priv->is_online = is_online;
 
 	/* set_mode is called before the backend is loaded */
-	if (!e_book_backend_is_loaded (backend))
+	if (!e_book_backend_is_opened (backend))
 		return;
 
 	if (!is_online) {
-		e_book_backend_set_is_readonly (backend, TRUE);
 		e_book_backend_notify_readonly (backend, TRUE);
 		e_book_backend_notify_online (backend, FALSE);
 	} else {
-		e_book_backend_set_is_readonly (backend, FALSE);
 		e_book_backend_notify_readonly (backend, FALSE);
 		e_book_backend_notify_online (backend, TRUE);
 	}

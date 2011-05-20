@@ -983,8 +983,6 @@ open_cal (ECalBackendFile *cbfile, const gchar *uristr, GError **perror)
 	scan_vcalendar (cbfile);
 
 	prepare_refresh_data (cbfile);
-
-	e_cal_backend_set_is_loaded (E_CAL_BACKEND (cbfile), TRUE);
 }
 
 typedef struct
@@ -1141,8 +1139,6 @@ reload_cal (ECalBackendFile *cbfile, const gchar *uristr, GError **perror)
 	/* Free old data */
 
 	free_calendar_components (comp_uid_hash_old, icalcomp_old);
-
-	e_cal_backend_set_is_loaded (E_CAL_BACKEND (cbfile), TRUE);
 }
 
 static void
@@ -1179,8 +1175,6 @@ create_cal (ECalBackendFile *cbfile, const gchar *uristr, GError **perror)
 	g_free (priv->custom_file);
 	priv->custom_file = g_strdup (uristr);
 	prepare_refresh_data (cbfile);
-
-	e_cal_backend_set_is_loaded (E_CAL_BACKEND (cbfile), TRUE);
 }
 
 static gchar *
@@ -1290,7 +1284,9 @@ e_cal_backend_file_open (ECalBackendSync *backend, EDataCal *cal, GCancellable *
 	e_cal_backend_notify_online (E_CAL_BACKEND (backend), TRUE);
 
 	if (err)
-		g_propagate_error (perror, err);
+		g_propagate_error (perror, g_error_copy (err));
+
+	e_cal_backend_notify_opened (E_CAL_BACKEND (backend), err);
 }
 
 static void

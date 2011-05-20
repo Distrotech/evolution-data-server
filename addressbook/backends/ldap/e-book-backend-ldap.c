@@ -976,7 +976,6 @@ e_book_backend_ldap_connect (EBookBackendLDAP *bl)
 		if (ldap_error == LDAP_SUCCESS
 		    || ldap_error == LDAP_PARTIAL_RESULTS
 		    || LDAP_NAME_ERROR (ldap_error)) {
-			e_book_backend_set_is_loaded (E_BOOK_BACKEND (bl), TRUE);
 			blpriv->connected = TRUE;
 			g_static_rec_mutex_unlock (&eds_ldap_handler_lock);
 
@@ -996,7 +995,7 @@ e_book_backend_ldap_connect (EBookBackendLDAP *bl)
 			}
 			return EDB_ERROR (SUCCESS);
 		} else if (ldap_error == LDAP_UNWILLING_TO_PERFORM) {
-			e_book_backend_notify_auth_required (E_BOOK_BACKEND (bl), NULL);
+			e_book_backend_notify_auth_required (E_BOOK_BACKEND (bl), TRUE, NULL);
 			g_static_rec_mutex_unlock (&eds_ldap_handler_lock);
 			return EDB_ERROR (AUTHENTICATION_REQUIRED);
 		} else {
@@ -4729,8 +4728,6 @@ generate_cache (EBookBackendLDAP *book_backend_ldap)
 
 static void
 e_book_backend_ldap_authenticate_user (EBookBackend *backend,
-				       EDataBook    *book,
-				       guint32       opid,
 				       GCancellable *cancellable,
 				       ECredentials *credentials)
 {
@@ -4747,16 +4744,14 @@ e_book_backend_ldap_authenticate_user (EBookBackend *backend,
 	if (!bl->priv->is_online) {
 		e_book_backend_notify_readonly (backend, TRUE);
 		e_book_backend_notify_online (backend, FALSE);
-		e_data_book_respond_authenticate_user (book,
-						       opid,
-						       EDB_ERROR (SUCCESS));
+		e_book_backend_notify_opened (backend, EDB_ERROR (SUCCESS));
 		g_static_rec_mutex_unlock (&eds_ldap_handler_lock);
 		return;
 	}
 
 	if (bl->priv->connected) {
 		/* other client connected meanwhile, report success and return */
-		e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (SUCCESS));
+		e_book_backend_notify_opened (backend, EDB_ERROR (SUCCESS));
 		g_static_rec_mutex_unlock (&eds_ldap_handler_lock);
 		return;
 	}
@@ -4786,9 +4781,7 @@ e_book_backend_ldap_authenticate_user (EBookBackend *backend,
 				if (!e) {
 					g_warning ("Failed to get the DN for %s", user);
 					ldap_msgfree (res);
-					e_data_book_respond_authenticate_user (book,
-									       opid,
-									       EDB_ERROR (AUTHENTICATION_FAILED));
+					e_book_backend_notify_opened (backend, EDB_ERROR (AUTHENTICATION_FAILED));
 					return;
 				}
 
@@ -4800,11 +4793,8 @@ e_book_backend_ldap_authenticate_user (EBookBackend *backend,
 
 				ldap_memfree (entry_dn);
 				ldap_msgfree (res);
-			}
-			else {
-				e_data_book_respond_authenticate_user (book,
-								       opid,
-								       EDB_ERROR (PERMISSION_DENIED));
+			} else {
+				e_book_backend_notify_opened (backend, EDB_ERROR (PERMISSION_DENIED));
 				return;
 			}
 		}
@@ -4829,7 +4819,7 @@ e_book_backend_ldap_authenticate_user (EBookBackend *backend,
 
 			error = e_book_backend_ldap_connect (bl);
 			if (error) {
-				e_data_book_respond_authenticate_user (book, opid, error);
+				e_book_backend_notify_opened (backend, error);
 				return;
 			}
 		}
@@ -4851,9 +4841,7 @@ e_book_backend_ldap_authenticate_user (EBookBackend *backend,
 
 		}
 
-		e_data_book_respond_authenticate_user (book,
-						       opid,
-						       ldap_error_to_response (ldap_error));
+		e_book_backend_notify_opened (backend, ldap_error_to_response (ldap_error));
 	}
 #ifdef ENABLE_SASL_BINDS
 	else if (!g_ascii_strncasecmp (auth_method, SASL_PREFIX, strlen (SASL_PREFIX))) {
@@ -4866,7 +4854,7 @@ e_book_backend_ldap_authenticate_user (EBookBackend *backend,
 
 			error = e_book_backend_ldap_connect (bl);
 			if (error) {
-				e_data_book_respond_authenticate_user (book, opid, error);
+				e_book_backend_notify_opened (backend, error);
 				return;
 			}
 		}
@@ -4880,24 +4868,17 @@ e_book_backend_ldap_authenticate_user (EBookBackend *backend,
 		g_static_rec_mutex_unlock (&eds_ldap_handler_lock);
 
 		if (ldap_error == LDAP_NOT_SUPPORTED)
-			e_data_book_respond_authenticate_user (book,
-							       opid,
-							       EDB_ERROR (UNSUPPORTED_AUTHENTICATION_METHOD));
+			e_book_backend_notify_opened (backend, EDB_ERROR (UNSUPPORTED_AUTHENTICATION_METHOD));
 		else
-			e_data_book_respond_authenticate_user (book,
-							       opid,
-							       ldap_error_to_response (ldap_error));
+			e_book_backend_notify_opened (backend, ldap_error_to_response (ldap_error));
 	}
 #endif
 	else {
-		e_data_book_respond_authenticate_user (book,
-						       opid,
-						       EDB_ERROR (UNSUPPORTED_AUTHENTICATION_METHOD));
+		e_book_backend_notify_opened (backend, EDB_ERROR (UNSUPPORTED_AUTHENTICATION_METHOD));
 		return;
 	}
 
 	if (ldap_error == LDAP_SUCCESS) {
-		e_book_backend_set_is_readonly (backend, FALSE);
 		e_book_backend_notify_readonly (backend, FALSE);
 
 		/* force a requery on the root dse since some ldap
@@ -4914,8 +4895,6 @@ e_book_backend_ldap_authenticate_user (EBookBackend *backend,
 			else
 				g_warning ("Failed to perform root dse query after authenticating, (ldap_error 0x%02x)", ldap_error);
 		}
-
-		e_data_book_report_readonly (book, FALSE);
 
 		if (bl->priv->marked_for_offline && bl->priv->cache)
 			generate_cache (bl);
@@ -5018,7 +4997,7 @@ e_book_backend_ldap_open (EBookBackend	*backend,
 		if (enable_debug)
 			printf ("%s ... failed to parse the ldap URI %s\n", G_STRFUNC, uri);
 		g_free (uri);
-		e_data_book_respond_open (book, opid, EDB_ERROR_EX (OTHER_ERROR, "Failed to parse LDAP URI"));
+		e_book_backend_respond_opened (backend, book, opid, EDB_ERROR_EX (OTHER_ERROR, "Failed to parse LDAP URI"));
 		return;
 	}
 
@@ -5036,26 +5015,23 @@ e_book_backend_ldap_open (EBookBackend	*backend,
 	if (!bl->priv->is_online) {
 		/* Offline */
 
-		e_book_backend_set_is_loaded (backend, TRUE);
-		e_book_backend_set_is_readonly (backend, TRUE);
 		e_book_backend_notify_readonly (backend, TRUE);
 		e_book_backend_notify_online (backend, FALSE);
 
 		if (!bl->priv->marked_for_offline) {
-			e_data_book_respond_open (book, opid, EDB_ERROR (OFFLINE_UNAVAILABLE));
+			e_book_backend_respond_opened (backend, book, opid, EDB_ERROR (OFFLINE_UNAVAILABLE));
 			return;
 		}
 
 #if 0
 		if (!e_book_backend_cache_is_populated (bl->priv->cache)) {
-			e_data_book_respond_open (book, opid, EDB_ERROR (OFFLINE_UNAVAILABLE));
+			e_book_backend_respond_opened (backend, book, opid, EDB_ERROR (OFFLINE_UNAVAILABLE));
 			return;
 		}
 #endif
-		e_data_book_respond_open (book, opid, NULL /* Success */);
+		e_book_backend_respond_opened (backend, book, opid, NULL /* Success */);
 		return;
 	} else {
-		e_book_backend_set_is_readonly (backend, FALSE);
 		e_book_backend_notify_readonly (backend, FALSE);
 		e_book_backend_notify_online (backend, TRUE);
 	}
@@ -5068,10 +5044,11 @@ e_book_backend_ldap_open (EBookBackend	*backend,
 		if (enable_debug)
 			printf ("%s ... skipping anonymous bind, because auth required\n", G_STRFUNC);
 
-		if (!e_book_backend_is_loaded (backend))
-			e_book_backend_notify_auth_required (backend, NULL);
-		e_book_backend_set_is_loaded (backend, TRUE);
-		e_data_book_respond_open (book, opid, NULL /* Success */);
+		if (!e_book_backend_is_opened (backend))
+			e_book_backend_notify_auth_required (backend, TRUE, NULL);
+		else
+			e_book_backend_notify_opened (backend, NULL);
+		e_book_backend_respond_opened (backend, book, opid, NULL /* Success */);
 		return;
 	}
 
@@ -5080,12 +5057,12 @@ e_book_backend_ldap_open (EBookBackend	*backend,
 	if (err) {
 		if (enable_debug)
 			printf ("%s ... failed to connect to server \n", G_STRFUNC);
-		e_data_book_respond_open (book, opid, err);
+		e_book_backend_respond_opened (backend, book, opid, err);
 		return;
 	}
 
-	if (auth_required && !e_book_backend_is_loaded (backend)) {
-		e_book_backend_notify_auth_required (E_BOOK_BACKEND (bl), NULL);
+	if (auth_required && !e_book_backend_is_opened (backend)) {
+		e_book_backend_notify_auth_required (E_BOOK_BACKEND (bl), TRUE, NULL);
 		e_data_book_respond_open (book, opid, NULL /* Success */);
 		return;
 	}
@@ -5093,7 +5070,7 @@ e_book_backend_ldap_open (EBookBackend	*backend,
 	if (bl->priv->marked_for_offline)
 		generate_cache (bl);
 
-	e_data_book_respond_open (book, opid, NULL /* Success */);
+	e_book_backend_respond_opened (backend, book, opid, NULL /* Success */);
 }
 
 static void
@@ -5217,7 +5194,6 @@ e_book_backend_ldap_set_online (EBookBackend *backend, gboolean is_online)
 	if (!is_online) {
 		/* Go offline */
 
-		e_book_backend_set_is_readonly (backend, TRUE);
 		e_book_backend_notify_readonly (backend, TRUE);
 		e_book_backend_notify_online (backend, FALSE);
 
@@ -5233,21 +5209,20 @@ e_book_backend_ldap_set_online (EBookBackend *backend, gboolean is_online)
 		bl->priv->connected = FALSE;
 
 #if 0
-		if (e_book_backend_is_loaded (backend))
+		if (e_book_backend_is_opened (backend))
 			start_views (backend);
 #endif
 	} else {
 		/* Go online */
 
-		e_book_backend_set_is_readonly (backend, FALSE);
 		e_book_backend_notify_readonly (backend, FALSE);
 		e_book_backend_notify_online (backend, TRUE);
 
-		if (e_book_backend_is_loaded (backend)) {
+		if (e_book_backend_is_opened (backend)) {
 			GError *error;
 
 			error = e_book_backend_ldap_connect (bl);
-			e_book_backend_notify_auth_required (backend, NULL);
+			e_book_backend_notify_auth_required (backend, TRUE, NULL);
 
 			if (error)
 				g_error_free (error);
@@ -5327,6 +5302,11 @@ e_book_backend_ldap_dispose (GObject *object)
 			e_book_backend_summary_save (bl->priv->summary);
 			g_object_unref (bl->priv->summary);
 			bl->priv->summary = NULL;
+		}
+
+		if (bl->priv->cache) {
+			g_object_unref (bl->priv->cache);
+			bl->priv->cache = NULL;
 		}
 
 		g_free (bl->priv->ldap_host);

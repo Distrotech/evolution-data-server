@@ -165,11 +165,11 @@ progress_cb (EGdbusCalView *gdbus_calview, guint percent, const gchar *message, 
 static void
 complete_cb (EGdbusCalView *gdbus_calview, const gchar * const *arg_error, ECalView *view)
 {
-	GError *error;
+	GError *error = NULL;
 
 	g_return_if_fail (E_IS_CAL_VIEW (view));
 
-	error = e_gdbus_cal_view_decode_error (arg_error);
+	g_return_if_fail (e_gdbus_templates_decode_error (arg_error, &error));
 
 	#ifndef E_CAL_DISABLE_DEPRECATED
 	g_signal_emit (G_OBJECT (view), signals[VIEW_DONE], 0, error ? error->code : 0);

@@ -126,12 +126,12 @@ progress_cb (EGdbusBookView *object, guint percent, const gchar *message, EBookC
 static void
 complete_cb (EGdbusBookView *object, const gchar * const *in_error_strv, EBookClientView *view)
 {
-	GError *error;
+	GError *error = NULL;
 
 	if (!view->priv->running)
 		return;
 
-	error = e_gdbus_book_view_decode_error (in_error_strv);
+	g_return_if_fail (e_gdbus_templates_decode_error (in_error_strv, &error));
 
 	g_signal_emit (view, signals[COMPLETE], 0, error);
 
@@ -256,7 +256,7 @@ e_book_client_view_stop (EBookClientView *view, GError **error)
  *
  * Client can instruct server to which fields it is interested in only, thus
  * the server can return less data over the wire. The server can still return
- * complete objects, this is just a hint to it that the listef fields will
+ * complete objects, this is just a hint to it that the listed fields will
  * be used only. The UID field is returned always. Initial views has no restriction,
  * and using %NULL for @only_fields will unset any previous changes.
  **/

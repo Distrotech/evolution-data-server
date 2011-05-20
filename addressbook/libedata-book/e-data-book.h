@@ -20,8 +20,8 @@
  * Author: Ross Burton <ross@linux.intel.com>
  */
 
-#ifndef __E_DATA_BOOK_H__
-#define __E_DATA_BOOK_H__
+#ifndef E_DATA_BOOK_H
+#define E_DATA_BOOK_H
 
 #include <glib-object.h>
 #include <gio/gio.h>
@@ -140,7 +140,6 @@ void		e_data_book_respond_set_backend_property	(EDataBook *book, guint32 opid, G
 void		e_data_book_respond_create			(EDataBook *book, guint32 opid, GError *error, const EContact *contact);
 void		e_data_book_respond_remove_contacts		(EDataBook *book, guint32 opid, GError *error, const GSList *ids);
 void		e_data_book_respond_modify			(EDataBook *book, guint32 opid, GError *error, const EContact *contact);
-void		e_data_book_respond_authenticate_user		(EDataBook *book, guint32 opid, GError *error);
 void		e_data_book_respond_get_contact			(EDataBook *book, guint32 opid, GError *error, const gchar *vcard);
 void		e_data_book_respond_get_contact_list		(EDataBook *book, guint32 opid, GError *error, const GSList *cards);
 
@@ -148,9 +147,10 @@ void		e_data_book_report_error			(EDataBook *book, const gchar *message);
 void		e_data_book_report_readonly			(EDataBook *book, gboolean readonly);
 void		e_data_book_report_online			(EDataBook *book, gboolean is_online);
 void		e_data_book_report_auth_required		(EDataBook *book, const ECredentials *credentials);
+void		e_data_book_report_opened			(EDataBook *book, const GError *error);
 
 gchar *		e_data_book_string_slist_to_comma_string	(const GSList *strings);
 
 G_END_DECLS
 
-#endif /* __E_DATA_BOOK_H__ */
+#endif /* E_DATA_BOOK_H */

@@ -63,7 +63,7 @@ G_DEFINE_TYPE (EBookClient, e_book_client, E_TYPE_CLIENT)
  *   Use e_client_util_parse_comma_strings() to parse returned string value
  *   into a #GSList.
  *
- * See also: @CLIENT_BACKEND_PROPERTY_LOADED,
+ * See also: @CLIENT_BACKEND_PROPERTY_OPENED, @CLIENT_BACKEND_PROPERTY_OPENING,
  *   @CLIENT_BACKEND_PROPERTY_ONLINE, @CLIENT_BACKEND_PROPERTY_READONLY
  *   @CLIENT_BACKEND_PROPERTY_CACHE_DIR, @CLIENT_BACKEND_PROPERTY_CAPABILITIES
  **/
@@ -124,6 +124,7 @@ unwrap_dbus_error (GError *error, GError **client_error)
 		{ err ("OfflineUnavailable",			E_BOOK_CLIENT_ERROR_OFFLINE_UNAVAILABLE) },
 		{ err ("NoSpace",				E_BOOK_CLIENT_ERROR_NO_SPACE) }
 	}, cl_errors[] = {
+		{ err ("Busy",					E_CLIENT_ERROR_BUSY) },
 		{ err ("RepositoryOffline",			E_CLIENT_ERROR_REPOSITORY_OFFLINE) },
 		{ err ("PermissionDenied",			E_CLIENT_ERROR_PERMISSION_DENIED) },
 		{ err ("AuthenticationFailed",			E_CLIENT_ERROR_AUTHENTICATION_FAILED) },
@@ -364,6 +365,22 @@ auth_required_cb (EGdbusBook *object, const gchar * const *credentials_strv, EBo
 	e_credentials_free (credentials);
 }
 
+static void
+opened_cb (EGdbusBook *object, const gchar * const *error_strv, EBookClient *client)
+{
+	GError *error = NULL;
+
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (E_IS_BOOK_CLIENT (client));
+	g_return_if_fail (error_strv != NULL);
+	g_return_if_fail (e_gdbus_templates_decode_error (error_strv, &error));
+
+	e_client_emit_opened (E_CLIENT (client), error);
+
+	if (error)
+		g_error_free (error);
+}
+
 /**
  * e_book_client_new:
  * @source: An #ESource pointer
@@ -463,6 +480,7 @@ e_book_client_new (ESource *source, GError **error)
 	g_signal_connect (client->priv->gdbus_book, "readonly", G_CALLBACK (readonly_cb), client);
 	g_signal_connect (client->priv->gdbus_book, "online", G_CALLBACK (online_cb), client);
 	g_signal_connect (client->priv->gdbus_book, "auth-required", G_CALLBACK (auth_required_cb), client);
+	g_signal_connect (client->priv->gdbus_book, "opened", G_CALLBACK (opened_cb), client);
 
 	return client;
 }

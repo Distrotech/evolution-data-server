@@ -335,7 +335,7 @@ notify_complete (EDataCalView *view, const GError *error)
 	send_pending_changes (view);
 	send_pending_removes (view);
 
-	error_strv = e_gdbus_cal_view_encode_error (error);
+	error_strv = e_gdbus_templates_encode_error (error);
 
 	e_gdbus_cal_view_emit_complete (view->priv->gdbus_object, (const gchar * const *) error_strv);
 

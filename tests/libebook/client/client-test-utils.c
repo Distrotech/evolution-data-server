@@ -294,9 +294,8 @@ foreach_configured_source_async_next (gpointer *foreach_async_data, ESource **so
 
 	do {
 		async_data->current_group = async_data->current_group->next;
-		if (async_data->current_group) {
+		if (async_data->current_group)
 			async_data->current_source = e_source_group_peek_sources (async_data->current_group->data);
-		}
 	} while (async_data->current_group && !async_data->current_source);
 
 	if (async_data->current_source) {

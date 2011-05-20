@@ -285,7 +285,6 @@ e_book_backend_sync_get_contact_list (EBookBackendSync *backend,
 /**
  * e_book_backend_sync_authenticate_user:
  * @backend: an #EBookBackendSync
- * @book: an #EDataBook
  * @cancellable: a #GCancellable for the operation
  * @credentials: an #ECredentials to authenticate with
  * @error: #GError to set, when something fails
@@ -294,17 +293,15 @@ e_book_backend_sync_get_contact_list (EBookBackendSync *backend,
  **/
 void
 e_book_backend_sync_authenticate_user (EBookBackendSync *backend,
-				       EDataBook *book,
 				       GCancellable *cancellable,
 				       ECredentials *credentials,
 				       GError **error)
 {
 	e_return_data_book_error_if_fail (E_IS_BOOK_BACKEND_SYNC (backend), E_DATA_BOOK_STATUS_INVALID_ARG);
-	e_return_data_book_error_if_fail (E_IS_DATA_BOOK (book), E_DATA_BOOK_STATUS_INVALID_ARG);
 	e_return_data_book_error_if_fail (credentials, E_DATA_BOOK_STATUS_INVALID_ARG);
 	e_return_data_book_error_if_fail (E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->authenticate_user_sync, E_DATA_BOOK_STATUS_NOT_SUPPORTED);
 
-	(* E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->authenticate_user_sync) (backend, book, cancellable, credentials, error);
+	(* E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->authenticate_user_sync) (backend, cancellable, credentials, error);
 }
 
 static void
@@ -453,16 +450,14 @@ book_backend_get_contact_list (EBookBackend *backend,
 
 static void
 book_backend_authenticate_user (EBookBackend *backend,
-				EDataBook    *book,
-				guint32       opid,
 				GCancellable *cancellable,
 				ECredentials *credentials)
 {
 	GError *error = NULL;
 
-	e_book_backend_sync_authenticate_user (E_BOOK_BACKEND_SYNC (backend), book, cancellable, credentials, &error);
+	e_book_backend_sync_authenticate_user (E_BOOK_BACKEND_SYNC (backend), cancellable, credentials, &error);
 
-	e_data_book_respond_authenticate_user (book, opid, error);
+	e_book_backend_notify_opened (backend, error);
 }
 
 static gboolean

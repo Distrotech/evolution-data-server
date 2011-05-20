@@ -1207,7 +1207,7 @@ e_book_backend_google_start_book_view (EBookBackend *backend, EDataBookView *boo
 	if (cache_needs_update (backend, NULL)) {
 		if (!priv->service || !gdata_service_is_authenticated (priv->service)) {
 			/* We need authorization first */
-			e_book_backend_notify_auth_required (backend, NULL);
+			e_book_backend_notify_auth_required (backend, TRUE, NULL);
 		} else {
 			/* Update in an idle function, so that this call doesn't block */
 			priv->idle_id = g_idle_add ((GSourceFunc) on_refresh_idle, backend);
@@ -1270,7 +1270,6 @@ proxy_settings_changed (EProxy *proxy, EBookBackend *backend)
 
 typedef struct {
 	EBookBackend *backend;
-	EDataBook *book;
 	guint32 opid;
 } AuthenticateUserData;
 
@@ -1291,37 +1290,37 @@ authenticate_user_cb (GDataService *service, GAsyncResult *result, AuthenticateU
 
 	finish_operation (data->backend, data->opid);
 	e_book_backend_notify_readonly (data->backend, gdata_error ? TRUE : FALSE);
-	e_data_book_respond_authenticate_user (data->book, data->opid, book_error);
+	e_book_backend_notify_opened (data->backend, book_error);
 
-	g_object_unref (data->book);
 	g_object_unref (data->backend);
 	g_slice_free (AuthenticateUserData, data);
 }
 
 static void
-e_book_backend_google_authenticate_user (EBookBackend *backend, EDataBook *book, guint32 opid, GCancellable *cancellable, ECredentials *credentials)
+e_book_backend_google_authenticate_user (EBookBackend *backend, GCancellable *cancellable, ECredentials *credentials)
 {
 	EBookBackendGooglePrivate *priv = E_BOOK_BACKEND_GOOGLE (backend)->priv;
 	AuthenticateUserData *data;
+	guint32 opid;
 
 	__debug__ (G_STRFUNC);
 
 	if (!priv->is_online) {
 		e_book_backend_notify_readonly (backend, TRUE);
 		e_book_backend_notify_online (backend, FALSE);
-		e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (SUCCESS));
+		e_book_backend_notify_opened (backend, EDB_ERROR (SUCCESS));
 		return;
 	}
 
 	if (priv->service && gdata_service_is_authenticated (priv->service)) {
 		g_warning ("Connection to Google already established.");
 		e_book_backend_notify_readonly (backend, FALSE);
-		e_data_book_respond_authenticate_user (book, opid, NULL);
+		e_book_backend_notify_opened (backend, NULL);
 		return;
 	}
 
 	if (!credentials || !e_credentials_has_key (credentials, E_CREDENTIALS_KEY_USERNAME) || !e_credentials_has_key (credentials, E_CREDENTIALS_KEY_PASSWORD)) {
-		e_data_book_respond_authenticate_user (book, opid, EDB_ERROR (AUTHENTICATION_FAILED));
+		e_book_backend_notify_opened (backend, EDB_ERROR (AUTHENTICATION_REQUIRED));
 		return;
 	}
 
@@ -1337,10 +1336,13 @@ e_book_backend_google_authenticate_user (EBookBackend *backend, EDataBook *book,
 		g_signal_connect (priv->proxy, "changed", G_CALLBACK (proxy_settings_changed), backend);
 	}
 
+	opid = -1;
+	while (g_hash_table_lookup (priv->cancellables, GUINT_TO_POINTER (opid)))
+		opid--;
+
 	/* Authenticate with the server asynchronously */
 	data = g_slice_new (AuthenticateUserData);
 	data->backend = g_object_ref (backend);
-	data->book = g_object_ref (book);
 	data->opid = opid;
 
 	cancellable = start_operation (backend, opid, cancellable, _("Authenticating with the server…"));
@@ -1367,7 +1369,7 @@ e_book_backend_google_open (EBookBackend *backend, EDataBook *book, guint opid, 
 	__debug__ (G_STRFUNC);
 
 	if (priv->cancellables) {
-		e_data_book_respond_open (book, opid, EDB_ERROR_EX (OTHER_ERROR, "Source already loaded!"));
+		e_book_backend_respond_opened (backend, book, opid, EDB_ERROR_EX (OTHER_ERROR, "Source already loaded!"));
 		return;
 	}
 
@@ -1405,15 +1407,15 @@ e_book_backend_google_open (EBookBackend *backend, EDataBook *book, guint opid, 
 	}
 
 	/* Set up ready to be interacted with */
-	e_book_backend_set_is_loaded (backend, TRUE);
-	e_book_backend_set_is_readonly (backend, TRUE);
 	e_book_backend_notify_online (backend, priv->is_online);
 	e_book_backend_notify_readonly (backend, TRUE);
 
 	if (priv->is_online) {
 		/* We're going online, so we need to authenticate and create the service and proxy.
 		 * This is done in e_book_backend_google_authenticate_user() when it gets the authentication data. */
-		e_book_backend_notify_auth_required (backend, NULL);
+		e_book_backend_notify_auth_required (backend, TRUE, NULL);
+	} else {
+		e_book_backend_notify_opened (backend, NULL /* Success */);
 	}
 
 	e_data_book_respond_open (book, opid, NULL /* Success */);
@@ -1570,6 +1572,9 @@ google_cancel_all_operations (EBookBackend *backend)
 
 	__debug__ (G_STRFUNC);
 
+	if (!priv->cancellables)
+		return;
+
 	/* Cancel all active operations */
 	g_hash_table_iter_init (&iter, priv->cancellables);
 	while (g_hash_table_iter_next (&iter, &opid_ptr, (gpointer *) &cancellable)) {
@@ -1590,10 +1595,10 @@ e_book_backend_google_set_online (EBookBackend *backend, gboolean is_online)
 
 	e_book_backend_notify_online (backend, is_online);
 
-	if (is_online) {
+	if (is_online && e_book_backend_is_opened (backend)) {
 		/* Going online, so we need to re-authenticate and re-create the service and proxy.
 		 * This is done in e_book_backend_google_authenticate_user() when it gets the authentication data. */
-		e_book_backend_notify_auth_required (backend, NULL);
+		e_book_backend_notify_auth_required (backend, TRUE, NULL);
 	} else {
 		/* Going offline, so cancel all running operations */
 		google_cancel_all_operations (backend);
@@ -1653,9 +1658,11 @@ e_book_backend_google_finalize (GObject *object)
 
 	__debug__ (G_STRFUNC);
 
-	g_hash_table_destroy (priv->groups_by_id);
-	g_hash_table_destroy (priv->groups_by_name);
-	g_hash_table_destroy (priv->cancellables);
+	if (priv->cancellables) {
+		g_hash_table_destroy (priv->groups_by_id);
+		g_hash_table_destroy (priv->groups_by_name);
+		g_hash_table_destroy (priv->cancellables);
+	}
 
 	G_OBJECT_CLASS (e_book_backend_google_parent_class)->finalize (object);
 }

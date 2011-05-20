@@ -40,6 +40,7 @@ void		e_client_unregister_op		(EClient *client, guint32 opid);
 void		e_client_process_authentication	(EClient *client, const ECredentials *credentials);
 
 gboolean	e_client_emit_authenticate	(EClient *client, ECredentials *credentials);
+void		e_client_emit_opened		(EClient *client, const GError *error);
 void		e_client_emit_backend_error	(EClient *client, const gchar *error_msg);
 void		e_client_emit_backend_died	(EClient *client);
 

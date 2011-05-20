@@ -414,7 +414,7 @@ retrieval_done (SoupSession *session, SoupMessage *msg, ECalBackendHttp *cbhttp)
 		if (!priv->opened) {
 			if (msg->status_code == 401 || msg->status_code == 403) {
 				priv->requires_auth = TRUE;
-				e_cal_backend_notify_auth_required (E_CAL_BACKEND (cbhttp), priv->credentials);
+				e_cal_backend_notify_auth_required (E_CAL_BACKEND (cbhttp), TRUE, priv->credentials);
 				return;
 			} else
 				e_cal_backend_notify_error (E_CAL_BACKEND (cbhttp),
@@ -730,8 +730,10 @@ e_cal_backend_http_open (ECalBackendSync *backend, EDataCal *cal, GCancellable *
 	priv = cbhttp->priv;
 
 	/* already opened, thus can skip all this initialization */
-	if (priv->opened)
+	if (priv->opened) {
+		e_cal_backend_notify_opened (E_CAL_BACKEND (backend), NULL);
 		return;
+	}
 
 	source = e_cal_backend_get_source (E_CAL_BACKEND (backend));
 
@@ -756,26 +758,31 @@ e_cal_backend_http_open (ECalBackendSync *backend, EDataCal *cal, GCancellable *
 
 		if (!priv->store) {
 			g_propagate_error (perror, EDC_ERROR_EX (OtherError, _("Could not create cache file")));
+			e_cal_backend_notify_opened (E_CAL_BACKEND (backend), EDC_ERROR_EX (OtherError, _("Could not create cache file")));
 			return;
 		}
 	}
 
-	e_cal_backend_set_is_loaded (E_CAL_BACKEND (backend), TRUE);
 	e_cal_backend_notify_readonly (E_CAL_BACKEND (backend), TRUE);
 	e_cal_backend_notify_online (E_CAL_BACKEND (backend), priv->is_online);
 
 	if (priv->is_online) {
-		if (e_source_get_property (source, "auth"))
-			e_cal_backend_notify_auth_required (E_CAL_BACKEND (cbhttp), priv->credentials);
-		else if (priv->requires_auth && perror && !*perror)
+		if (e_source_get_property (source, "auth")) {
+			e_cal_backend_notify_auth_required (E_CAL_BACKEND (cbhttp), TRUE, priv->credentials);
+		} else if (priv->requires_auth && perror && !*perror) {
 			g_propagate_error (perror, EDC_ERROR (AuthenticationRequired));
-		else
+			e_cal_backend_notify_opened (E_CAL_BACKEND (backend), EDC_ERROR (AuthenticationRequired));
+		} else {
+			e_cal_backend_notify_opened (E_CAL_BACKEND (backend), NULL);
 			g_idle_add ((GSourceFunc) begin_retrieval_cb, cbhttp);
+		}
+	} else {
+		e_cal_backend_notify_opened (E_CAL_BACKEND (backend), NULL);
 	}
 }
 
 static void
-e_cal_backend_http_authenticate_user (ECalBackendSync *backend, EDataCal *cal, GCancellable *cancellable, ECredentials *credentials, GError **error)
+e_cal_backend_http_authenticate_user (ECalBackendSync *backend, GCancellable *cancellable, ECredentials *credentials, GError **error)
 {
 	ECalBackendHttp        *cbhttp;
 	ECalBackendHttpPrivate *priv;
@@ -784,7 +791,7 @@ e_cal_backend_http_authenticate_user (ECalBackendSync *backend, EDataCal *cal, G
 	priv  = cbhttp->priv;
 
 	if (priv->credentials && credentials && e_credentials_equal_keys (priv->credentials, credentials, E_CREDENTIALS_KEY_USERNAME, E_CREDENTIALS_KEY_PASSWORD, NULL)) {
-		g_propagate_error (error, EDC_ERROR (AuthenticationFailed));
+		g_propagate_error (error, EDC_ERROR (AuthenticationRequired));
 		return;
 	}
 
@@ -792,7 +799,7 @@ e_cal_backend_http_authenticate_user (ECalBackendSync *backend, EDataCal *cal, G
 	priv->credentials = NULL;
 
 	if (!credentials || !e_credentials_has_key (credentials, E_CREDENTIALS_KEY_USERNAME)) {
-		g_propagate_error (error, EDC_ERROR (AuthenticationFailed));
+		g_propagate_error (error, EDC_ERROR (AuthenticationRequired));
 		return;
 	}
 
@@ -848,7 +855,7 @@ e_cal_backend_http_set_online (ECalBackend *backend, gboolean is_online)
 	cbhttp = E_CAL_BACKEND_HTTP (backend);
 	priv = cbhttp->priv;
 
-	loaded = e_cal_backend_is_loaded (backend);
+	loaded = e_cal_backend_is_opened (backend);
 
 	if ((priv->is_online ? 1 : 0) != (is_online ? 1 : 0)) {
 		priv->is_online = is_online;

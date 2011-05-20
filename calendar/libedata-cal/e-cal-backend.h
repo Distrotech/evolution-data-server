@@ -43,7 +43,8 @@ G_BEGIN_DECLS
 #define E_IS_CAL_BACKEND_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), E_TYPE_CAL_BACKEND))
 #define E_CAL_BACKEND_GET_CLASS(obj)  (E_CAL_BACKEND_CLASS (G_OBJECT_GET_CLASS (obj)))
 
-#define CLIENT_BACKEND_PROPERTY_LOADED			"loaded"
+#define CLIENT_BACKEND_PROPERTY_OPENED			"opened"
+#define CLIENT_BACKEND_PROPERTY_OPENING			"opening"
 #define CLIENT_BACKEND_PROPERTY_ONLINE			"online"
 #define CLIENT_BACKEND_PROPERTY_READONLY		"readonly"
 #define CLIENT_BACKEND_PROPERTY_CACHE_DIR		"cache-dir"
@@ -70,9 +71,9 @@ struct _ECalBackendClass {
         void	(* set_backend_property)	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value);
 
 	void	(* open)			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, gboolean only_if_exists);
-	void	(* authenticate_user)		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, ECredentials *credentials);
 	void	(* remove)			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
 	void	(* set_online)			(ECalBackend *backend, gboolean is_online);
+	void	(* authenticate_user)		(ECalBackend *backend, GCancellable *cancellable, ECredentials *credentials);
 
 	void	(* refresh)			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
 	void	(* get_object)			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid);
@@ -104,7 +105,8 @@ ESource *	e_cal_backend_get_source		(ECalBackend *backend);
 const gchar *	e_cal_backend_get_uri			(ECalBackend *backend);
 icalcomponent_kind e_cal_backend_get_kind		(ECalBackend *backend);
 gboolean	e_cal_backend_is_online			(ECalBackend *backend);
-gboolean	e_cal_backend_is_loaded			(ECalBackend *backend);
+gboolean	e_cal_backend_is_opened			(ECalBackend *backend);
+gboolean	e_cal_backend_is_opening		(ECalBackend *backend);
 gboolean	e_cal_backend_is_readonly		(ECalBackend *backend);
 gboolean	e_cal_backend_is_removed		(ECalBackend *backend);
 
@@ -124,8 +126,9 @@ void		e_cal_backend_get_backend_property	(ECalBackend *backend, EDataCal *cal, g
 void		e_cal_backend_set_backend_property	(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *prop_name, const gchar *prop_value);
 
 void		e_cal_backend_set_online		(ECalBackend *backend, gboolean is_online);
+void		e_cal_backend_authenticate_user		(ECalBackend *backend, GCancellable *cancellable, ECredentials *credentials);
+
 void		e_cal_backend_open			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, gboolean only_if_exists);
-void		e_cal_backend_authenticate_user		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, ECredentials *credentials);
 void		e_cal_backend_remove			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
 void		e_cal_backend_refresh			(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable);
 void		e_cal_backend_get_object		(ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, const gchar *uid, const gchar *rid);
@@ -154,13 +157,15 @@ void		e_cal_backend_notify_objects_removed	(ECalBackend *backend, EDataCalView *
 void		e_cal_backend_notify_error		(ECalBackend *backend, const gchar *message);
 void		e_cal_backend_notify_readonly		(ECalBackend *backend, gboolean is_readonly);
 void		e_cal_backend_notify_online		(ECalBackend *backend, gboolean is_online);
-void		e_cal_backend_notify_auth_required	(ECalBackend *backend, const ECredentials *credentials);
+void		e_cal_backend_notify_auth_required	(ECalBackend *backend, gboolean is_self, const ECredentials *credentials);
+void		e_cal_backend_notify_opened		(ECalBackend *backend, GError *error);
 
 void		e_cal_backend_empty_cache		(ECalBackend *backend, struct _ECalBackendCache *cache);
 
 /* protected functions for subclasses */
-void		e_cal_backend_set_is_loaded		(ECalBackend *backend, gboolean is_loaded);
 void		e_cal_backend_set_is_removed		(ECalBackend *backend, gboolean is_removed);
+
+void		e_cal_backend_respond_opened		(ECalBackend *backend, EDataCal *cal, guint32 opid, GError *error);
 
 G_END_DECLS
 

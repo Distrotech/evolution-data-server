@@ -137,10 +137,6 @@ operation_thread (gpointer data, gpointer user_data)
 	case OP_OPEN:
 		e_book_backend_open (backend, op->book, op->id, op->cancellable, op->d.only_if_exists);
 		break;
-	case OP_AUTHENTICATE:
-		e_book_backend_authenticate_user (backend, op->book, op->id, op->cancellable, op->d.credentials);
-		e_credentials_free (op->d.credentials);
-		break;
 	case OP_ADD_CONTACT:
 		e_book_backend_create_contact (backend, op->book, op->id, op->cancellable, op->d.vcard);
 		g_free (op->d.vcard);
@@ -215,6 +211,10 @@ operation_thread (gpointer data, gpointer user_data)
 		}
 		g_free (op->d.query);
 		break;
+	case OP_AUTHENTICATE:
+		e_book_backend_authenticate_user (backend, op->cancellable, op->d.credentials);
+		e_credentials_free (op->d.credentials);
+		break;
 	case OP_CANCEL_OPERATION:
 		g_static_rec_mutex_lock (&op->book->priv->pending_ops_lock);
 
@@ -285,6 +285,7 @@ e_data_book_status_to_string (EDataBookStatus status)
 		const gchar *msg;
 	} statuses[] = {
 		{ E_DATA_BOOK_STATUS_SUCCESS,				N_("Success") },
+		{ E_DATA_BOOK_STATUS_BUSY,				N_("Backend is busy") },
 		{ E_DATA_BOOK_STATUS_REPOSITORY_OFFLINE,		N_("Repository offline") },
 		{ E_DATA_BOOK_STATUS_PERMISSION_DENIED,			N_("Permission denied") },
 		{ E_DATA_BOOK_STATUS_CONTACT_NOT_FOUND,			N_("Contact not found") },
@@ -326,6 +327,7 @@ e_data_book_error_quark (void)
 
 	static const GDBusErrorEntry entries[] = {
 		{ E_DATA_BOOK_STATUS_SUCCESS,				ERR_PREFIX "Success" },
+		{ E_DATA_BOOK_STATUS_BUSY,				ERR_PREFIX "Busy" },
 		{ E_DATA_BOOK_STATUS_REPOSITORY_OFFLINE,		ERR_PREFIX "RepositoryOffline" },
 		{ E_DATA_BOOK_STATUS_PERMISSION_DENIED,			ERR_PREFIX "PermissionDenied" },
 		{ E_DATA_BOOK_STATUS_CONTACT_NOT_FOUND,			ERR_PREFIX "ContactNotFound" },
@@ -541,28 +543,6 @@ impl_Book_getContactList (EGdbusBook *object, GDBusMethodInvocation *invocation,
 }
 
 static gboolean
-impl_Book_authenticateUser (EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar * const *in_credentials, EDataBook *book)
-{
-	OperationData *op;
-
-	if (in_credentials == NULL) {
-		GError *error = e_data_book_create_error (E_DATA_BOOK_STATUS_INVALID_ARG, NULL);
-		/* Translators: This is prefix to a detailed error message */
-		data_book_return_error (invocation, error, _("Cannot authenticate user: "));
-		g_error_free (error);
-		return TRUE;
-	}
-
-	op = op_new (OP_AUTHENTICATE, book);
-	op->d.credentials = e_credentials_new_strv (in_credentials);
-
-	e_gdbus_book_complete_authenticate_user (book->priv->gdbus_object, invocation, op->id);
-	e_operation_pool_push (ops_pool, op);
-
-	return TRUE;
-}
-
-static gboolean
 impl_Book_addContact (EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar *in_vcard, EDataBook *book)
 {
 	OperationData *op;
@@ -672,6 +652,28 @@ impl_Book_getBookView (EGdbusBook *object, GDBusMethodInvocation *invocation, co
 	op->d.query = g_strdup (in_query);
 
 	e_gdbus_book_complete_get_view (book->priv->gdbus_object, invocation, op->id);
+	e_operation_pool_push (ops_pool, op);
+
+	return TRUE;
+}
+
+static gboolean
+impl_Book_authenticateUser (EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar * const *in_credentials, EDataBook *book)
+{
+	OperationData *op;
+
+	if (in_credentials == NULL) {
+		GError *error = e_data_book_create_error (E_DATA_BOOK_STATUS_INVALID_ARG, NULL);
+		/* Translators: This is prefix to a detailed error message */
+		data_book_return_error (invocation, error, _("Cannot authenticate user: "));
+		g_error_free (error);
+		return TRUE;
+	}
+
+	op = op_new (OP_AUTHENTICATE, book);
+	op->d.credentials = e_credentials_new_strv (in_credentials);
+
+	e_gdbus_book_complete_authenticate_user (book->priv->gdbus_object, invocation, NULL);
 	e_operation_pool_push (ops_pool, op);
 
 	return TRUE;
@@ -824,20 +826,6 @@ e_data_book_respond_get_contact_list (EDataBook *book, guint32 opid, GError *err
 }
 
 void
-e_data_book_respond_authenticate_user (EDataBook *book, guint32 opid, GError *error)
-{
-	op_complete (book, opid);
-
-	/* Translators: This is prefix to a detailed error message */
-	g_prefix_error (&error, "%s", _("Cannot authenticate user: "));
-
-	e_gdbus_book_emit_authenticate_user_done (book->priv->gdbus_object, opid, error);
-
-	if (error)
-		g_error_free (error);
-}
-
-void
 e_data_book_respond_create (EDataBook *book, guint32 opid, GError *error, const EContact *contact)
 {
 	gchar *gdbus_uid = NULL;
@@ -944,6 +932,23 @@ e_data_book_report_auth_required (EDataBook *book, const ECredentials *credentia
 	e_gdbus_book_emit_auth_required (book->priv->gdbus_object, (const gchar * const *) (strv ? strv : empty_strv));
 
 	g_strfreev (strv);
+}
+
+/* Reports to associated client that opening phase of the book is finished.
+   error being NULL means successfully, otherwise reports an error which happened
+   during opening phase. By opening phase is meant a process including successfull
+   authentication to the server/storage.
+*/
+void
+e_data_book_report_opened (EDataBook *book, const GError *error)
+{
+	gchar **strv_error;
+
+	strv_error = e_gdbus_templates_encode_error (error);
+
+	e_gdbus_book_emit_opened (book->priv->gdbus_object, (const gchar * const *) strv_error);
+
+	g_strfreev (strv_error);
 }
 
 /**

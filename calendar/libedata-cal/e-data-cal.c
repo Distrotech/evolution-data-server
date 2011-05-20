@@ -178,10 +178,6 @@ operation_thread (gpointer data, gpointer user_data)
 	case OP_OPEN:
 		e_cal_backend_open (backend, op->cal, op->id, op->cancellable, op->d.only_if_exists);
 		break;
-	case OP_AUTHENTICATE:
-		e_cal_backend_authenticate_user (backend, op->cal, op->id, op->cancellable, op->d.credentials);
-		e_credentials_free (op->d.credentials);
-		break;
 	case OP_REMOVE:
 		e_cal_backend_remove (backend, op->cal, op->id, op->cancellable);
 		break;
@@ -298,6 +294,10 @@ operation_thread (gpointer data, gpointer user_data)
 		e_cal_backend_add_timezone (backend, op->cal, op->id, op->cancellable, op->d.tzobject);
 		g_free (op->d.tzobject);
 		break;
+	case OP_AUTHENTICATE:
+		e_cal_backend_authenticate_user (backend, op->cancellable, op->d.credentials);
+		e_credentials_free (op->d.credentials);
+		break;
 	case OP_CANCEL_OPERATION:
 		g_static_rec_mutex_lock (&op->cal->priv->pending_ops_lock);
 
@@ -362,6 +362,7 @@ e_data_cal_error_quark (void)
 
 	static const GDBusErrorEntry entries[] = {
 		{ Success,				ERR_PREFIX "Success" },
+		{ Busy,					ERR_PREFIX "Busy" },
 		{ RepositoryOffline,			ERR_PREFIX "RepositoryOffline" },
 		{ PermissionDenied,			ERR_PREFIX "PermissionDenied" },
 		{ InvalidRange,				ERR_PREFIX "InvalidRange" },
@@ -411,6 +412,7 @@ e_data_cal_status_to_string (EDataCalCallStatus status)
 		const gchar *msg;
 	} statuses[] = {
 		{ Success,				N_("Success") },
+		{ Busy,					N_("Backend is busy") },
 		{ RepositoryOffline,			N_("Repository offline") },
 		{ PermissionDenied,			N_("Permission denied") },
 		{ InvalidRange,				N_("Invalid range") },
@@ -563,28 +565,6 @@ impl_Cal_open (EGdbusCal *object, GDBusMethodInvocation *invocation, gboolean in
 	op->d.only_if_exists = in_only_if_exists;
 
 	e_gdbus_cal_complete_open (cal->priv->gdbus_object, invocation, op->id);
-	e_operation_pool_push (ops_pool, op);
-
-	return TRUE;
-}
-
-static gboolean
-impl_Cal_authenticateUser (EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar * const *in_credentials, EDataCal *cal)
-{
-	OperationData *op;
-
-	if (in_credentials == NULL) {
-		GError *error = e_data_cal_create_error (InvalidArg, NULL);
-		/* Translators: This is prefix to a detailed error message */
-		data_cal_return_error (invocation, error, _("Cannot authenticate user: "));
-		g_error_free (error);
-		return TRUE;
-	}
-
-	op = op_new (OP_AUTHENTICATE, cal);
-	op->d.credentials = e_credentials_new_strv (in_credentials);
-
-	e_gdbus_cal_complete_authenticate_user (cal->priv->gdbus_object, invocation, op->id);
 	e_operation_pool_push (ops_pool, op);
 
 	return TRUE;
@@ -835,6 +815,28 @@ impl_Cal_addTimezone (EGdbusCal *object, GDBusMethodInvocation *invocation, cons
 }
 
 static gboolean
+impl_Cal_authenticateUser (EGdbusCal *object, GDBusMethodInvocation *invocation, const gchar * const *in_credentials, EDataCal *cal)
+{
+	OperationData *op;
+
+	if (in_credentials == NULL) {
+		GError *error = e_data_cal_create_error (InvalidArg, NULL);
+		/* Translators: This is prefix to a detailed error message */
+		data_cal_return_error (invocation, error, _("Cannot authenticate user: "));
+		g_error_free (error);
+		return TRUE;
+	}
+
+	op = op_new (OP_AUTHENTICATE, cal);
+	op->d.credentials = e_credentials_new_strv (in_credentials);
+
+	e_gdbus_cal_complete_authenticate_user (cal->priv->gdbus_object, invocation, NULL);
+	e_operation_pool_push (ops_pool, op);
+
+	return TRUE;
+}
+
+static gboolean
 impl_Cal_cancelOperation (EGdbusCal *object, GDBusMethodInvocation *invocation, guint in_opid, EDataCal *cal)
 {
 	OperationData *op;
@@ -908,20 +910,6 @@ e_data_cal_respond_open (EDataCal *cal, guint32 opid, GError *error)
 	g_prefix_error (&error, "%s", _("Cannot open calendar: "));
 
 	e_gdbus_cal_emit_open_done (cal->priv->gdbus_object, opid, error);
-
-	if (error)
-		g_error_free (error);
-}
-
-void
-e_data_cal_respond_authenticate_user (EDataCal *cal, guint32 opid, GError *error)
-{
-	op_complete (cal, opid);
-
-	/* Translators: This is prefix to a detailed error message */
-	g_prefix_error (&error, "%s", _("Cannot authenticate user: "));
-
-	e_gdbus_cal_emit_authenticate_user_done (cal->priv->gdbus_object, opid, error);
 
 	if (error)
 		g_error_free (error);
@@ -1389,6 +1377,23 @@ e_data_cal_report_auth_required (EDataCal *cal, const ECredentials *credentials)
 	e_gdbus_cal_emit_auth_required (cal->priv->gdbus_object, (const gchar * const *) (strv ? strv : empty_strv));
 
 	g_strfreev (strv);
+}
+
+/* Reports to associated client that opening phase of the cal is finished.
+   error being NULL means successfully, otherwise reports an error which happened
+   during opening phase. By opening phase is meant a process including successfull
+   authentication to the server/storage.
+*/
+void
+e_data_cal_report_opened (EDataCal *cal, const GError *error)
+{
+	gchar **strv_error;
+
+	strv_error = e_gdbus_templates_encode_error (error);
+
+	e_gdbus_cal_emit_opened (cal->priv->gdbus_object, (const gchar * const *) strv_error);
+
+	g_strfreev (strv_error);
 }
 
 void

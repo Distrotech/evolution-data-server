@@ -353,12 +353,6 @@ impl_CalFactory_getCal (EGdbusCalFactory *object, GDBusMethodInvocation *invocat
 	gchar *source_xml = NULL;
 	guint type = 0;
 
-	/* Remove a pending exit */
-	if (priv->exit_timeout) {
-		g_source_remove (priv->exit_timeout);
-		priv->exit_timeout = 0;
-	}
-
 	if (!e_gdbus_cal_factory_decode_get_cal (in_source_type, &source_xml, &type)) {
 		error = g_error_new (E_DATA_CAL_ERROR, NoSuchCal, _("Invalid call"));
 		g_dbus_method_invocation_return_gerror (invocation, error);
@@ -495,6 +489,12 @@ impl_CalFactory_getCal (EGdbusCalFactory *object, GDBusMethodInvocation *invocat
 	} else if (!e_source_equal (source, e_cal_backend_get_source (backend))) {
 		/* source changed, update it in a backend */
 		update_source_in_backend (backend, source);
+	}
+
+	/* Remove a pending exit */
+	if (priv->exit_timeout) {
+		g_source_remove (priv->exit_timeout);
+		priv->exit_timeout = 0;
 	}
 
 	calendar = e_data_cal_new (backend, source);

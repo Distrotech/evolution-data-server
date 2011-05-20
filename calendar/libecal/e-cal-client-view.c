@@ -182,14 +182,14 @@ progress_cb (EGdbusCalView *gdbus_calview, guint percent, const gchar *message, 
 static void
 complete_cb (EGdbusCalView *gdbus_calview, const gchar * const *arg_error, ECalClientView *view)
 {
-	GError *error;
+	GError *error = NULL;
 
 	g_return_if_fail (E_IS_CAL_CLIENT_VIEW (view));
 
 	if (!view->priv->running)
 		return;
 
-	error = e_gdbus_cal_view_decode_error (arg_error);
+	g_return_if_fail (e_gdbus_templates_decode_error (arg_error, &error));
 
 	g_signal_emit (G_OBJECT (view), signals[COMPLETE], 0, error);
 
@@ -493,7 +493,7 @@ e_cal_client_view_stop (ECalClientView *view, GError **error)
  *
  * Client can instruct server to which fields it is interested in only, thus
  * the server can return less data over the wire. The server can still return
- * complete objects, this is just a hint to it that the listef fields will
+ * complete objects, this is just a hint to it that the listed fields will
  * be used only. The UID/RID fields are returned always. Initial views has
  * no restriction, and using %NULL for @only_fields will unset any previous
  * changes.

@@ -40,11 +40,10 @@ enum
 	__READONLY_SIGNAL,
 	__ONLINE_SIGNAL,
 	__AUTH_REQUIRED_SIGNAL,
+	__OPENED_SIGNAL,
 	__FREE_BUSY_DATA_SIGNAL,
 	__OPEN_METHOD,
 	__OPEN_DONE_SIGNAL,
-	__AUTHENTICATE_USER_METHOD,
-	__AUTHENTICATE_USER_DONE_SIGNAL,
 	__REMOVE_METHOD,
 	__REMOVE_DONE_SIGNAL,
 	__REFRESH_METHOD,
@@ -79,6 +78,7 @@ enum
 	__GET_TIMEZONE_DONE_SIGNAL,
 	__ADD_TIMEZONE_METHOD,
 	__ADD_TIMEZONE_DONE_SIGNAL,
+	__AUTHENTICATE_USER_METHOD,
 	__CANCEL_OPERATION_METHOD,
 	__CANCEL_ALL_METHOD,
 	__CLOSE_METHOD,
@@ -131,10 +131,10 @@ E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRING  (GDBUS_CAL_INTERFACE_NAME, backend_
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_BOOLEAN (GDBUS_CAL_INTERFACE_NAME, readonly)
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_BOOLEAN (GDBUS_CAL_INTERFACE_NAME, online)
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV    (GDBUS_CAL_INTERFACE_NAME, auth_required)
+E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV    (GDBUS_CAL_INTERFACE_NAME, opened)
 E_DECLARE_GDBUS_SIGNAL_EMISSION_HOOK_STRV    (GDBUS_CAL_INTERFACE_NAME, free_busy_data)
 
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, open)
-E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, authenticate_user)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, remove)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_VOID	(GDBUS_CAL_INTERFACE_NAME, refresh)
 E_DECLARE_GDBUS_METHOD_DONE_EMISSION_HOOK_ASYNC_STRING	(GDBUS_CAL_INTERFACE_NAME, get_backend_property)
@@ -167,11 +167,11 @@ e_gdbus_cal_default_init (EGdbusCalIface *iface)
 	E_INIT_GDBUS_SIGNAL_BOOLEAN		(EGdbusCalIface, "readonly",		readonly,	__READONLY_SIGNAL)
 	E_INIT_GDBUS_SIGNAL_BOOLEAN		(EGdbusCalIface, "online",		online,		__ONLINE_SIGNAL)
 	E_INIT_GDBUS_SIGNAL_STRV   		(EGdbusCalIface, "auth_required", 	auth_required,	__AUTH_REQUIRED_SIGNAL)
+	E_INIT_GDBUS_SIGNAL_STRV   		(EGdbusCalIface, "opened", 		opened,		__OPENED_SIGNAL)
 	E_INIT_GDBUS_SIGNAL_STRV   		(EGdbusCalIface, "free_busy_data", 	free_busy_data,	__FREE_BUSY_DATA_SIGNAL)
 
 	/* GObject signals definitions for D-Bus methods: */
 	E_INIT_GDBUS_METHOD_ASYNC_BOOLEAN__VOID	(EGdbusCalIface, "open",			open, __OPEN_METHOD, __OPEN_DONE_SIGNAL)
-	E_INIT_GDBUS_METHOD_ASYNC_STRV__VOID	(EGdbusCalIface, "authenticateUser",		authenticate_user, __AUTHENTICATE_USER_METHOD, __AUTHENTICATE_USER_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_VOID__VOID	(EGdbusCalIface, "remove",			remove, __REMOVE_METHOD, __REMOVE_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_VOID__VOID	(EGdbusCalIface, "refresh",			refresh, __REFRESH_METHOD, __REFRESH_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRING(EGdbusCalIface, "getBackendProperty",		get_backend_property, __GET_BACKEND_PROPERTY_METHOD, __GET_BACKEND_PROPERTY_DONE_SIGNAL)
@@ -189,6 +189,7 @@ e_gdbus_cal_default_init (EGdbusCalIface *iface)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRING(EGdbusCalIface, "getView",			get_view, __GET_VIEW_METHOD, __GET_VIEW_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__STRING(EGdbusCalIface, "getTimezone",			get_timezone, __GET_TIMEZONE_METHOD, __GET_TIMEZONE_DONE_SIGNAL)
 	E_INIT_GDBUS_METHOD_ASYNC_STRING__VOID	(EGdbusCalIface, "addTimezone",			add_timezone, __ADD_TIMEZONE_METHOD, __ADD_TIMEZONE_DONE_SIGNAL)
+	E_INIT_GDBUS_METHOD_STRV		(EGdbusCalIface, "authenticateUser",		authenticate_user, __AUTHENTICATE_USER_METHOD)
 	E_INIT_GDBUS_METHOD_UINT		(EGdbusCalIface, "cancelOperation",		cancel_operation, __CANCEL_OPERATION_METHOD)
 	E_INIT_GDBUS_METHOD_VOID		(EGdbusCalIface, "cancelAll",			cancel_all, __CANCEL_ALL_METHOD)
 	E_INIT_GDBUS_METHOD_VOID		(EGdbusCalIface, "close",			close, __CLOSE_METHOD)
@@ -241,26 +242,6 @@ e_gdbus_cal_call_open_sync (GDBusProxy *proxy, gboolean in_only_if_exists, GCanc
 	return e_gdbus_proxy_call_sync_boolean__void (proxy, in_only_if_exists, cancellable, error,
 		e_gdbus_cal_call_open,
 		e_gdbus_cal_call_open_finish);
-}
-
-void
-e_gdbus_cal_call_authenticate_user (GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
-{
-	e_gdbus_proxy_call_strv ("authenticateUser", e_gdbus_cal_call_authenticate_user, E_GDBUS_ASYNC_OP_KEEPER (proxy), in_credentials, cancellable, callback, user_data);
-}
-
-gboolean
-e_gdbus_cal_call_authenticate_user_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error)
-{
-	return e_gdbus_proxy_finish_call_void (E_GDBUS_ASYNC_OP_KEEPER (proxy), result, error, e_gdbus_cal_call_authenticate_user);
-}
-
-gboolean
-e_gdbus_cal_call_authenticate_user_sync (GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GError **error)
-{
-	return e_gdbus_proxy_call_sync_strv__void (proxy, in_credentials, cancellable, error,
-		e_gdbus_cal_call_authenticate_user,
-		e_gdbus_cal_call_authenticate_user_finish);
 }
 
 void
@@ -841,6 +822,24 @@ e_gdbus_cal_call_add_timezone_sync (GDBusProxy *proxy, const gchar *in_tzobject,
 }
 
 void
+e_gdbus_cal_call_authenticate_user (GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+{
+	e_gdbus_proxy_method_call_strv ("authenticateUser", proxy, in_credentials, cancellable, callback, user_data);
+}
+
+gboolean
+e_gdbus_cal_call_authenticate_user_finish (GDBusProxy *proxy, GAsyncResult *result, GError **error)
+{
+	return e_gdbus_proxy_method_call_finish_void (proxy, result, error);
+}
+
+gboolean
+e_gdbus_cal_call_authenticate_user_sync (GDBusProxy *proxy, const gchar * const *in_credentials, GCancellable *cancellable, GError **error)
+{
+	return e_gdbus_proxy_method_call_sync_strv__void ("authenticateUser", proxy, in_credentials, cancellable, error);
+}
+
+void
 e_gdbus_cal_call_cancel_operation (GDBusProxy *proxy, guint in_opid, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
 	e_gdbus_proxy_method_call_uint ("cancelOperation", proxy, in_opid, cancellable, callback, user_data);
@@ -909,7 +908,6 @@ e_gdbus_cal_emit_ ## _mname ## _done (EGdbusCal *object, guint arg_opid, const G
 }
 
 DECLARE_EMIT_DONE_SIGNAL_0 (open,			__OPEN_DONE_SIGNAL)
-DECLARE_EMIT_DONE_SIGNAL_0 (authenticate_user,		__AUTHENTICATE_USER_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_0 (remove,			__REMOVE_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_0 (refresh,			__REFRESH_DONE_SIGNAL)
 DECLARE_EMIT_DONE_SIGNAL_1 (get_backend_property,	__GET_BACKEND_PROPERTY_DONE_SIGNAL, const gchar *)
@@ -956,6 +954,12 @@ e_gdbus_cal_emit_auth_required (EGdbusCal *object, const gchar * const *arg_cred
 }
 
 void
+e_gdbus_cal_emit_opened (EGdbusCal *object, const gchar * const *arg_error)
+{
+	g_signal_emit (object, signals[__OPENED_SIGNAL], 0, arg_error);
+}
+
+void
 e_gdbus_cal_emit_free_busy_data (EGdbusCal *object, const gchar * const *arg_free_busy)
 {
 	g_signal_emit (object, signals[__FREE_BUSY_DATA_SIGNAL], 0, arg_free_busy);
@@ -965,10 +969,10 @@ E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal, backend_error, message, "s")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal, readonly, is_readonly, "b")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal, online, is_online, "b")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal, auth_required, credentials, "as")
+E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal, opened, error, "as")
 E_DECLARE_GDBUS_NOTIFY_SIGNAL_1 (cal, free_busy_data, free_busy_data, "as")
 
 E_DECLARE_GDBUS_ASYNC_METHOD_1			(cal, open, only_if_exists, "b")
-E_DECLARE_GDBUS_ASYNC_METHOD_1			(cal, authenticateUser, credentials, "as")
 E_DECLARE_GDBUS_ASYNC_METHOD_0			(cal, remove)
 E_DECLARE_GDBUS_ASYNC_METHOD_0			(cal, refresh)
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(cal, getBackendProperty, propname, "s", propvalue, "s")
@@ -987,6 +991,7 @@ E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(cal, getView, sexp, "s", view_path, 
 E_DECLARE_GDBUS_ASYNC_METHOD_1_WITH_RETURN	(cal, getTimezone, tzid, "s", tzobject, "s")
 E_DECLARE_GDBUS_ASYNC_METHOD_1			(cal, addTimezone, tzobject, "s")
 
+E_DECLARE_GDBUS_SYNC_METHOD_1			(cal, authenticateUser, credentials, "as")
 E_DECLARE_GDBUS_SYNC_METHOD_1			(cal, cancelOperation, opid, "u")
 E_DECLARE_GDBUS_SYNC_METHOD_0			(cal, cancelAll)
 E_DECLARE_GDBUS_SYNC_METHOD_0			(cal, close)
@@ -994,7 +999,6 @@ E_DECLARE_GDBUS_SYNC_METHOD_0			(cal, close)
 static const GDBusMethodInfo * const e_gdbus_cal_method_info_pointers[] =
 {
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, open),
-	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, authenticateUser),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, remove),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, refresh),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getBackendProperty),
@@ -1012,6 +1016,7 @@ static const GDBusMethodInfo * const e_gdbus_cal_method_info_pointers[] =
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getView),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, getTimezone),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, addTimezone),
+	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, authenticateUser),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, cancelOperation),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, cancelAll),
 	&E_DECLARED_GDBUS_METHOD_INFO_NAME (cal, close),
@@ -1024,10 +1029,10 @@ static const GDBusSignalInfo * const e_gdbus_cal_signal_info_pointers[] =
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, readonly),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, online),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, auth_required),
+	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, opened),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, free_busy_data),
 
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, open_done),
-	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, authenticateUser_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, remove_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, refresh_done),
 	&E_DECLARED_GDBUS_SIGNAL_INFO_NAME (cal, getBackendProperty_done),
@@ -1251,7 +1256,6 @@ e_gdbus_cal_proxy_init (EGdbusCalProxy *proxy)
 	proxy->priv->pending_ops = e_gdbus_async_op_keeper_create_pending_ops (E_GDBUS_ASYNC_OP_KEEPER (proxy));
 
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (open);
-	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (authenticate_user);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (remove);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_VOID   (refresh);
 	E_GDBUS_CONNECT_METHOD_DONE_SIGNAL_STRING (get_backend_property);

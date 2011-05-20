@@ -16,12 +16,14 @@
 #include "e-data-book.h"
 #include "e-book-backend.h"
 
+#define EDB_OPENING_ERROR e_data_book_create_error (E_DATA_BOOK_STATUS_BUSY, _("Cannot process, book backend is opening"))
+
 struct _EBookBackendPrivate {
 	GMutex *clients_mutex;
 	GSList *clients;
 
 	ESource *source;
-	gboolean loaded, readonly, removed, online;
+	gboolean opening, opened, readonly, removed, online;
 
 	GMutex *views_mutex;
 	GSList *views;
@@ -77,8 +79,10 @@ book_backend_get_backend_property (EBookBackend *backend, EDataBook *book, guint
 	g_return_if_fail (book != NULL);
 	g_return_if_fail (prop_name != NULL);
 
-	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_LOADED)) {
-		e_data_book_respond_get_backend_property (book, opid, NULL, e_book_backend_is_loaded (backend) ? "TRUE" : "FALSE");
+	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_OPENED)) {
+		e_data_book_respond_get_backend_property (book, opid, NULL, e_book_backend_is_opened (backend) ? "TRUE" : "FALSE");
+	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_OPENING)) {
+		e_data_book_respond_get_backend_property (book, opid, NULL, e_book_backend_is_opening (backend) ? "TRUE" : "FALSE");
 	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_ONLINE)) {
 		e_data_book_respond_get_backend_property (book, opid, NULL, e_book_backend_is_online (backend) ? "TRUE" : "FALSE");
 	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_READONLY)) {
@@ -292,8 +296,51 @@ e_book_backend_get_source (EBookBackend *backend)
  * @only_if_exists: %TRUE to prevent the creation of a new book
  *
  * Executes an 'open' request specified by @opid on @book
- * using @backend.
- * This might be finished with e_data_book_respond_open().
+ * using @backend. This call might be finished
+ * with e_data_book_respond_open() or e_book_backend_respond_opened(),
+ * though the overall opening phase finishes only after call
+ * of e_book_backend_notify_opened() after which call the backend
+ * is either fully opened (including authentication against (remote)
+ * server/storage) or an error was encountered during this opening phase.
+ * 'opened' and 'opening' properties are updated automatically.
+ * The backend refuses all other operations until the opening phase is finished.
+ *
+ * The e_book_backend_notify_opened() is called either from this function
+ * or from e_book_backend_authenticate_user(), or after necessary steps
+ * initiated by these two functions.
+ *
+ * The opening phase usually works like this:
+ * 1) client requests open for the backend
+ * 2) server receives this request and calls e_book_backend_open() - the opening phase begun
+ * 3) either the backend is opened during this call, and notifies client
+ *    with e_book_backend_notify_opened() about that. This is usually
+ *    for local backends; their opening phase is finished
+ * 4) or the backend requires authentication, thus it notifies client
+ *    about that with e_book_backend_notify_auth_required() and is
+ *    waiting for credentials, which will be received from client
+ *    by e_book_backend_authenticate_user() call. Backend's opening
+ *    phase is still running in this case, thus it doesn't call
+ *    e_book_backend_notify_opened() within e_book_backend_open() call.
+ * 5) when backend receives credentials in e_book_backend_authenticate_user()
+ *    then it tries to authenticate against a server/storage with them
+ *    and only after it knows result of the authentication, whether user
+ *    was or wasn't authenticated, it notifies client with the result
+ *    by e_book_backend_notify_opened() and it's opening phase is
+ *    finished now. If there was no error returned then the backend is
+ *    considered opened, otherwise it's considered closed. Use AuthenticationFailed
+ *    error when the given credentials were rejected by the server/store, which
+ *    will result in a re-prompt on the client side, otherwise use AuthenticationRequired
+ *    if there was anything wrong with the given credentials. Set error's
+ *    message to a reason for a re-prompt, it'll be shown to a user.
+ * 6) client checks error returned from e_book_backend_notify_opened() and
+ *    reprompts for a password if it was AuthenticationFailed. Otherwise
+ *    considers backend opened based on the error presence (no error means success).
+ *
+ * In any case, the call of e_book_backend_open() should be always finished
+ * with e_data_book_respond_open(), which has no influence on the opening phase,
+ * or alternatively with e_book_backend_respond_opened(). Never use authentication
+ * errors in e_data_book_respond_open() to notify the client the authentication is
+ * required, there is e_book_backend_notify_auth_required() for this.
  **/
 void
 e_book_backend_open (EBookBackend *backend,
@@ -305,15 +352,25 @@ e_book_backend_open (EBookBackend *backend,
 	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
 	g_return_if_fail (E_IS_DATA_BOOK (book));
 
-	if (backend->priv->loaded) {
+	g_mutex_lock (backend->priv->clients_mutex);
+
+	if (e_book_backend_is_opened (backend)) {
+		g_mutex_unlock (backend->priv->clients_mutex);
+
 		e_data_book_report_readonly (book, backend->priv->readonly);
 		e_data_book_report_online (book, backend->priv->online);
 
-		e_data_book_respond_open (book, opid, NULL);
+		e_book_backend_respond_opened (backend, book, opid, NULL);
+	} else if (e_book_backend_is_opening (backend)) {
+		g_mutex_unlock (backend->priv->clients_mutex);
+
+		e_data_book_respond_open (book, opid, EDB_OPENING_ERROR);
 	} else {
 		ESource *source = e_data_book_get_source (book);
 
-		g_return_if_fail (E_IS_BOOK_BACKEND (backend));
+		backend->priv->opening = TRUE;
+		g_mutex_unlock (backend->priv->clients_mutex);
+
 		g_return_if_fail (source != NULL);
 
 		/* Subclasses may need to call e_book_backend_get_cache_dir() in
@@ -349,7 +406,10 @@ e_book_backend_remove (EBookBackend *backend,
 	g_return_if_fail (E_IS_DATA_BOOK (book));
 	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->remove);
 
-	(* E_BOOK_BACKEND_GET_CLASS (backend)->remove) (backend, book, opid, cancellable);
+	if (e_book_backend_is_opening (backend))
+		e_data_book_respond_remove (book, opid, EDB_OPENING_ERROR);
+	else
+		(* E_BOOK_BACKEND_GET_CLASS (backend)->remove) (backend, book, opid, cancellable);
 }
 
 /**
@@ -376,7 +436,10 @@ e_book_backend_create_contact (EBookBackend *backend,
 	g_return_if_fail (vcard);
 	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->create_contact);
 
-	(* E_BOOK_BACKEND_GET_CLASS (backend)->create_contact) (backend, book, opid, cancellable, vcard);
+	if (e_book_backend_is_opening (backend))
+		e_data_book_respond_create (book, opid, EDB_OPENING_ERROR, NULL);
+	else
+		(* E_BOOK_BACKEND_GET_CLASS (backend)->create_contact) (backend, book, opid, cancellable, vcard);
 }
 
 /**
@@ -403,7 +466,10 @@ e_book_backend_remove_contacts (EBookBackend *backend,
 	g_return_if_fail (id_list);
 	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->remove_contacts);
 
-	(* E_BOOK_BACKEND_GET_CLASS (backend)->remove_contacts) (backend, book, opid, cancellable, id_list);
+	if (e_book_backend_is_opening (backend))
+		e_data_book_respond_remove_contacts (book, opid, EDB_OPENING_ERROR, NULL);
+	else
+		(* E_BOOK_BACKEND_GET_CLASS (backend)->remove_contacts) (backend, book, opid, cancellable, id_list);
 }
 
 /**
@@ -430,7 +496,10 @@ e_book_backend_modify_contact (EBookBackend *backend,
 	g_return_if_fail (vcard);
 	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->modify_contact);
 
-	(* E_BOOK_BACKEND_GET_CLASS (backend)->modify_contact) (backend, book, opid, cancellable, vcard);
+	if (e_book_backend_is_opening (backend))
+		e_data_book_respond_modify (book, opid, EDB_OPENING_ERROR, NULL);
+	else
+		(* E_BOOK_BACKEND_GET_CLASS (backend)->modify_contact) (backend, book, opid, cancellable, vcard);
 }
 
 /**
@@ -457,7 +526,10 @@ e_book_backend_get_contact (EBookBackend *backend,
 	g_return_if_fail (id);
 	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->get_contact);
 
-	(* E_BOOK_BACKEND_GET_CLASS (backend)->get_contact) (backend, book, opid, cancellable, id);
+	if (e_book_backend_is_opening (backend))
+		e_data_book_respond_get_contact (book, opid, EDB_OPENING_ERROR, NULL);
+	else
+		(* E_BOOK_BACKEND_GET_CLASS (backend)->get_contact) (backend, book, opid, cancellable, id);
 }
 
 /**
@@ -484,7 +556,10 @@ e_book_backend_get_contact_list (EBookBackend *backend,
 	g_return_if_fail (query);
 	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->get_contact_list);
 
-	(* E_BOOK_BACKEND_GET_CLASS (backend)->get_contact_list) (backend, book, opid, cancellable, query);
+	if (e_book_backend_is_opening (backend))
+		e_data_book_respond_get_contact_list (book, opid, EDB_OPENING_ERROR, NULL);
+	else
+		(* E_BOOK_BACKEND_GET_CLASS (backend)->get_contact_list) (backend, book, opid, cancellable, query);
 }
 
 /**
@@ -528,28 +603,32 @@ e_book_backend_stop_book_view (EBookBackend  *backend,
 /**
  * e_book_backend_authenticate_user:
  * @backend: an #EBookBackend
- * @book: an #EDataBook
- * @opid: the ID to use for this operation
  * @cancellable: a #GCancellable for the operation
  * @credentials: #ECredentials to use for authentication
  *
- * Executes an 'authenticate' request specified by @opid on @book
- * using @backend.
- * This might be finished with e_data_book_respond_authenticate_user().
+ * Notifies @backend about @credentials provided by user to use
+ * for authentication. This notification is usually called during
+ * opening phase as a response to e_book_backend_notify_auth_required()
+ * on the client side and it results in setting property 'opening' to %TRUE
+ * unless the backend is already opened. This function finishes opening
+ * phase, thus it should be finished with e_book_backend_notify_opened().
+ *
+ * See information at e_book_backend_open() for more details
+ * how the opening phase works.
  **/
 void
 e_book_backend_authenticate_user (EBookBackend *backend,
-				  EDataBook    *book,
-				  guint32       opid,
 				  GCancellable *cancellable,
 				  ECredentials *credentials)
 {
 	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
-	g_return_if_fail (E_IS_DATA_BOOK (book));
 	g_return_if_fail (credentials != NULL);
 	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->authenticate_user);
 
-	(* E_BOOK_BACKEND_GET_CLASS (backend)->authenticate_user) (backend, book, opid, cancellable, credentials);
+	if (backend->priv->opened)
+		backend->priv->opening = TRUE;
+
+	(* E_BOOK_BACKEND_GET_CLASS (backend)->authenticate_user) (backend, cancellable, credentials);
 }
 
 static void
@@ -748,7 +827,7 @@ e_book_backend_set_backend_property (EBookBackend *backend, EDataBook *book, gui
  *
  * Checks if @backend's storage is online.
  *
- * Returns: %TRUE if loaded, %FALSE otherwise.
+ * Returns: %TRUE if online, %FALSE otherwise.
  **/
 gboolean
 e_book_backend_is_online (EBookBackend *backend)
@@ -759,36 +838,43 @@ e_book_backend_is_online (EBookBackend *backend)
 }
 
 /**
- * e_book_backend_is_loaded:
+ * e_book_backend_is_opened:
  * @backend: an #EBookBackend
  *
- * Checks if @backend's storage has been opened and the backend
- * itself is ready for accessing.
+ * Checks if @backend's storage has been opened (and
+ * authenticated, if necessary) and the backend itself
+ * is ready for accessing. This property is changed automatically
+ * within call of e_book_backend_notify_opened().
  *
- * Returns: %TRUE if loaded, %FALSE otherwise.
+ * Returns: %TRUE if fully opened, %FALSE otherwise.
  **/
 gboolean
-e_book_backend_is_loaded (EBookBackend *backend)
+e_book_backend_is_opened (EBookBackend *backend)
 {
 	g_return_val_if_fail (E_IS_BOOK_BACKEND (backend), FALSE);
 
-	return backend->priv->loaded;
+	return backend->priv->opened;
 }
 
 /**
- * e_book_backend_set_is_loaded:
+ * e_book_backend_is_opening:
  * @backend: an #EBookBackend
- * @is_loaded: A flag indicating whether the backend is loaded
  *
- * Sets the flag indicating whether @backend is loaded to @is_loaded.
- * Meant to be used by backend implementations.
+ * Checks if @backend is processing its opening phase, which
+ * includes everything since the e_book_backend_open() call,
+ * through authentication, up to e_book_backend_notify_opened().
+ * This property is managed automatically and the backend deny
+ * every operation except of cancel and authenticate_user while
+ * it is being opening.
+ *
+ * Returns: %TRUE if opening phase is in the effect, %FALSE otherwise.
  **/
-void
-e_book_backend_set_is_loaded (EBookBackend *backend, gboolean is_loaded)
+gboolean
+e_book_backend_is_opening (EBookBackend *backend)
 {
-	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
+	g_return_val_if_fail (E_IS_BOOK_BACKEND (backend), FALSE);
 
-	backend->priv->loaded = is_loaded;
+	return backend->priv->opening;
 }
 
 /**
@@ -805,22 +891,6 @@ e_book_backend_is_readonly (EBookBackend *backend)
 	g_return_val_if_fail (E_IS_BOOK_BACKEND (backend), FALSE);
 
 	return backend->priv->readonly;
-}
-
-/**
- * e_book_backend_set_is_readonly:
- * @backend: an #EBookBackend
- * @is_readonly: A flag indicating whether the backend is readonly
- *
- * Sets the flag indicating whether @backend is readonly to @is_readonly.
- * Meant to be used by backend implementations.
- **/
-void
-e_book_backend_set_is_readonly (EBookBackend *backend, gboolean is_readonly)
-{
-	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
-
-	backend->priv->readonly = is_readonly;
 }
 
 /**
@@ -1047,15 +1117,27 @@ e_book_backend_notify_online (EBookBackend *backend, gboolean is_online)
 /**
  * e_book_backend_notify_auth_required:
  * @backend: an #EBookBackend
+ * @is_self: Use %TRUE to indicate the authentication is required
+ *    for the @backend, otheriwse the authentication is for any
+ *    other source. Having @credentials %NULL means @is_self
+ *    automatically.
  * @credentials: an #ECredentials that contains extra information for
  *    a source for which authentication is requested.
- *    This parameter can be NULL to indicate "for this book".
+ *    This parameter can be %NULL to indicate "for this book".
  *
  * Notifies clients that @backend requires authentication in order to
- * connect. Means to be used by backend implementations.
+ * connect. This function call does not influence 'opening', but 
+ * influences 'opened' property, which is set to %FALSE when @is_self
+ * is %TRUE or @credentials is %NULL. Opening phase is finished
+ * by e_book_backend_notify_opened() if this is requested for @backend.
+ *
+ * See e_book_backend_open() for a description how the whole opening
+ * phase works.
+ *
+ * Meant to be used by backend implementations.
  **/
 void
-e_book_backend_notify_auth_required (EBookBackend *backend, const ECredentials *credentials)
+e_book_backend_notify_auth_required (EBookBackend *backend, gboolean is_self, const ECredentials *credentials)
 {
 	EBookBackendPrivate *priv;
 	GSList *clients;
@@ -1063,7 +1145,82 @@ e_book_backend_notify_auth_required (EBookBackend *backend, const ECredentials *
 	priv = backend->priv;
 	g_mutex_lock (priv->clients_mutex);
 
+	if (is_self || !credentials)
+		priv->opened = FALSE;
+
 	for (clients = priv->clients; clients != NULL; clients = g_slist_next (clients))
 		e_data_book_report_auth_required (E_DATA_BOOK (clients->data), credentials);
+
 	g_mutex_unlock (priv->clients_mutex);
+}
+
+/**
+ * e_book_backend_notify_opened:
+ * @backend: an #EBookBackend
+ * @error: a #GError corresponding to the error encountered during
+ *    the opening phase. Use %NULL for success. The @error is freed
+ *    automatically if not %NULL.
+ *
+ * Notifies clients that @backend finished its opening phase.
+ * See e_book_backend_open() for more information how the opening
+ * phase works. Calling this function changes 'opening' property,
+ * same as 'opened'. 'opening' is set to %FALSE and the backend
+ * is considered 'opened' only if the @error is %NULL.
+ *
+ * See also: e_book_backend_respond_opened()
+ *
+ * Note: The @error is freed automatically if not %NULL.
+ *
+ * Meant to be used by backend implementations.
+ **/
+void
+e_book_backend_notify_opened (EBookBackend *backend, GError *error)
+{
+	EBookBackendPrivate *priv;
+	GSList *clients;
+
+	priv = backend->priv;
+	g_mutex_lock (priv->clients_mutex);
+
+	priv->opening = FALSE;
+	priv->opened = error == NULL;
+
+	for (clients = priv->clients; clients != NULL; clients = g_slist_next (clients))
+		e_data_book_report_opened (E_DATA_BOOK (clients->data), error);
+
+	g_mutex_unlock (priv->clients_mutex);
+
+	if (error)
+		g_error_free (error);
+}
+
+/**
+ * e_book_backend_respond_opened:
+ * @backend: an #EBookBackend
+ * @book: an #EDataBook
+ * @opid: an operation ID
+ * @error: result error; can be %NULL, if it isn't then it's automatically freed
+ *
+ * This is a replacement for e_data_book_respond_open() for cases where
+ * the finish of 'open' method call also finishes backend opening phase.
+ * This function covers calling of both e_data_book_respond_open() and
+ * e_book_backend_notify_opened() with the same @error.
+ *
+ * See e_book_backend_open() for more details how the opening phase works.
+ **/
+void
+e_book_backend_respond_opened (EBookBackend *backend, EDataBook *book, guint32 opid, GError *error)
+{
+	GError *copy = NULL;
+
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
+	g_return_if_fail (book != NULL);
+	g_return_if_fail (opid != 0);
+
+	if (error)
+		copy = g_error_copy (error);
+
+	e_data_book_respond_open (book, opid, error);
+	e_book_backend_notify_opened (backend, copy);
 }

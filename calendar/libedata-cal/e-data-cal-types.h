@@ -6,6 +6,7 @@ G_BEGIN_DECLS
 
 typedef enum {
 	Success,
+	Busy,
 	RepositoryOffline,
 	PermissionDenied,
 	InvalidRange,

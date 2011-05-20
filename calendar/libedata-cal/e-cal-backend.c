@@ -31,6 +31,7 @@
 #include "e-cal-backend-cache.h"
 
 #define EDC_ERROR(_code) e_data_cal_create_error (_code, NULL)
+#define EDC_OPENING_ERROR e_data_cal_create_error (Busy, _("Cannot process, calendar backend is opening"))
 
 /* Private part of the CalBackend structure */
 struct _ECalBackendPrivate {
@@ -39,7 +40,7 @@ struct _ECalBackendPrivate {
 	/* The kind of components for this backend */
 	icalcomponent_kind kind;
 
-	gboolean loaded, readonly, removed, online;
+	gboolean opening, opened, readonly, removed, online;
 
 	/* URI, from source. This is cached, since we return const. */
 	gchar *uri;
@@ -192,8 +193,10 @@ cal_backend_get_backend_property (ECalBackend *backend, EDataCal *cal, guint32 o
 	g_return_if_fail (cal != NULL);
 	g_return_if_fail (prop_name != NULL);
 
-	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_LOADED)) {
-		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_is_loaded (backend) ? "TRUE" : "FALSE");
+	if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_OPENED)) {
+		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_is_opened (backend) ? "TRUE" : "FALSE");
+	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_OPENING)) {
+		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_is_opening (backend) ? "TRUE" : "FALSE");
 	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_ONLINE)) {
 		e_data_cal_respond_get_backend_property (cal, opid, NULL, e_cal_backend_is_online (backend) ? "TRUE" : "FALSE");
 	} else if (g_str_equal (prop_name, CLIENT_BACKEND_PROPERTY_READONLY)) {
@@ -399,7 +402,6 @@ e_cal_backend_init (ECalBackend *backend)
 	backend->priv->views = NULL;
 	backend->priv->views_mutex = g_mutex_new ();
 
-	backend->priv->loaded = FALSE;
 	backend->priv->readonly = TRUE;
 	backend->priv->online = FALSE;
 }
@@ -468,32 +470,43 @@ e_cal_backend_is_online (ECalBackend *backend)
 }
 
 /**
- * e_cal_backend_is_loaded:
+ * e_cal_backend_is_opened:
  * @backend: an #ECalBackend
  *
- * Returns: Whether is backend already loaded.
+ * Checks if @backend's storage has been opened (and
+ * authenticated, if necessary) and the backend itself
+ * is ready for accessing. This property is changed automatically
+ * within call of e_cal_backend_notify_opened().
+ *
+ * Returns: %TRUE if fully opened, %FALSE otherwise.
  **/
 gboolean
-e_cal_backend_is_loaded (ECalBackend *backend)
+e_cal_backend_is_opened (ECalBackend *backend)
 {
 	g_return_val_if_fail (E_IS_CAL_BACKEND (backend), FALSE);
 
-	return backend->priv->loaded;
+	return backend->priv->opened;
 }
 
 /**
- * e_cal_backend_set_is_loaded:
+ * e_cal_backend_is_opening::
  * @backend: an #ECalBackend
  *
- * Stores value for e_cal_backend_is_loaded().
- * Meant to be used by backend implementations.
+ * Checks if @backend is processing its opening phase, which
+ * includes everything since the e_cal_backend_open() call,
+ * through authentication, up to e_cal_backend_notify_opened().
+ * This property is managed automatically and the backend deny
+ * every operation except of cancel and authenticate_user while
+ * it is being opening.
+ *
+ * Returns: %TRUE if opening phase is in the effect, %FALSE otherwise.
  **/
-void
-e_cal_backend_set_is_loaded (ECalBackend *backend, gboolean is_loaded)
+gboolean
+e_cal_backend_is_opening (ECalBackend *backend)
 {
-	g_return_if_fail (E_IS_CAL_BACKEND (backend));
+	g_return_val_if_fail (E_IS_CAL_BACKEND (backend), FALSE);
 
-	backend->priv->loaded = is_loaded;
+	return backend->priv->opening;
 }
 
 /**
@@ -840,7 +853,50 @@ e_cal_backend_set_online (ECalBackend *backend, gboolean is_online)
  * does not exist.
  *
  * Opens a calendar backend with data from a calendar stored at the specified URI.
- * This might be finished with e_data_cal_respond_open().
+ * This might be finished with e_data_cal_respond_open() or e_cal_backend_respond_opened(),
+ * though the overall opening phase finishes only after call
+ * of e_cal_backend_notify_opened() after which call the backend
+ * is either fully opened (including authentication against (remote)
+ * server/storage) or an error was encountered during this opening phase.
+ * 'opened' and 'opening' properties are updated automatically.
+ * The backend refuses all other operations until the opening phase is finished.
+ *
+ * The e_cal_backend_notify_opened() is called either from this function
+ * or from e_cal_backend_authenticate_user(), or after necessary steps
+ * initiated by these two functions.
+ *
+ * The opening phase usually works like this:
+ * 1) client requests open for the backend
+ * 2) server receives this request and calls e_cal_backend_open() - the opening phase begun
+ * 3) either the backend is opened during this call, and notifies client
+ *    with e_cal_backend_notify_opened() about that. This is usually
+ *    for local backends; their opening phase is finished
+ * 4) or the backend requires authentication, thus it notifies client
+ *    about that with e_cal_backend_notify_auth_required() and is
+ *    waiting for credentials, which will be received from client
+ *    by e_cal_backend_authenticate_user() call. Backend's opening
+ *    phase is still running in this case, thus it doesn't call
+ *    e_cal_backend_notify_opened() within e_cal_backend_open() call.
+ * 5) when backend receives credentials in e_cal_backend_authenticate_user()
+ *    then it tries to authenticate against a server/storage with them
+ *    and only after it knows result of the authentication, whether user
+ *    was or wasn't authenticated, it notifies client with the result
+ *    by e_cal_backend_notify_opened() and it's opening phase is
+ *    finished now. If there was no error returned then the backend is
+ *    considered opened, otherwise it's considered closed. Use AuthenticationFailed
+ *    error when the given credentials were rejected by the server/store, which
+ *    will result in a re-prompt on the client side, otherwise use AuthenticationRequired
+ *    if there was anything wrong with the given credentials. Set error's
+ *    message to a reason for a re-prompt, it'll be shown to a user.
+ * 6) client checks error returned from e_cal_backend_notify_opened() and
+ *    reprompts for a password if it was AuthenticationFailed. Otherwise
+ *    considers backend opened based on the error presence (no error means success).
+ *
+ * In any case, the call of e_cal_backend_open() should be always finished
+ * with e_data_cal_respond_open(), which has no influence on the opening phase,
+ * or alternatively with e_cal_backend_respond_opened(). Never use authentication
+ * errors in e_data_cal_respond_open() to notify the client the authentication is
+ * required, there is e_cal_backend_notify_auth_required() for this.
  **/
 void
 e_cal_backend_open (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancellable *cancellable, gboolean only_if_exists)
@@ -849,35 +905,56 @@ e_cal_backend_open (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancella
 	g_return_if_fail (E_IS_CAL_BACKEND (backend));
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->open != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->open) (backend, cal, opid, cancellable, only_if_exists);
+	g_mutex_lock (backend->priv->clients_mutex);
+
+	if (e_cal_backend_is_opened (backend)) {
+		g_mutex_unlock (backend->priv->clients_mutex);
+
+		e_data_cal_report_readonly (cal, backend->priv->readonly);
+		e_data_cal_report_online (cal, backend->priv->online);
+
+		e_cal_backend_respond_opened (backend, cal, opid, NULL);
+	} else if (e_cal_backend_is_opening (backend)) {
+		g_mutex_unlock (backend->priv->clients_mutex);
+
+		e_data_cal_respond_open (cal, opid, EDC_OPENING_ERROR);
+	} else {
+		backend->priv->opening = TRUE;
+		g_mutex_unlock (backend->priv->clients_mutex);
+
+		(* E_CAL_BACKEND_GET_CLASS (backend)->open) (backend, cal, opid, cancellable, only_if_exists);
+	}
 }
 
 /**
  * e_cal_backend_authenticate_user:
  * @backend: an #ECalBackend
- * @cal: an #EDataCal
- * @opid: the ID to use for this operation
  * @cancellable: a #GCancellable for the operation
- * @opid: the ID to use for this operation
  * @credentials: #ECredentials to use for authentication
  *
- * Executes an 'authenticate' request specified by @opid on @cal
- * using @backend.
- * This might be finished with e_data_cal_respond_authenticate_user().
+ * Notifies @backend about @credentials provided by user to use
+ * for authentication. This notification is usually called during
+ * opening phase as a response to e_cal_backend_notify_auth_required()
+ * on the client side and it results in setting property 'opening' to %TRUE
+ * unless the backend is already opened. This function finishes opening
+ * phase, thus it should be finished with e_cal_backend_notify_opened().
+ *
+ * See information at e_cal_backend_open() for more details
+ * how the opening phase works.
  **/
 void
 e_cal_backend_authenticate_user (ECalBackend  *backend,
-				 EDataCal     *cal,
-				 guint32       opid,
 				 GCancellable *cancellable,
 				 ECredentials *credentials)
 {
 	g_return_if_fail (E_IS_CAL_BACKEND (backend));
-	g_return_if_fail (E_IS_DATA_CAL (cal));
 	g_return_if_fail (credentials != NULL);
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->authenticate_user);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->authenticate_user) (backend, cal, opid, cancellable, credentials);
+	if (!e_cal_backend_is_opened (backend))
+		backend->priv->opening = TRUE;
+
+	(* E_CAL_BACKEND_GET_CLASS (backend)->authenticate_user) (backend, cancellable, credentials);
 }
 
 /**
@@ -897,7 +974,10 @@ e_cal_backend_remove (ECalBackend *backend, EDataCal *cal, guint32 opid, GCancel
 	g_return_if_fail (E_IS_CAL_BACKEND (backend));
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->remove != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->remove) (backend, cal, opid, cancellable);
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_remove (cal, opid, EDC_OPENING_ERROR);
+	else
+		(* E_CAL_BACKEND_GET_CLASS (backend)->remove) (backend, cal, opid, cancellable);
 }
 
 /**
@@ -919,7 +999,10 @@ e_cal_backend_refresh (ECalBackend *backend, EDataCal *cal, guint32 opid, GCance
 	g_return_if_fail (E_IS_CAL_BACKEND (backend));
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->refresh != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->refresh) (backend, cal, opid, cancellable);
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_refresh (cal, opid, EDC_OPENING_ERROR);
+	else
+		(* E_CAL_BACKEND_GET_CLASS (backend)->refresh) (backend, cal, opid, cancellable);
 }
 
 /**
@@ -943,7 +1026,10 @@ e_cal_backend_get_object (ECalBackend *backend, EDataCal *cal, guint32 opid, GCa
 	g_return_if_fail (uid != NULL);
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->get_object != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->get_object) (backend, cal, opid, cancellable, uid, rid);
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_get_object (cal, opid, EDC_OPENING_ERROR, NULL);
+	else
+		(* E_CAL_BACKEND_GET_CLASS (backend)->get_object) (backend, cal, opid, cancellable, uid, rid);
 }
 
 /**
@@ -964,7 +1050,10 @@ e_cal_backend_get_object_list (ECalBackend *backend, EDataCal *cal, guint32 opid
 	g_return_if_fail (E_IS_CAL_BACKEND (backend));
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->get_object_list != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->get_object_list) (backend, cal, opid, cancellable, sexp);
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_get_object_list (cal, opid, EDC_OPENING_ERROR, NULL);
+	else
+		(* E_CAL_BACKEND_GET_CLASS (backend)->get_object_list) (backend, cal, opid, cancellable, sexp);
 }
 
 /**
@@ -990,7 +1079,10 @@ e_cal_backend_get_free_busy (ECalBackend *backend, EDataCal *cal, guint32 opid, 
 	g_return_if_fail (start <= end);
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->get_free_busy != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->get_free_busy) (backend, cal, opid, cancellable, users, start, end);
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_get_free_busy (cal, opid, EDC_OPENING_ERROR);
+	else
+		(* E_CAL_BACKEND_GET_CLASS (backend)->get_free_busy) (backend, cal, opid, cancellable, users, start, end);
 }
 
 /**
@@ -1011,7 +1103,9 @@ e_cal_backend_create_object (ECalBackend *backend, EDataCal *cal, guint32 opid, 
 	g_return_if_fail (E_IS_CAL_BACKEND (backend));
 	g_return_if_fail (calobj != NULL);
 
-	if (E_CAL_BACKEND_GET_CLASS (backend)->create_object)
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_create_object (cal, opid, EDC_OPENING_ERROR, NULL, NULL);
+	else if (E_CAL_BACKEND_GET_CLASS (backend)->create_object)
 		(* E_CAL_BACKEND_GET_CLASS (backend)->create_object) (backend, cal, opid, cancellable, calobj);
 	else
 		e_data_cal_respond_create_object (cal, opid, EDC_ERROR (UnsupportedMethod), NULL, NULL);
@@ -1036,7 +1130,9 @@ e_cal_backend_modify_object (ECalBackend *backend, EDataCal *cal, guint32 opid, 
 	g_return_if_fail (E_IS_CAL_BACKEND (backend));
 	g_return_if_fail (calobj != NULL);
 
-	if (E_CAL_BACKEND_GET_CLASS (backend)->modify_object)
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_modify_object (cal, opid, EDC_OPENING_ERROR, NULL, NULL);
+	else if (E_CAL_BACKEND_GET_CLASS (backend)->modify_object)
 		(* E_CAL_BACKEND_GET_CLASS (backend)->modify_object) (backend, cal, opid, cancellable, calobj, mod);
 	else
 		e_data_cal_respond_modify_object (cal, opid, EDC_ERROR (UnsupportedMethod), NULL, NULL);
@@ -1064,7 +1160,10 @@ e_cal_backend_remove_object (ECalBackend *backend, EDataCal *cal, guint32 opid, 
 	g_return_if_fail (uid != NULL);
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->remove_object != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->remove_object) (backend, cal, opid, cancellable, uid, rid, mod);
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_remove_object (cal, opid, EDC_OPENING_ERROR, NULL, NULL, NULL);
+	else
+		(* E_CAL_BACKEND_GET_CLASS (backend)->remove_object) (backend, cal, opid, cancellable, uid, rid, mod);
 }
 
 /**
@@ -1086,7 +1185,10 @@ e_cal_backend_receive_objects (ECalBackend *backend, EDataCal *cal, guint32 opid
 	g_return_if_fail (calobj != NULL);
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->receive_objects != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->receive_objects) (backend, cal, opid, cancellable, calobj);
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_receive_objects (cal, opid, EDC_OPENING_ERROR);
+	else
+		(* E_CAL_BACKEND_GET_CLASS (backend)->receive_objects) (backend, cal, opid, cancellable, calobj);
 }
 
 /**
@@ -1108,7 +1210,10 @@ e_cal_backend_send_objects (ECalBackend *backend, EDataCal *cal, guint32 opid, G
 	g_return_if_fail (calobj != NULL);
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->send_objects != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->send_objects) (backend, cal, opid, cancellable, calobj);
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_send_objects (cal, opid, EDC_OPENING_ERROR, NULL, NULL);
+	else
+		(* E_CAL_BACKEND_GET_CLASS (backend)->send_objects) (backend, cal, opid, cancellable, calobj);
 }
 
 /**
@@ -1132,7 +1237,10 @@ e_cal_backend_get_attachment_uris (ECalBackend *backend, EDataCal *cal, guint32 
 	g_return_if_fail (uid != NULL);
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->get_attachment_uris != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->get_attachment_uris) (backend, cal, opid, cancellable, uid, rid);
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_get_attachment_uris (cal, opid, EDC_OPENING_ERROR, NULL);
+	else
+		(* E_CAL_BACKEND_GET_CLASS (backend)->get_attachment_uris) (backend, cal, opid, cancellable, uid, rid);
 }
 
 /**
@@ -1157,12 +1265,12 @@ e_cal_backend_discard_alarm (ECalBackend *backend, EDataCal *cal, guint32 opid, 
 	g_return_if_fail (uid != NULL);
 	g_return_if_fail (auid != NULL);
 
-	if (!E_CAL_BACKEND_GET_CLASS (backend)->discard_alarm) {
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_discard_alarm (cal, opid, EDC_OPENING_ERROR);
+	else if (E_CAL_BACKEND_GET_CLASS (backend)->discard_alarm)
+		(* E_CAL_BACKEND_GET_CLASS (backend)->discard_alarm) (backend, cal, opid, cancellable, uid, rid, auid);
+	else
 		e_data_cal_respond_discard_alarm (cal, opid, e_data_cal_create_error (NotSupported, NULL));
-		return;
-	}
-
-	(* E_CAL_BACKEND_GET_CLASS (backend)->discard_alarm) (backend, cal, opid, cancellable, uid, rid, auid);
 }
 
 /**
@@ -1186,7 +1294,10 @@ e_cal_backend_get_timezone (ECalBackend *backend, EDataCal *cal, guint32 opid, G
 	g_return_if_fail (tzid != NULL);
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->get_timezone != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->get_timezone) (backend, cal, opid, cancellable, tzid);
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_get_timezone (cal, opid, EDC_OPENING_ERROR, NULL);
+	else
+		(* E_CAL_BACKEND_GET_CLASS (backend)->get_timezone) (backend, cal, opid, cancellable, tzid);
 }
 
 /**
@@ -1207,7 +1318,10 @@ e_cal_backend_add_timezone (ECalBackend *backend, EDataCal *cal, guint32 opid, G
 	g_return_if_fail (tzobject != NULL);
 	g_return_if_fail (E_CAL_BACKEND_GET_CLASS (backend)->add_timezone != NULL);
 
-	(* E_CAL_BACKEND_GET_CLASS (backend)->add_timezone) (backend, cal, opid, cancellable, tzobject);
+	if (e_cal_backend_is_opening (backend))
+		e_data_cal_respond_add_timezone (cal, opid, EDC_OPENING_ERROR);
+	else
+		(* E_CAL_BACKEND_GET_CLASS (backend)->add_timezone) (backend, cal, opid, cancellable, tzobject);
 }
 
 /**
@@ -1555,15 +1669,27 @@ e_cal_backend_notify_online (ECalBackend *backend, gboolean is_online)
 /**
  * e_cal_backend_notify_auth_required:
  * @backend: an #ECalBackend
+ * @is_self: Use %TRUE to indicate the authentication is required
+ *    for the @backend, otheriwse the authentication is for any
+ *    other source. Having @credentials %NULL means @is_self
+ *    automatically.
  * @credentials: an #ECredentials that contains extra information for
  *    a source for which authentication is requested.
  *    This parameter can be NULL to indicate "for this calendar".
  *
  * Notifies clients that @backend requires authentication in order to
- * connect. Means to be used by backend implementations.
+ * connect. This function call does not influence 'opening', but 
+ * influences 'opened' property, which is set to %FALSE when @is_self
+ * is %TRUE or @credentials is %NULL. Opening phase is finished
+ * by e_cal_backend_notify_opened() if this is requested for @backend.
+ *
+ * See e_cal_backend_open() for a description how the whole opening
+ * phase works.
+ *
+ * Meant to be used by backend implementations.
  **/
 void
-e_cal_backend_notify_auth_required (ECalBackend *backend, const ECredentials *credentials)
+e_cal_backend_notify_auth_required (ECalBackend *backend, gboolean is_self, const ECredentials *credentials)
 {
 	ECalBackendPrivate *priv;
 	GSList *clients;
@@ -1571,16 +1697,90 @@ e_cal_backend_notify_auth_required (ECalBackend *backend, const ECredentials *cr
 	priv = backend->priv;
 
 	if (priv->notification_proxy) {
-		e_cal_backend_notify_auth_required (priv->notification_proxy, credentials);
+		e_cal_backend_notify_auth_required (priv->notification_proxy, is_self, credentials);
 		return;
 	}
 
 	g_mutex_lock (priv->clients_mutex);
 
+	if (is_self || !credentials)
+		priv->opened = FALSE;
+
 	for (clients = priv->clients; clients != NULL; clients = g_slist_next (clients))
 		e_data_cal_report_auth_required (E_DATA_CAL (clients->data), credentials);
 
 	g_mutex_unlock (priv->clients_mutex);
+}
+
+/**
+ * e_cal_backend_notify_opened:
+ * @backend: an #ECalBackend
+ * @error: a #GError corresponding to the error encountered during
+ *    the opening phase. Use %NULL for success. The @error is freed
+ *    automatically if not %NULL.
+ *
+ * Notifies clients that @backend finished its opening phase.
+ * See e_cal_backend_open() for more information how the opening
+ * phase works. Calling this function changes 'opening' property,
+ * same as 'opened'. 'opening' is set to %FALSE and the backend
+ * is considered 'opened' only if the @error is %NULL.
+ *
+ * See also: e_cal_backend_respond_opened()
+ *
+ * Note: The @error is freed automatically if not %NULL.
+ *
+ * Meant to be used by backend implementations.
+ **/
+void
+e_cal_backend_notify_opened (ECalBackend *backend, GError *error)
+{
+	ECalBackendPrivate *priv;
+	GSList *clients;
+
+	priv = backend->priv;
+	g_mutex_lock (priv->clients_mutex);
+
+	priv->opening = FALSE;
+	priv->opened = error == NULL;
+
+	for (clients = priv->clients; clients != NULL; clients = g_slist_next (clients))
+		e_data_cal_report_opened (E_DATA_CAL (clients->data), error);
+
+	g_mutex_unlock (priv->clients_mutex);
+
+	if (error)
+		g_error_free (error);
+}
+
+/**
+ * e_cal_backend_respond_opened:
+ * @backend: an #ECalBackend
+ * @cal: an #EDataCal
+ * @opid: an operation ID
+ * @error: result error; can be %NULL, if it isn't then it's automatically freed
+ *
+ * This is a replacement for e_data_cal_respond_open() for cases where
+ * the finish of 'open' method call also finishes backend opening phase.
+ * This function covers calling of both e_data_cal_respond_open() and
+ * e_cal_backend_notify_opened() with the same @error.
+ *
+ * See e_cal_backend_open() for more details how the opening phase works.
+ **/
+void
+e_cal_backend_respond_opened (ECalBackend *backend, EDataCal *cal, guint32 opid, GError *error)
+{
+	GError *copy = NULL;
+
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (E_IS_CAL_BACKEND (backend));
+	g_return_if_fail (cal != NULL);
+	g_return_if_fail (opid != 0);
+
+	if (error)
+		copy = g_error_copy (error);
+
+	e_data_cal_respond_open (cal, opid, error);
+	e_cal_backend_notify_opened (backend, copy);
 }
 
 /**
