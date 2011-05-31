@@ -1268,6 +1268,34 @@ e_book_get_contact (EBook       *book,
 	return unwrap_gerror (err, error);
 }
 
+/**
+ * e_book_get_vcard:
+ * @book: an #EBook
+ * @id: a unique string ID specifying the contact
+ * @vcard: (out) (transfer: full): a raw vCard
+ * @error: a #GError to set on failure
+ *
+ * Fills in @vcard with the contents of the raw vcard in @book
+ * corresponding to @id.
+ *
+ * Returns: %TRUE if successful, %FALSE otherwise
+ **/
+gboolean 
+e_book_get_vcard (EBook       *book,
+		  const gchar *id,
+		  gchar       *vcard,
+		  GError     **error)
+{
+	GError *err = NULL;
+
+	e_return_error_if_fail (E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
+
+	e_gdbus_book_call_get_contact_sync (book->priv->gdbus_book, id, &vcard, NULL, &err);
+
+	return unwrap_gerror (err, error);
+}
+
 static void
 get_contact_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 {
@@ -1298,6 +1326,32 @@ get_contact_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 		g_error_free (err);
 
 	g_free (vcard);
+	g_object_unref (data->book);
+	g_slice_free (AsyncData, data);
+}
+
+static void
+get_vcard_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
+{
+	gchar *vcard = NULL;
+	GError *err = NULL, *error = NULL;
+	AsyncData *data = user_data;
+	EBookVCardAsyncCallback excb = data->excallback;
+
+	e_gdbus_book_call_get_contact_finish (E_GDBUS_BOOK (gdbus_book), &vcard, res, &error);
+
+	unwrap_gerror (error, &err);
+
+	/* Protect against garbage return values on error */
+	if (error)
+		vcard = NULL;
+
+	if (excb)
+		excb (data->book, err, err ? NULL : vcard, data->closure);
+
+	if (err)
+		g_error_free (err);
+
 	g_object_unref (data->book);
 	g_slice_free (AsyncData, data);
 }
@@ -1370,6 +1424,39 @@ e_book_get_contact_async (EBook                     *book,
 	data->closure = closure;
 
 	e_gdbus_book_call_get_contact (book->priv->gdbus_book, id, NULL, get_contact_reply, data);
+
+	return TRUE;
+}
+
+/**
+ * e_book_get_vcard_async:
+ * @book: an #EBook
+ * @id: a unique string ID specifying the contact
+ * @cb: function to call when operation finishes
+ * @closure: data to pass to callback function
+ *
+ * Retrieves a vcard specified by @id from @book.
+ *
+ * Returns: %FALSE if successful, %TRUE otherwise
+ **/
+gboolean  
+e_book_get_vcard_async (EBook                    *book,
+			const gchar              *id,
+			EBookVCardAsyncCallback   cb,
+			gpointer                  closure)
+{
+	AsyncData *data;
+
+	e_return_ex_async_error_val_if_fail (E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_ex_async_error_val_if_fail (book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
+	e_return_ex_async_error_val_if_fail (id, E_BOOK_ERROR_INVALID_ARG);
+
+	data = g_slice_new0 (AsyncData);
+	data->book = g_object_ref (book);
+	data->excallback = cb;
+	data->closure = closure;
+
+	e_gdbus_book_call_get_contact (book->priv->gdbus_book, id, NULL, get_vcard_reply, data);
 
 	return TRUE;
 }
@@ -2065,6 +2152,45 @@ e_book_get_contact_uids (EBook       *book,
 	}
 }
 
+/**
+ * e_book_get_vcards:
+ * @book: an #EBook
+ * @query: an #EBookQuery
+ * @vcards: a pointer, will be set to the array of vcards
+ * @error: a #GError to set on failure
+ *
+ * Query @book with @query, setting @vcards to a @NULL terminated array
+ * of vcards which matched. On failed, @error will be set and %FALSE 
+ * returned.
+ *
+ * Returns: %TRUE on success, %FALSE otherwise
+ **/
+gboolean
+e_book_get_vcards (EBook       *book,
+		   EBookQuery  *query,
+		   gchar      **vcards,
+		   GError     **error)
+{
+	GError *err = NULL;
+	gchar *sexp;
+
+	e_return_error_if_fail (E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
+
+	sexp = e_book_query_to_string (query);
+
+	e_gdbus_book_call_get_contact_list_sync (book->priv->gdbus_book, sexp, &vcards, NULL, &err);
+
+	g_free (sexp);
+
+	if (!err) {
+		return TRUE;
+	} else {
+		vcards = NULL;
+		return unwrap_gerror (err, error);
+	}
+}
+
 static void
 get_contacts_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 {
@@ -2133,6 +2259,30 @@ get_contact_uids_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_da
 	
 	if (excb)
 		excb (data->book, err, list, data->closure);
+
+	if (err)
+		g_error_free (err);
+
+	g_object_unref (data->book);
+	g_slice_free (AsyncData, data);
+}
+
+static void
+get_vcards_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
+{
+	gchar **vcards = NULL;
+	GError *err = NULL, *error = NULL;
+	AsyncData *data = user_data;
+	EBookVCardsAsyncCallback excb = data->excallback;
+
+	e_gdbus_book_call_get_contact_list_finish (E_GDBUS_BOOK (gdbus_book), &vcards, res, &error);
+
+	unwrap_gerror (error, &err);
+
+	if (excb)
+		excb (data->book, err, vcards, data->closure);
+	else if (vcards)
+		g_strfreev (vcards);
 
 	if (err)
 		g_error_free (err);
@@ -2255,6 +2405,45 @@ e_book_get_contact_uids_async (EBook                 *book,
 	data->closure = closure;
 
 	e_gdbus_book_call_get_contact_uid_list (book->priv->gdbus_book, sexp, NULL, get_contact_uids_reply, data);
+
+	g_free (sexp);
+
+	return TRUE;
+}
+
+/**
+ * e_book_get_vcards_async:
+ * @book: an #EBook
+ * @query: an #EBookQuery
+ * @cb: a function to call when the operation finishes
+ * @closure: data to pass to callback function
+ *
+ * Query @book with @query.
+ *
+ * Returns: %FALSE on success, %TRUE otherwise
+ *
+ **/
+gboolean
+e_book_get_vcards_async (EBook                    *book,
+			 EBookQuery               *query,
+			 EBookVCardsAsyncCallback  cb,
+			 gpointer                  closure)
+{
+	AsyncData *data;
+	gchar *sexp;
+
+	e_return_ex_async_error_val_if_fail (E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_ex_async_error_val_if_fail (book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
+	e_return_ex_async_error_val_if_fail (query, E_BOOK_ERROR_INVALID_ARG);
+
+	sexp = e_book_query_to_string (query);
+
+	data = g_slice_new0 (AsyncData);
+	data->book = g_object_ref (book);
+	data->excallback = cb;
+	data->closure = closure;
+
+	e_gdbus_book_call_get_contact_list (book->priv->gdbus_book, sexp, NULL, get_vcards_reply, data);
 
 	g_free (sexp);
 
