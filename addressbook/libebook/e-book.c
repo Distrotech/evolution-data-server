@@ -2021,6 +2021,50 @@ e_book_get_contacts (EBook       *book,
 	}
 }
 
+/**
+ * e_book_get_contact_uids:
+ * @book: an #EBook
+ * @query: an #EBookQuery
+ * @contacts: a #GList pointer, will be set to the list of contact uids
+ * @error: a #GError to set on failure
+ *
+ * Query @book with @query, setting @uids to the list of uids of contacts which
+ * matched. On failed, @error will be set and %FALSE returned.
+ *
+ * Returns: %TRUE on success, %FALSE otherwise
+ **/
+gboolean
+e_book_get_contact_uids (EBook       *book,
+		         EBookQuery  *query,
+		         GList      **uids,
+		         GError     **error)
+{
+	GError *err = NULL;
+	gchar **list = NULL;
+	gchar *sexp;
+
+	e_return_error_if_fail (E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
+
+	sexp = e_book_query_to_string (query);
+
+	e_gdbus_book_call_get_contact_uid_list_sync (book->priv->gdbus_book, sexp, &list, NULL, &err);
+
+	g_free (sexp);
+
+	if (!err) {
+		GList *l = NULL;
+		gchar **i = list;
+		while (*i != NULL) {
+			l = g_list_prepend (l, *i++);
+		}
+		*uids = g_list_reverse (l);
+		return TRUE;
+	} else {
+		return unwrap_gerror (err, error);
+	}
+}
+
 static void
 get_contacts_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 {
@@ -2054,6 +2098,39 @@ get_contacts_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
 		cb (data->book, err ? err->code : E_BOOK_ERROR_OK, list, data->closure);
 	#endif
 
+	if (excb)
+		excb (data->book, err, list, data->closure);
+
+	if (err)
+		g_error_free (err);
+
+	g_object_unref (data->book);
+	g_slice_free (AsyncData, data);
+}
+
+static void
+get_contact_uids_reply (GObject *gdbus_book, GAsyncResult *res, gpointer user_data)
+{
+	gchar **uids = NULL;
+	GError *err = NULL, *error = NULL;
+	AsyncData *data = user_data;
+	GList *list = NULL;
+	EBookListAsyncCallback excb = data->excallback;
+	
+	e_gdbus_book_call_get_contact_uid_list_finish (E_GDBUS_BOOK (gdbus_book), &uids, res, &error);
+
+	unwrap_gerror (error, &err);
+	
+	if (!error && uids) {
+		gchar **i = uids;
+
+		while (*i != NULL) {
+			list = g_list_prepend (list, *i++);
+		}
+
+		list = g_list_reverse (list);
+	}
+	
 	if (excb)
 		excb (data->book, err, list, data->closure);
 
@@ -2140,6 +2217,44 @@ e_book_get_contacts_async (EBook                  *book,
 	data->closure = closure;
 
 	e_gdbus_book_call_get_contact_list (book->priv->gdbus_book, sexp, NULL, get_contacts_reply, data);
+
+	g_free (sexp);
+
+	return TRUE;
+}
+
+/**
+ * e_book_get_contact_uids_async:
+ * @book: an #EBook
+ * @query: an #EBookQuery
+ * @cb: a function to call when the operation finishes
+ * @closure: data to pass to callback function
+ *
+ * Query @book with @query.
+ *
+ * Returns: %FALSE on success, %TRUE otherwise
+ **/
+gboolean  
+e_book_get_contact_uids_async (EBook                 *book,
+			       EBookQuery            *query,
+			       EBookListAsyncCallback cb,
+			       gpointer               closure)
+{
+  	AsyncData *data;
+	gchar *sexp;
+
+	e_return_ex_async_error_val_if_fail (E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_ex_async_error_val_if_fail (book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
+	e_return_ex_async_error_val_if_fail (query, E_BOOK_ERROR_INVALID_ARG);
+
+	sexp = e_book_query_to_string (query);
+
+	data = g_slice_new0 (AsyncData);
+	data->book = g_object_ref (book);
+	data->excallback = cb;
+	data->closure = closure;
+
+	e_gdbus_book_call_get_contact_uid_list (book->priv->gdbus_book, sexp, NULL, get_contact_uids_reply, data);
 
 	g_free (sexp);
 

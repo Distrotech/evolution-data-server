@@ -45,6 +45,9 @@ struct _EBookBackendSyncClass {
 	void (*get_contact_list_sync) (EBookBackendSync *backend, EDataBook *book,
 							 guint32 opid,
 							 const gchar *query, GList **contacts, GError **perror);
+	void (*get_contact_uid_list_sync) (EBookBackendSync *backend, EDataBook *book,
+							     guint32 opid,
+							     const gchar *query, GList **contact_uids, GError **perror);
 	void (*get_changes_sync) (EBookBackendSync *backend, EDataBook *book,
 						    guint32 opid,
 						    const gchar *change_id, GList **changes, GError **perror);
@@ -84,6 +87,7 @@ void e_book_backend_sync_remove_contacts (EBookBackendSync *backend, EDataBook *
 void e_book_backend_sync_modify_contact  (EBookBackendSync *backend, EDataBook *book, guint32 opid, const gchar *vcard, EContact **contact, GError **perror);
 void e_book_backend_sync_get_contact (EBookBackendSync *backend, EDataBook *book, guint32 opid, const gchar *id, gchar **vcard, GError **perror);
 void e_book_backend_sync_get_contact_list (EBookBackendSync *backend, EDataBook *book, guint32 opid, const gchar *query, GList **contacts, GError **perror);
+void e_book_backend_sync_get_contact_uid_list (EBookBackendSync *backend, EDataBook *book, guint32 opid, const gchar *query, GList **contacts, GError **perror);
 void e_book_backend_sync_get_changes (EBookBackendSync *backend, EDataBook *book, guint32 opid, const gchar *change_id, GList **changes, GError **perror);
 void e_book_backend_sync_authenticate_user (EBookBackendSync *backend, EDataBook *book, guint32 opid, const gchar *user, const gchar *passwd, const gchar *auth_method, GError **perror);
 

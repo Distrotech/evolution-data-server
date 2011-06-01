@@ -35,6 +35,7 @@ typedef struct _EGdbusBook EGdbusBook; /* Dummy typedef */
  * @handle_remove: Handler for the #EGdbusBook::handle-remove signal.
  * @handle_get_contact: Handler for the #EGdbusBook::handle-get-contact signal.
  * @handle_get_contact_list: Handler for the #EGdbusBook::handle-get-contact-list signal.
+ * @handle_get_contact_uid_list: Handler for the #EGdbusBook::handle-get-contact-uid-list signal.
  * @handle_authenticate_user: Handler for the #EGdbusBook::handle-authenticate-user signal.
  * @handle_add_contact: Handler for the #EGdbusBook::handle-add-contact signal.
  * @handle_remove_contacts: Handler for the #EGdbusBook::handle-remove-contacts signal.
@@ -201,6 +202,10 @@ struct _EGdbusBookIface
         EGdbusBook *object,
         GDBusMethodInvocation *invocation,
         const gchar *in_query);
+  gboolean (*handle_get_contact_uid_list) (
+        EGdbusBook *object,
+        GDBusMethodInvocation *invocation,
+        const gchar *in_query);
   gboolean (*handle_authenticate_user) (
         EGdbusBook *object,
         GDBusMethodInvocation *invocation,
@@ -322,6 +327,26 @@ gboolean e_gdbus_book_call_get_contact_list_sync (
         EGdbusBook *proxy,
         const gchar *in_query,
         gchar ***out_vcards,
+        GCancellable *cancellable,
+        GError **error);
+
+void e_gdbus_book_call_get_contact_uid_list (
+        EGdbusBook *proxy,
+        const gchar *in_query,
+        GCancellable *cancellable,
+        GAsyncReadyCallback callback,
+        gpointer user_data);
+
+gboolean e_gdbus_book_call_get_contact_uid_list_finish (
+        EGdbusBook *proxy,
+        gchar ***out_uids,
+        GAsyncResult *res,
+        GError **error);
+
+gboolean e_gdbus_book_call_get_contact_uid_list_sync (
+        EGdbusBook *proxy,
+        const gchar *in_query,
+        gchar ***out_uids,
         GCancellable *cancellable,
         GError **error);
 
@@ -567,6 +592,11 @@ void e_gdbus_book_complete_get_contact_list (
         EGdbusBook *object,
         GDBusMethodInvocation *invocation,
         const gchar * const *out_vcards);
+
+void e_gdbus_book_complete_get_contact_uid_list (
+        EGdbusBook *object,
+        GDBusMethodInvocation *invocation,
+        const gchar * const *out_uids);
 
 void e_gdbus_book_complete_authenticate_user (
         EGdbusBook *object,

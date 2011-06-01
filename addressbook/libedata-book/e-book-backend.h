@@ -59,6 +59,7 @@ struct _EBookBackendClass {
 	void (*modify_contact)  (EBookBackend *backend, EDataBook *book, guint32 opid, const gchar *vcard);
 	void (*get_contact) (EBookBackend *backend, EDataBook *book, guint32 opid, const gchar *id);
 	void (*get_contact_list) (EBookBackend *backend, EDataBook *book, guint32 opid, const gchar *query);
+	void (*get_contact_uid_list) (EBookBackend *backend, EDataBook *book, guint32 opid, const gchar *query);
 	void (*start_book_view) (EBookBackend *backend, EDataBookView *book_view);
 	void (*stop_book_view) (EBookBackend *backend, EDataBookView *book_view);
 	void (*get_changes) (EBookBackend *backend, EDataBook *book, guint32 opid, const gchar *change_id);
@@ -128,6 +129,10 @@ void        e_book_backend_get_contact              (EBookBackend             *b
 						     guint32                   opid,
 						     const gchar               *id);
 void        e_book_backend_get_contact_list         (EBookBackend             *backend,
+						     EDataBook                *book,
+						     guint32                   opid,
+						     const gchar               *query);
+void        e_book_backend_get_contact_uid_list     (EBookBackend             *backend,
 						     EDataBook                *book,
 						     guint32                   opid,
 						     const gchar               *query);

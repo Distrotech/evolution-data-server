@@ -397,6 +397,30 @@ foreach_get_contact_compare (gchar *vcard_string, GetContactListClosure *closure
 }
 
 static void
+foreach_get_contact_uid_compare (gchar *vcard_string, GetContactListClosure *closure)
+{
+	gchar *uid = NULL;
+	if ((!closure->search_needed) || e_book_backend_sexp_match_vcard_ret_uid (closure->card_sexp, vcard_string, &uid)) {
+		if (!uid) {
+			/* Extract the UID for the vCard (inefficient) */
+			EVCard *card = e_vcard_new_from_string (vcard_string);
+			EVCardAttribute *attr;
+
+			if (!card)
+				return;
+
+			attr = e_vcard_get_attribute (card, EVC_UID);
+			if (attr)
+				uid = e_vcard_attribute_get_value (attr);
+
+			g_object_unref (card);
+		}
+		if (uid != NULL)
+			closure->list = g_list_append (closure->list, uid);
+	}
+}
+
+static void
 e_book_backend_vcf_get_contact_list (EBookBackendSync *backend,
 				     EDataBook *book,
 				     guint32 opid,
@@ -418,6 +442,30 @@ e_book_backend_vcf_get_contact_list (EBookBackendSync *backend,
 	g_object_unref (closure.card_sexp);
 
 	*contacts = closure.list;
+}
+
+static void
+e_book_backend_vcf_get_contact_uid_list (EBookBackendSync *backend,
+					 EDataBook *book,
+					 guint32 opid,
+					 const gchar *query,
+					 GList **contact_ids,
+					 GError **perror)
+{
+	EBookBackendVCF *bvcf = E_BOOK_BACKEND_VCF (backend);
+	const gchar *search = query;
+	GetContactListClosure closure;
+
+	closure.bvcf = bvcf;
+	closure.search_needed = strcmp (search, "(contains \"x-evolution-any-field\" \"\")");
+	closure.card_sexp = e_book_backend_sexp_new (search);
+	closure.list = NULL;
+
+	g_list_foreach (bvcf->priv->contact_list, (GFunc)foreach_get_contact_uid_compare, &closure);
+
+	g_object_unref (closure.card_sexp);
+
+	*contact_ids = closure.list;
 }
 
 typedef struct {
@@ -754,6 +802,7 @@ e_book_backend_vcf_class_init (EBookBackendVCFClass *klass)
 	sync_class->modify_contact_sync        = e_book_backend_vcf_modify_contact;
 	sync_class->get_contact_sync           = e_book_backend_vcf_get_contact;
 	sync_class->get_contact_list_sync      = e_book_backend_vcf_get_contact_list;
+	sync_class->get_contact_uid_list_sync  = e_book_backend_vcf_get_contact_uid_list;
 	sync_class->authenticate_user_sync     = e_book_backend_vcf_authenticate_user;
 	sync_class->get_required_fields_sync   = e_book_backend_vcf_get_required_fields;
 	sync_class->get_supported_fields_sync  = e_book_backend_vcf_get_supported_fields;

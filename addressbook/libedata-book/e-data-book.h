@@ -150,6 +150,10 @@ void                    e_data_book_respond_get_contact_list (EDataBook *book,
 							      guint32 opid,
 							      GError *error,
 							      GList *cards);
+void                    e_data_book_respond_get_contact_uid_list (EDataBook *book,
+							          guint32 opid,
+							          GError *error,
+							          GList *uids);
 void                    e_data_book_respond_get_changes    (EDataBook *book,
 							    guint32 opid,
 							    GError *error,

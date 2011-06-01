@@ -346,6 +346,11 @@ gboolean e_book_get_contacts               (EBook       *book,
 					    GList      **contacts,
 					    GError     **error);
 
+gboolean e_book_get_contact_uids               (EBook       *book,
+					    EBookQuery  *query,
+					    GList      **uids,
+					    GError     **error);
+
 #ifndef E_BOOK_DISABLE_DEPRECATED
 guint     e_book_async_get_contacts        (EBook             *book,
 					    EBookQuery        *query,
@@ -357,6 +362,11 @@ gboolean  e_book_get_contacts_async     (EBook                 *book,
 					 EBookQuery            *query,
 					 EBookListAsyncCallback cb,
 					 gpointer               closure);
+
+gboolean  e_book_get_contact_uids_async     (EBook                 *book,
+					     EBookQuery            *query,
+					     EBookListAsyncCallback cb,
+					     gpointer               closure);
 
 /* Needed for syncing */
 gboolean e_book_get_changes                (EBook       *book,

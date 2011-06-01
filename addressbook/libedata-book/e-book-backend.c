@@ -481,6 +481,30 @@ e_book_backend_get_contact_list (EBookBackend *backend,
 }
 
 /**
+ * e_book_backend_get_contact_uid_list:
+ * @backend: an #EBookBackend
+ * @book: an #EDataBook
+ * @opid: the ID to use for this operation
+ * @query: the s-expression to match
+ *
+ * Executes a 'get contact uid list' request specified by @opid on @book
+ * using @backend.
+ **/
+void
+e_book_backend_get_contact_uid_list (EBookBackend *backend,
+				     EDataBook    *book,
+				     guint32       opid,
+				     const gchar   *query)
+{
+	g_return_if_fail (E_IS_BOOK_BACKEND (backend));
+	g_return_if_fail (E_IS_DATA_BOOK (book));
+	g_return_if_fail (query);
+	g_return_if_fail (E_BOOK_BACKEND_GET_CLASS (backend)->get_contact_uid_list);
+
+	(* E_BOOK_BACKEND_GET_CLASS (backend)->get_contact_uid_list) (backend, book, opid, query);
+}
+
+/**
  * e_book_backend_start_book_view:
  * @backend: an #EBookBackend
  * @book_view: the #EDataBookView to start

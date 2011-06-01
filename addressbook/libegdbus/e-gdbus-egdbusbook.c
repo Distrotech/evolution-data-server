@@ -71,6 +71,7 @@ enum
   __REMOVE_METHOD,
   __GET_CONTACT_METHOD,
   __GET_CONTACT_LIST_METHOD,
+  __GET_CONTACT_UID_LIST_METHOD,
   __AUTHENTICATE_USER_METHOD,
   __ADD_CONTACT_METHOD,
   __REMOVE_CONTACTS_METHOD,
@@ -262,6 +263,7 @@ e_gdbus_book_default_init (EGdbusBookIface *iface)
   g_hash_table_insert (_method_name_to_id, (gpointer) "remove", GUINT_TO_POINTER (__REMOVE_METHOD));
   g_hash_table_insert (_method_name_to_id, (gpointer) "getContact", GUINT_TO_POINTER (__GET_CONTACT_METHOD));
   g_hash_table_insert (_method_name_to_id, (gpointer) "getContactList", GUINT_TO_POINTER (__GET_CONTACT_LIST_METHOD));
+  g_hash_table_insert (_method_name_to_id, (gpointer) "getContactUidList", GUINT_TO_POINTER (__GET_CONTACT_UID_LIST_METHOD));
   g_hash_table_insert (_method_name_to_id, (gpointer) "authenticateUser", GUINT_TO_POINTER (__AUTHENTICATE_USER_METHOD));
   g_hash_table_insert (_method_name_to_id, (gpointer) "addContact", GUINT_TO_POINTER (__ADD_CONTACT_METHOD));
   g_hash_table_insert (_method_name_to_id, (gpointer) "removeContacts", GUINT_TO_POINTER (__REMOVE_CONTACTS_METHOD));
@@ -470,6 +472,34 @@ e_gdbus_book_default_init (EGdbusBookIface *iface)
                   2,
                   G_TYPE_DBUS_METHOD_INVOCATION,
                   G_TYPE_STRING);
+    
+  /**
+   * EGdbusBook::handle-get-contact-uid-list:
+   * @object: The exported object emitting the signal.
+   * @invocation: A #GDBusMethodInvocation object that can be used to return a value or error.
+   * @query: Parameter.
+   *
+   * On exported objects, this signal is emitted when a remote process (identified by @invocation) invokes the <literal>getContactUidList</literal> D-Bus method on @object. Use e_gdbus_book_complete_get_contact_uid_list() to return a value or g_dbus_method_invocation_return_error() to return an error.
+   *
+   * The signal is emitted in the thread-default main loop of the thread that e_gdbus_book_register_object() was called from.
+   *
+   * On proxies, this signal is never emitted.
+   *
+   * Returns: %TRUE if you want to handle the method call (will stop further handlers from being called), %FALSE otherwise.
+   */
+  signals[__GET_CONTACT_UID_LIST_METHOD] =
+    g_signal_new ("handle-get-contact-uid-list",
+                  G_TYPE_FROM_INTERFACE (iface),
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (EGdbusBookIface, handle_get_contact_uid_list),
+                  g_signal_accumulator_true_handled,
+                  NULL,
+                  _e_gdbus_gdbus_cclosure_marshaller_BOOLEAN__OBJECT_STRING,
+                  G_TYPE_BOOLEAN,
+                  2,
+                  G_TYPE_DBUS_METHOD_INVOCATION,
+                  G_TYPE_STRING);
+    
   /**
    * EGdbusBook::handle-authenticate-user:
    * @object: The exported object emitting the signal.
@@ -1221,6 +1251,126 @@ gboolean e_gdbus_book_call_get_contact_list_sync (
     g_variant_get (_result,
                    "(^as)",
                    out_vcards);
+  }
+  g_variant_unref (_result);
+  _ret = TRUE;
+_out:
+  return _ret;
+}
+
+/**
+ * e_gdbus_book_call_get_contact_uid_list:
+ * @proxy: A #EGdbusBook.
+ * @in_query: Method parameter.
+ * @cancellable: A #GCancellable or %NULL.
+ * @callback: A #GAsyncReadyCallback to call when the request is satisfied or %NULL if you don't care about the result of the method invocation.
+ * @user_data: Data to pass to @callback.
+ *
+ * Invokes the <literal>org.gnome.evolution.dataserver.addressbook.Book.getContactUidList</literal>
+ * D-Bus method on the remote object represented by @proxy.
+ *
+ * This is an asynchronous method. When the operation is finished,
+ * callback will be invoked in the thread-default main loop of the
+ * thread you are calling this method from. You can then call
+ * e_gdbus_book_call_get_contact_uid_list_finish() to get the result of the operation.
+ *
+ * See e_gdbus_book_call_get_contact_uid_list_sync() for the synchronous version of this method.
+ */
+void e_gdbus_book_call_get_contact_uid_list (
+        EGdbusBook *proxy,
+        const gchar *in_query,
+        GCancellable *cancellable,
+        GAsyncReadyCallback callback,
+        gpointer user_data)
+{
+  GVariant *_params;
+  _params = g_variant_new ("(s)",
+                           in_query);
+  g_dbus_proxy_call (G_DBUS_PROXY (proxy),
+                     "getContactUidList",
+                     _params,
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     cancellable,
+                     callback,
+                     user_data);
+}
+
+/**
+ * e_gdbus_book_call_get_contact_uid_list_finish:
+ * @proxy: A #EGdbusBook.
+ * @out_uids: Return location for out parameter or %NULL. Free with g_strfreev().
+ * @res: A #GAsyncResult obtained from the #GAsyncReadyCallback passed to e_gdbus_book_call_get_contact_uid_list().
+ * @error: Return location for error or %NULL.
+ *
+ * Finishes invoking the <literal>org.gnome.evolution.dataserver.addressbook.Book.getContactUidList</literal>
+ * D-Bus method on the remote object represented by @proxy.
+ *
+ * Returns: %TRUE if the call succeeded, %FALSE if @error is set.
+ */
+gboolean e_gdbus_book_call_get_contact_uid_list_finish (
+        EGdbusBook *proxy,
+        gchar ***out_uids,
+        GAsyncResult *res,
+        GError **error)
+{
+  gboolean _ret = FALSE;
+  GVariant *_result;
+  _result = g_dbus_proxy_call_finish (G_DBUS_PROXY (proxy), res, error);
+  if (_result == NULL)
+    goto _out;
+  {
+    g_variant_get (_result,
+                   "(^as)",
+                   out_uids);
+  }
+  g_variant_unref (_result);
+  _ret = TRUE;
+_out:
+  return _ret;
+}
+
+/**
+ * e_gdbus_book_call_get_contact_uid_list_sync:
+ * @proxy: A #EGdbusBook.
+ * @in_query: Method parameter.
+ * @out_uids: Return location for out parameter or %NULL. Free with g_strfreev().
+ * @cancellable: A #GCancellable or %NULL.
+ * @error: Return location for error or %NULL.
+ *
+ * Synchronously invokes the <literal>org.gnome.evolution.dataserver.addressbook.Book.getContactUidList</literal>
+ * D-Bus method on the remote object represented by @proxy.
+ *
+ * The calling thread is blocked until a reply is received. See
+ * e_gdbus_book_call_get_contact_uid_list() for the asynchronous version of this method.
+ *
+ * Returns: %TRUE if the call succeeded, %FALSE if @error is set.
+ */
+gboolean e_gdbus_book_call_get_contact_uid_list_sync (
+        EGdbusBook *proxy,
+        const gchar *in_query,
+        gchar ***out_uids,
+        GCancellable *cancellable,
+        GError **error)
+{
+  gboolean _ret = FALSE;
+  GVariant *_params;
+  GVariant *_result;
+  _params = g_variant_new ("(s)",
+                           in_query);
+  _result = g_dbus_proxy_call_sync (G_DBUS_PROXY (proxy),
+                                   "getContactUidList",
+                                   _params,
+                                   G_DBUS_CALL_FLAGS_NONE,
+                                   -1,
+                                   cancellable,
+                                   error);
+  if (_result == NULL)
+    goto _out;
+  {
+    g_variant_get (_result,
+                   "(^as)",
+                   out_uids);
   }
   g_variant_unref (_result);
   _ret = TRUE;
@@ -2671,6 +2821,31 @@ void e_gdbus_book_complete_get_contact_list (
 }
 
 /**
+ * e_gdbus_book_complete_get_contact_uid_list:
+ * @object: A #EGdbusBook.
+ * @invocation: A #GDBusMethodInvocation.
+ * @out_uids: Value to return.
+ *
+ * Completes handling the <literal>org.gnome.evolution.dataserver.addressbook.Book.getContactUidList</literal>
+ * D-Bus method invocation by returning a value.
+ *
+ * If you want to return an error, use g_dbus_method_invocation_return_error()
+ * or similar instead.
+ *
+ * This method will free @invocation, you cannot use it afterwards.
+ */
+void e_gdbus_book_complete_get_contact_uid_list (
+        EGdbusBook *object,
+        GDBusMethodInvocation *invocation,
+        const gchar * const *out_uids)
+{
+  GVariant *_params;
+  _params = g_variant_new ("(^as)",
+                           out_uids);
+  g_dbus_method_invocation_return_value (invocation, _params);
+}
+
+/**
  * e_gdbus_book_complete_authenticate_user:
  * @object: A #EGdbusBook.
  * @invocation: A #GDBusMethodInvocation.
@@ -3147,6 +3322,41 @@ static const GDBusMethodInfo e_gdbus_book_method_getContactList =
   (GDBusAnnotationInfo **) NULL,
 };
 
+static const GDBusArgInfo e_gdbus_book_method_in_getContactUidList_query =
+{
+  -1,
+  (gchar *) "query",
+  (gchar *) "s",
+  (GDBusAnnotationInfo **) NULL,
+};
+static const GDBusArgInfo * const e_gdbus_book_method_in_getContactUidList_arg_pointers[] =
+{
+  &e_gdbus_book_method_in_getContactUidList_query,
+  NULL
+};
+
+static const GDBusArgInfo e_gdbus_book_method_out_getContactUidList_uids =
+{
+  -1,
+  (gchar *) "uids",
+  (gchar *) "as",
+  (GDBusAnnotationInfo **) NULL,
+};
+static const GDBusArgInfo * const e_gdbus_book_method_out_getContactUidList_arg_pointers[] =
+{
+  &e_gdbus_book_method_out_getContactUidList_uids,
+  NULL
+};
+
+static const GDBusMethodInfo e_gdbus_book_method_getContactUidList =
+{
+  -1,
+  (gchar *) "getContactUidList",
+  (GDBusArgInfo **) &e_gdbus_book_method_in_getContactUidList_arg_pointers,
+  (GDBusArgInfo **) &e_gdbus_book_method_out_getContactUidList_arg_pointers,
+  (GDBusAnnotationInfo **) NULL,
+};
+
 static const GDBusArgInfo e_gdbus_book_method_in_authenticateUser_user =
 {
   -1,
@@ -3454,6 +3664,7 @@ static const GDBusMethodInfo * const e_gdbus_book_method_info_pointers[] =
   &e_gdbus_book_method_remove,
   &e_gdbus_book_method_getContact,
   &e_gdbus_book_method_getContactList,
+  &e_gdbus_book_method_getContactUidList,
   &e_gdbus_book_method_authenticateUser,
   &e_gdbus_book_method_addContact,
   &e_gdbus_book_method_removeContacts,
@@ -3537,6 +3748,7 @@ handle_method_call (GDBusConnection       *connection,
       break;
 
     case __GET_CONTACT_LIST_METHOD:
+    case __GET_CONTACT_UID_LIST_METHOD:
       {
         EGdbusBook *object = E_GDBUS_BOOK (user_data);
         gboolean handled;

@@ -207,6 +207,70 @@ e_book_backend_sync_get_contact_list (EBookBackendSync *backend,
 }
 
 /**
+ * e_book_backend_sync_get_contact_uid_list:
+ * @backend: an #EBookBackendSync
+ * @book: an #EDataBook
+ * @opid: the unique ID of the operation
+ * @query: an s-expression of the query to perform
+ * @contact_uids: a pointer to a location to store the resulting list of UID strings
+ * @error: #GError to set, when something fails
+ *
+ * Gets a list of contact uids from @book. The list and its elements must be freed
+ * by the caller.
+ **/
+void
+e_book_backend_sync_get_contact_uid_list (EBookBackendSync *backend,
+					  EDataBook *book,
+					  guint32 opid,
+					  const gchar *query,
+					  GList **contact_uids,
+					  GError **error)
+{
+	e_return_data_book_error_if_fail (E_IS_BOOK_BACKEND_SYNC (backend), E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_if_fail (E_IS_DATA_BOOK (book), E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_if_fail (query, E_DATA_BOOK_STATUS_INVALID_ARG);
+	e_return_data_book_error_if_fail (contact_uids, E_DATA_BOOK_STATUS_INVALID_ARG);
+
+	if (E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_contact_uid_list_sync != NULL) {
+		(* E_BOOK_BACKEND_SYNC_GET_CLASS (backend)->get_contact_uid_list_sync) (backend, book, opid, query, contact_uids, error);
+	} else {
+		/* inefficient fallback code */
+		GList *vcards = NULL;
+		GError *local_error = NULL;
+
+		e_book_backend_sync_get_contact_list (backend, book, opid, query, &vcards, &local_error);
+
+		if (local_error) {
+			g_propagate_error (error, local_error);
+		} else {
+			GList *v;
+
+			*contact_uids = NULL;
+
+			for (v = vcards; v; v = v->next) {
+				EVCard *card = e_vcard_new_from_string (v->data);
+				EVCardAttribute *attr;
+
+				if (!card)
+					continue;
+
+				attr = e_vcard_get_attribute (card, EVC_UID);
+
+				if (attr)
+					*contact_uids = g_list_prepend (*contact_uids, e_vcard_attribute_get_value (attr));
+
+				g_object_unref (card);
+			}
+
+			*contact_uids = g_list_reverse (*contact_uids);
+		}
+
+		g_list_foreach (vcards, (GFunc) g_free, NULL);
+		g_list_free (vcards);
+	}
+}
+
+/**
  * e_book_backend_sync_get_changes:
  * @backend: an #EBookBackendSync
  * @book: an #EDataBook
@@ -446,6 +510,20 @@ _e_book_backend_get_contact_list (EBookBackend *backend,
 }
 
 static void
+_e_book_backend_get_contact_uid_list (EBookBackend *backend,
+				      EDataBook    *book,
+				      guint32       opid,
+				      const gchar   *query)
+{
+	GError *error = NULL;
+	GList *uids = NULL;
+
+	e_book_backend_sync_get_contact_uid_list (E_BOOK_BACKEND_SYNC (backend), book, opid, query, &uids, &error);
+
+	e_data_book_respond_get_contact_uid_list (book, opid, error, uids);
+}
+
+static void
 _e_book_backend_get_changes (EBookBackend *backend,
 			     EDataBook    *book,
 			     guint32       opid,
@@ -570,6 +648,7 @@ e_book_backend_sync_class_init (EBookBackendSyncClass *klass)
 	backend_class->modify_contact = _e_book_backend_modify_contact;
 	backend_class->get_contact = _e_book_backend_get_contact;
 	backend_class->get_contact_list = _e_book_backend_get_contact_list;
+	backend_class->get_contact_uid_list = _e_book_backend_get_contact_uid_list;
 	backend_class->get_changes = _e_book_backend_get_changes;
 	backend_class->authenticate_user = _e_book_backend_authenticate_user;
 	backend_class->get_required_fields = _e_book_backend_get_required_fields;

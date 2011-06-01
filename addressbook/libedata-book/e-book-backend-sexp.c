@@ -910,7 +910,34 @@ e_book_backend_sexp_match_vcard (EBookBackendSExp *sexp, const gchar *vcard)
 	return retval;
 }
 
-
+/**
+ * e_book_backend_sexp_match_vcard:
+ * @sexp: an #EBookBackendSExp
+ * @vcard: a VCard string
+ * @uid: Pointer set to the uid of the contacts if it matches
+ *
+ * Checks if @vcard matches @sexp.
+ *
+ * Returns: %TRUE if the VCard matches, %FALSE otherwise.
+ **/
+gboolean
+e_book_backend_sexp_match_vcard_ret_uid (EBookBackendSExp *sexp, const gchar *vcard, gchar **uid)
+{
+	EContact *contact;
+	gboolean retval;
+
+	contact = e_contact_new_from_vcard (vcard);
+
+	retval = e_book_backend_sexp_match_contact (sexp, contact);
+	
+	if (retval == TRUE) {
+		*uid = e_contact_get (contact, E_CONTACT_UID);
+	}
+
+	g_object_unref(contact);
+
+	return retval;
+}
 
 /**
  * e_book_backend_sexp_new:

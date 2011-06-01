@@ -56,6 +56,7 @@ typedef enum {
 	OP_ADD_CONTACT,
 	OP_GET_CONTACT,
 	OP_GET_CONTACTS,
+	OP_GET_CONTACT_UIDS,
 	OP_MODIFY_CONTACT,
 	OP_REMOVE_CONTACTS,
 	OP_GET_CHANGES,
@@ -80,6 +81,7 @@ typedef struct {
 		/* OP_GET_CONTACT */
 		gchar *uid;
 		/* OP_GET_CONTACTS */
+		/* OP_GET_CONTACT_UIDS */
 		gchar *query;
 		/* OP_MODIFY_CONTACT */
 		gchar **vcards;
@@ -121,6 +123,10 @@ operation_thread (gpointer data, gpointer user_data)
 		break;
 	case OP_GET_CONTACTS:
 		e_book_backend_get_contact_list (backend, op->book, op->id, op->d.query);
+		g_free (op->d.query);
+		break;
+	case OP_GET_CONTACT_UIDS:
+		e_book_backend_get_contact_uid_list (backend, op->book, op->id, op->d.query);
 		g_free (op->d.query);
 		break;
 	case OP_MODIFY_CONTACT:
@@ -409,6 +415,33 @@ e_data_book_respond_get_contact_list (EDataBook *book, guint32 opid, GError *err
 {
 	/* Translators: The '%s' is replaced with a detailed error message */
 	return_error_and_list (book->priv->gdbus_object, e_gdbus_book_complete_get_contact_list, opid, error, _("Cannot get contact list: %s"), cards, TRUE);
+}
+
+static gboolean
+impl_Book_getContactUidList (EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar *query, EDataBook *book)
+{
+	OperationData *op;
+
+	if (query == NULL || query[0] == '\0') {
+		GError *error = e_data_book_create_error (E_DATA_BOOK_STATUS_INVALID_QUERY, NULL);
+		/* Translators: The '%s' is replaced with a detailed error message */
+		data_book_return_error (invocation, error, _("Empty query: %s"));
+		g_error_free (error);
+		return TRUE;
+	}
+
+	op = op_new (OP_GET_CONTACT_UIDS, book, invocation);
+	op->d.query = g_strdup (query);
+	g_thread_pool_push (op_pool, op, NULL);
+
+	return TRUE;
+}
+
+void
+e_data_book_respond_get_contact_uid_list (EDataBook *book, guint32 opid, GError *error, GList *uids)
+{
+	/* Translators: The '%s' is replaced with a detailed error message */
+	return_error_and_list (book->priv->gdbus_object, e_gdbus_book_complete_get_contact_uid_list, opid, error, _("Cannot get contact uid list: %s"), uids, TRUE);
 }
 
 static gboolean
@@ -844,6 +877,7 @@ e_data_book_init (EDataBook *ebook)
 	g_signal_connect (gdbus_object, "handle-remove", G_CALLBACK (impl_Book_remove), ebook);
 	g_signal_connect (gdbus_object, "handle-get-contact", G_CALLBACK (impl_Book_getContact), ebook);
 	g_signal_connect (gdbus_object, "handle-get-contact-list", G_CALLBACK (impl_Book_getContactList), ebook);
+	g_signal_connect (gdbus_object, "handle-get-contact-uid-list", G_CALLBACK (impl_Book_getContactUidList), ebook);
 	g_signal_connect (gdbus_object, "handle-authenticate-user", G_CALLBACK (impl_Book_authenticateUser), ebook);
 	g_signal_connect (gdbus_object, "handle-add-contact", G_CALLBACK (impl_Book_addContact), ebook);
 	g_signal_connect (gdbus_object, "handle-remove-contacts", G_CALLBACK (impl_Book_removeContacts), ebook);
