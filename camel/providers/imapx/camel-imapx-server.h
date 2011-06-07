@@ -123,6 +123,7 @@ struct _CamelIMAPXServer {
 	GHashTable *uid_eflags;
 	/* order in which new messages would be fetched */
 	gboolean descending;
+	gboolean mobile;
 
 	/* used to synchronize duplicate get_message requests */
 	GCond *fetch_cond;
@@ -157,6 +158,11 @@ GPtrArray *	camel_imapx_server_list		(CamelIMAPXServer *is,
 gboolean	camel_imapx_server_refresh_info	(CamelIMAPXServer *is,
 						 CamelFolder *folder,
 						 GError **error);
+gboolean	camel_imapx_server_fetch_old_messages 		
+						(CamelIMAPXServer *is,
+                                       		 CamelFolder *folder,
+				       		 int count,
+                                       		 GError **error);
 gboolean	camel_imapx_server_sync_changes	(CamelIMAPXServer *is,
 						 CamelFolder *folder,
 						 GError **error);
