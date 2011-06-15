@@ -98,7 +98,7 @@
       <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="impl_AddressBook_Book_getBookView"/>
       <annotation name="org.freedesktop.DBus.GLib.Async" value=""/>
       <arg name="query" type="s" direction="in"/>
-      <!-- <arg name="fields" type="as" direction="in"/> -->
+      <arg name="requested_fields" type="as" direction="in"/>
       <arg name="max_results" type="u" direction="in"/>
       <arg name="view" type="o" direction="out"/>
     </method>

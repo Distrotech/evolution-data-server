@@ -52,10 +52,11 @@ struct _EDataBookViewClass {
 	GObjectClass parent;
 };
 
-EDataBookView *e_data_book_view_new                  (EDataBook        *book,
-						      const gchar      *card_query,
-						      EBookBackendSExp *card_sexp,
-						      gint              max_results);
+EDataBookView *e_data_book_view_new                  (EDataBook           *book,
+						      const gchar         *card_query,
+						      EBookBackendSExp    *card_sexp,
+						      const gchar * const *requested_fields,
+						      gint                 max_results);
 
 guint e_data_book_view_register_gdbus_object (EDataBookView *query, GDBusConnection *connection, const gchar *object_path, GError **error);
 
@@ -63,11 +64,12 @@ void              e_data_book_view_set_thresholds    (EDataBookView *book_view,
 						      gint minimum_grouping_threshold,
 						      gint maximum_grouping_threshold);
 
-const gchar *       e_data_book_view_get_card_query    (EDataBookView                *book_view);
+const gchar *     e_data_book_view_get_card_query    (EDataBookView                *book_view);
 EBookBackendSExp* e_data_book_view_get_card_sexp     (EDataBookView                *book_view);
-gint               e_data_book_view_get_max_results   (EDataBookView                *book_view);
+const gchar ** e_data_book_view_get_requested_fields (EDataBookView                *book_view);
+gint              e_data_book_view_get_max_results   (EDataBookView                *book_view);
 EBookBackend*     e_data_book_view_get_backend       (EDataBookView                *book_view);
-void         e_data_book_view_notify_update          (EDataBookView                *book_view,
+void              e_data_book_view_notify_update     (EDataBookView                *book_view,
 						      EContact                     *contact);
 
 void         e_data_book_view_notify_update_vcard    (EDataBookView                *book_view,

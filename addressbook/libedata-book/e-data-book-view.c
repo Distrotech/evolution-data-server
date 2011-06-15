@@ -45,9 +45,10 @@ struct _EDataBookViewPrivate {
 	EDataBook *book;
 	EBookBackend *backend;
 
-	gchar * card_query;
+	gchar            *card_query;
 	EBookBackendSExp *card_sexp;
-	gint max_results;
+	gchar           **requested_fields;
+	gint              max_results;
 
 	gboolean running;
 	GMutex *pending_mutex;
@@ -476,13 +477,18 @@ e_data_book_view_notify_status_message (EDataBookView *book_view, const gchar *m
  * @book: The #EDataBook to search
  * @card_query: The query as a string
  * @card_sexp: The query as an #EBookBackendSExp
+ * @requested_fields: The vcard fields requested for this view or %NULL for all fields.
  * @max_results: The maximum number of results to return
  *
  * Create a new #EDataBookView for the given #EBook, filtering on #card_sexp,
  * and place it on DBus at the object path #path.
  */
 EDataBookView *
-e_data_book_view_new (EDataBook *book, const gchar *card_query, EBookBackendSExp *card_sexp, gint max_results)
+e_data_book_view_new (EDataBook           *book, 
+		      const gchar         *card_query, 
+		      EBookBackendSExp    *card_sexp, 
+		      const gchar * const *requested_fields,
+		      gint                 max_results)
 {
 	EDataBookView *view;
 	EDataBookViewPrivate *priv;
@@ -497,6 +503,7 @@ e_data_book_view_new (EDataBook *book, const gchar *card_query, EBookBackendSExp
 	priv->card_query = g_strdup (card_query);
 	priv->card_sexp = card_sexp;
 	priv->max_results = max_results;
+	priv->requested_fields = g_strdupv ((gchar **)requested_fields);
 
 	return view;
 }
@@ -637,6 +644,7 @@ e_data_book_view_finalize (GObject *object)
 	g_array_free (priv->removes, TRUE);
 
 	g_free (priv->card_query);
+	g_strfreev (priv->requested_fields);
 
 	g_mutex_free (priv->pending_mutex);
 
@@ -687,6 +695,23 @@ e_data_book_view_get_card_sexp (EDataBookView *book_view)
 	g_return_val_if_fail (E_IS_DATA_BOOK_VIEW (book_view), NULL);
 
 	return book_view->priv->card_sexp;
+}
+
+/**
+ * e_data_book_view_get_requested_fields:
+ * @book_view: an #EDataBookView
+ *
+ * Gets the required fields which should be reported
+ * in #EContacts.
+ *
+ * Returns: A %NULL terminated array of field names which should not be freed or modified.
+ **/
+const gchar **
+e_data_book_view_get_requested_fields (EDataBookView *book_view)
+{
+	g_return_val_if_fail (E_IS_DATA_BOOK_VIEW (book_view), NULL);
+
+	return (const gchar **)book_view->priv->requested_fields;
 }
 
 /**

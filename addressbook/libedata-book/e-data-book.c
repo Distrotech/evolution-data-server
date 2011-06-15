@@ -636,7 +636,12 @@ construct_bookview_path (void)
 }
 
 static gboolean
-impl_Book_getBookView (EGdbusBook *object, GDBusMethodInvocation *invocation, const gchar *search, const guint max_results, EDataBook *book)
+impl_Book_getBookView (EGdbusBook            *object, 
+		       GDBusMethodInvocation *invocation, 
+		       const gchar           *search, 
+		       const gchar * const   *requested_fields,
+		       const guint            max_results, 
+		       EDataBook *book)
 {
 	EBookBackend *backend = e_data_book_get_backend (book);
 	EBookBackendSExp *card_sexp;
@@ -654,7 +659,7 @@ impl_Book_getBookView (EGdbusBook *object, GDBusMethodInvocation *invocation, co
 	}
 
 	path = construct_bookview_path ();
-	book_view = e_data_book_view_new (book, search, card_sexp, max_results);
+	book_view = e_data_book_view_new (book, search, card_sexp, requested_fields, max_results);
 	e_data_book_view_register_gdbus_object (book_view, g_dbus_method_invocation_get_connection (invocation), path, &error);
 
 	if (error) {
