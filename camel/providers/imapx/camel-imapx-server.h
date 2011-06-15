@@ -119,6 +119,11 @@ struct _CamelIMAPXServer {
 
 	gboolean use_qresync;
 
+	/* used for storing eflags to syncronize duplicate get_message requests */
+	GHashTable *uid_eflags;
+	/* order in which new messages would be fetched */
+	gboolean descending;
+
 	/* used to synchronize duplicate get_message requests */
 	GCond *fetch_cond;
 	GMutex *fetch_mutex;
