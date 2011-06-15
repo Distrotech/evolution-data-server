@@ -1047,18 +1047,20 @@ imap_check_folder_still_extant (CamelImapStore *imap_store, const gchar *full_na
 }
 
 static gboolean
-try_auth (CamelImapStore *store, const gchar *mech, GError **error)
+try_auth (CamelImapStore *store, CamelSasl *sasl, GError **error)
 {
-	CamelSasl *sasl;
+	CamelService *service = CAMEL_SERVICE (store);
 	CamelImapResponse *response;
 	gchar *resp;
 	gchar *sasl_resp;
 
-	response = camel_imap_command (store, NULL, error, "AUTHENTICATE %s", mech);
-	if (!response)
+	response = camel_imap_command (store, NULL, error, "AUTHENTICATE %s",
+				       service->url->authmech);
+	if (!response) {
+		g_object_unref (sasl);
 		return FALSE;
+	}
 
-	sasl = camel_sasl_new ("imap", mech, CAMEL_SERVICE (store));
 	while (!camel_sasl_get_authenticated (sasl)) {
 		resp = camel_imap_response_extract_continuation (store, response, error);
 		if (!resp)
@@ -1107,6 +1109,7 @@ imap_auth_loop (CamelService *service, GError **error)
 	CamelSession *session = camel_service_get_session (service);
 	CamelServiceAuthType *authtype = NULL;
 	CamelImapResponse *response;
+	CamelSasl *sasl = NULL;
 	gchar *errbuf = NULL;
 	gboolean authenticated = FALSE;
 	const gchar *auth_domain;
@@ -1143,11 +1146,23 @@ imap_auth_loop (CamelService *service, GError **error)
 			return FALSE;
 		}
 
-		if (!authtype->need_password) {
-			authenticated = try_auth (store, authtype->authproto, error);
-			if (!authenticated)
-				return FALSE;
+		sasl = camel_sasl_new ("imap", service->url->authmech,
+				       CAMEL_SERVICE (store));
+		if (!sasl) {
+		nosasl:
+			g_set_error (
+				     error, CAMEL_ERROR, CAMEL_ERROR_GENERIC,
+				     _("Error creating SASL authentication object."));
+			return FALSE;
 		}
+
+		if (!authtype->need_password || camel_sasl_try_empty_password (sasl)) {
+			authenticated = try_auth (store, sasl, error);
+			if (!authenticated && !authtype->need_password)
+				return FALSE;
+			sasl = NULL;
+		}
+
 	}
 
 	while (!authenticated) {
@@ -1186,6 +1201,8 @@ imap_auth_loop (CamelService *service, GError **error)
 					error, CAMEL_SERVICE_ERROR,
 					CAMEL_SERVICE_ERROR_NEED_PASSWORD,
 					_("Need password for authentication"));
+				if (sasl)
+					g_object_unref (sasl);
 				return FALSE;
 			}
 		}
@@ -1197,9 +1214,15 @@ imap_auth_loop (CamelService *service, GError **error)
 				return FALSE;
 		}
 
-		if (authtype)
-			authenticated = try_auth (store, authtype->authproto, &local_error);
-		else {
+		if (authtype) {
+			if (!sasl)
+				sasl = camel_sasl_new ("imap", service->url->authmech,
+						       CAMEL_SERVICE (store));
+			if (!sasl)
+				goto nosasl;
+			authenticated = try_auth (store, sasl, &local_error);
+			sasl = NULL;
+		} else {
 			response = camel_imap_command (store, NULL, &local_error,
 						       "LOGIN %S %S",
 						       service->url->user,

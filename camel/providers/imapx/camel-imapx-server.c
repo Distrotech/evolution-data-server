@@ -2987,7 +2987,6 @@ exit:
 static gboolean
 imapx_reconnect (CamelIMAPXServer *is, GError **error)
 {
-	CamelSasl *sasl;
 	CamelIMAPXCommand *ic;
 	gchar *errbuf = NULL;
 	CamelService *service = (CamelService *) is->store;
@@ -2995,9 +2994,17 @@ imapx_reconnect (CamelIMAPXServer *is, GError **error)
 	gboolean authenticated = FALSE;
 	CamelServiceAuthType *authtype = NULL;
 	guint32 prompt_flags = CAMEL_SESSION_PASSWORD_SECRET;
+	gboolean need_password = FALSE;
 
 	while (!authenticated) {
-		if (errbuf) {
+		CamelSasl *sasl = NULL;
+
+		if (authtype && authtype->need_password && !need_password) {
+			/* We tried an empty password, but it didn't work */
+			need_password = TRUE;
+			g_free (errbuf);
+			errbuf = NULL;
+		} else if (errbuf) {
 			/* We need to un-cache the password before prompting again */
 			prompt_flags |= CAMEL_SESSION_PASSWORD_REPROMPT;
 			g_free (service->url->passwd);
@@ -3024,6 +3031,7 @@ imapx_reconnect (CamelIMAPXServer *is, GError **error)
 
 			authtype = camel_sasl_authtype (service->url->authmech);
 			if (!authtype) {
+			noauth:
 				g_set_error (
 					error, CAMEL_SERVICE_ERROR,
 					CAMEL_SERVICE_ERROR_CANT_AUTHENTICATE,
@@ -3033,7 +3041,20 @@ imapx_reconnect (CamelIMAPXServer *is, GError **error)
 			}
 		}
 
-		if (service->url->passwd == NULL && (!authtype || authtype->need_password)) {
+		if (authtype) {
+			sasl = camel_sasl_new ("imap", authtype->authproto, service);
+			if (!sasl)
+				goto noauth;
+
+			/* If this is the *first* attempt, set 'need_password'
+			   as appropriate. */
+			if (!need_password)
+				need_password = authtype->need_password &&
+					!camel_sasl_try_empty_password (sasl);
+		} else
+			need_password = TRUE;
+
+		if (need_password && service->url->passwd == NULL) {
 			gchar *base_prompt;
 			gchar *full_prompt;
 
@@ -3060,10 +3081,12 @@ imapx_reconnect (CamelIMAPXServer *is, GError **error)
 					error, CAMEL_SERVICE_ERROR,
 					CAMEL_SERVICE_ERROR_NEED_PASSWORD,
 					_("Need password for authentication"));
+				if (sasl)
+					g_object_unref (sasl);
 				goto exception;
 			}
 		}
-		if (authtype && (sasl = camel_sasl_new ("imap", authtype->authproto, service))) {
+		if (sasl) {
 			ic = camel_imapx_command_new (is, "AUTHENTICATE", NULL, "AUTHENTICATE %A", sasl);
 			g_object_unref (sasl);
 		} else {

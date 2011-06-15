@@ -63,6 +63,7 @@ struct _CamelSasl {
 struct _CamelSaslClass {
 	CamelObjectClass parent_class;
 
+	gboolean	(*try_empty_password)	(CamelSasl *sasl);
 	GByteArray *	(*challenge)		(CamelSasl *sasl,
 						 GByteArray *token,
 						 GError **error);
@@ -78,6 +79,7 @@ gchar *		camel_sasl_challenge_base64	(CamelSasl *sasl,
 CamelSasl *	camel_sasl_new			(const gchar *service_name,
 						 const gchar *mechanism,
 						 CamelService *service);
+gboolean	camel_sasl_try_empty_password	(CamelSasl *sasl);
 gboolean	camel_sasl_get_authenticated	(CamelSasl *sasl);
 void		camel_sasl_set_authenticated	(CamelSasl *sasl,
 						 gboolean authenticated);
