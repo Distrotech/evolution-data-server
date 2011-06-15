@@ -696,11 +696,12 @@ e_gdbus_book_default_init (EGdbusBookIface *iface)
                   G_STRUCT_OFFSET (EGdbusBookIface, handle_get_book_view),
                   g_signal_accumulator_true_handled,
                   NULL,
-                  _e_gdbus_gdbus_cclosure_marshaller_BOOLEAN__OBJECT_STRING_UINT,
+                  _e_gdbus_gdbus_cclosure_marshaller_BOOLEAN__OBJECT_STRING_BOXED_UINT,
                   G_TYPE_BOOLEAN,
-                  3,
+                  4,
                   G_TYPE_DBUS_METHOD_INVOCATION,
                   G_TYPE_STRING,
+		  G_TYPE_STRV,
                   G_TYPE_UINT);
   /**
    * EGdbusBook::handle-get-changes:
@@ -2138,6 +2139,7 @@ _out:
  * e_gdbus_book_call_get_book_view:
  * @proxy: A #EGdbusBook.
  * @in_query: Method parameter.
+ * @in_requested_fields: The requested vcard fields for the new view
  * @in_max_results: Method parameter.
  * @cancellable: A #GCancellable or %NULL.
  * @callback: A #GAsyncReadyCallback to call when the request is satisfied or %NULL if you don't care about the result of the method invocation.
@@ -2156,14 +2158,18 @@ _out:
 void e_gdbus_book_call_get_book_view (
         EGdbusBook *proxy,
         const gchar *in_query,
+	const gchar * const *in_requested_fields,
         guint in_max_results,
         GCancellable *cancellable,
         GAsyncReadyCallback callback,
         gpointer user_data)
 {
   GVariant *_params;
-  _params = g_variant_new ("(su)",
+  gchar    *empty[1] = { NULL };
+
+  _params = g_variant_new ("(s^asu)",
                            in_query,
+			   (gchar **)in_requested_fields ? (gchar **)in_requested_fields : empty,
                            in_max_results);
   g_dbus_proxy_call (G_DBUS_PROXY (proxy),
                      "getBookView",
@@ -2213,6 +2219,7 @@ _out:
  * e_gdbus_book_call_get_book_view_sync:
  * @proxy: A #EGdbusBook.
  * @in_query: Method parameter.
+ * @in_requested_fields: The requested vcard fields for the new view
  * @in_max_results: Method parameter.
  * @out_view: Return location for out parameter or %NULL. Free with g_free().
  * @cancellable: A #GCancellable or %NULL.
@@ -2229,6 +2236,7 @@ _out:
 gboolean e_gdbus_book_call_get_book_view_sync (
         EGdbusBook *proxy,
         const gchar *in_query,
+	const gchar * const *in_requested_fields,
         guint in_max_results,
         gchar **out_view,
         GCancellable *cancellable,
@@ -2237,8 +2245,11 @@ gboolean e_gdbus_book_call_get_book_view_sync (
   gboolean _ret = FALSE;
   GVariant *_params;
   GVariant *_result;
-  _params = g_variant_new ("(su)",
+  gchar    *empty[1] = { NULL };
+
+  _params = g_variant_new ("(s^asu)",
                            in_query,
+			   (gchar **)in_requested_fields ? (gchar **)in_requested_fields : empty,
                            in_max_results);
   _result = g_dbus_proxy_call_sync (G_DBUS_PROXY (proxy),
                                    "getBookView",
@@ -3359,6 +3370,13 @@ static const GDBusArgInfo e_gdbus_book_method_in_getBookView_query =
   (gchar *) "s",
   (GDBusAnnotationInfo **) NULL,
 };
+static const GDBusArgInfo e_gdbus_book_method_in_getBookView_requested_fields =
+{
+  -1,
+  (gchar *) "requested_fields",
+  (gchar *) "as",
+  (GDBusAnnotationInfo **) NULL,
+};
 static const GDBusArgInfo e_gdbus_book_method_in_getBookView_max_results =
 {
   -1,
@@ -3369,6 +3387,7 @@ static const GDBusArgInfo e_gdbus_book_method_in_getBookView_max_results =
 static const GDBusArgInfo * const e_gdbus_book_method_in_getBookView_arg_pointers[] =
 {
   &e_gdbus_book_method_in_getBookView_query,
+  &e_gdbus_book_method_in_getBookView_requested_fields,
   &e_gdbus_book_method_in_getBookView_max_results,
   NULL
 };
@@ -3674,14 +3693,18 @@ handle_method_call (GDBusConnection       *connection,
         EGdbusBook *object = E_GDBUS_BOOK (user_data);
         gboolean handled;
         const gchar *arg_query;
+	gchar **arg_req_fields;
         guint arg_max_results;
         g_variant_get (parameters,
-                       "(&su)",
+                       "(&s^a&su)",
                        &arg_query,
+		       &arg_req_fields,
                        &arg_max_results);
         g_signal_emit (object,
                        signals[method_id],
-                       0, invocation, arg_query, arg_max_results, &handled);
+                       0, invocation, arg_query, arg_req_fields, arg_max_results, &handled);
+
+	g_free (arg_req_fields);
         if (!handled)
           goto not_implemented;
       }

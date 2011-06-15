@@ -235,6 +235,7 @@ struct _EGdbusBookIface
         EGdbusBook *object,
         GDBusMethodInvocation *invocation,
         const gchar *in_query,
+	const gchar * const *in_requested_fields,
         guint in_max_results);
   gboolean (*handle_get_changes) (
         EGdbusBook *object,
@@ -478,6 +479,7 @@ gboolean e_gdbus_book_call_get_supported_auth_methods_sync (
 void e_gdbus_book_call_get_book_view (
         EGdbusBook *proxy,
         const gchar *in_query,
+	const gchar * const *in_requested_fields,
         guint in_max_results,
         GCancellable *cancellable,
         GAsyncReadyCallback callback,
@@ -492,6 +494,7 @@ gboolean e_gdbus_book_call_get_book_view_finish (
 gboolean e_gdbus_book_call_get_book_view_sync (
         EGdbusBook *proxy,
         const gchar *in_query,
+	const gchar * const *in_requested_fields,
         guint in_max_results,
         gchar **out_view,
         GCancellable *cancellable,
