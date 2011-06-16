@@ -803,12 +803,21 @@ static void
 e_book_backend_file_start_book_view (EBookBackend  *backend,
 				     EDataBookView *book_view)
 {
-	FileBackendSearchClosure *closure = init_closure (book_view, E_BOOK_BACKEND_FILE (backend));
+	FileBackendSearchClosure *closure;
+	EBookViewFlags            flags;
 
-	d(printf ("starting book view thread\n"));
-	closure->thread = g_thread_create (book_view_thread, book_view, TRUE, NULL);
+	/* Start a thread and send all the initial notifications if appropriate */
+	flags = e_data_book_view_get_flags (book_view);
+	if ((flags & E_BOOK_VIEW_NOTIFY_INITIAL) != 0) {
+		d(printf ("starting book view thread\n"));
 
-	e_flag_wait (closure->running);
+		closure = init_closure (book_view, E_BOOK_BACKEND_FILE (backend));
+		closure->thread = g_thread_create (book_view_thread, book_view, TRUE, NULL);
+
+		e_flag_wait (closure->running);
+	}
+	else
+		e_data_book_view_notify_complete (book_view, NULL /* Success */);
 
 	/* at this point we know the book view thread is actually running */
 	d(printf ("returning from start_book_view\n"));
