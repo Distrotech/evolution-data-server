@@ -266,6 +266,31 @@ e_book_view_stop (EBookView *book_view)
 	}
 }
 
+
+/**
+ * e_book_view_set_flags:
+ * @book_view: an #EBookView
+ * @flags: the #EBookViewFlags for @book_view.
+ *
+ * Sets the @flags which control the behaviour of @book_view.
+ */
+void
+e_book_view_set_flags (EBookView      *book_view,
+		       EBookViewFlags  flags)
+{
+	GError *error = NULL;
+
+	g_return_if_fail (E_IS_BOOK_VIEW (book_view));
+
+	if (book_view->priv->gdbus_bookview) {
+		e_gdbus_book_view_call_set_flags_sync (book_view->priv->gdbus_bookview, flags, NULL, &error);
+		if (error) {
+			g_warning ("Cannot set flags on book view: %s\n", error->message);
+			g_error_free (error);
+		}
+	}
+}
+
 static void
 e_book_view_init (EBookView *book_view)
 {

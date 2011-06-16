@@ -30,6 +30,29 @@ typedef struct _EBookViewPrivate EBookViewPrivate;
 
 struct _EBook;  /* Forward reference */
 
+
+/**
+ * EBookViewFlags:
+ * @E_BOOK_VIEW_NOTIFY_INITIAL: If this flag is set then all contacts matching the
+ *                              view's query will be sent as notifications when starting
+ *                              the view, otherwise only future changes will be reported.
+ *                              The default for a #EBookView is %TRUE.
+ *
+ * Flags that control the behaviour of an #EBookView.
+ */
+typedef enum {
+	E_BOOK_VIEW_NOTIFY_INITIAL = (1 << 0),
+} EBookViewFlags;
+
+
+/**
+ * E_BOOK_VIEW_DEFAULT_FLAGS:
+ *
+ * The default values for a book view's #EBookViewFlags
+ */
+#define E_BOOK_VIEW_DEFAULT_FLAGS  E_BOOK_VIEW_NOTIFY_INITIAL
+
+
 struct _EBookView {
 	GObject     parent;
 	/*< private >*/
@@ -61,9 +84,10 @@ struct _EBookViewClass {
 
 GType              e_book_view_get_type               (void);
 
-void               e_book_view_start                  (EBookView *book_view);
-void               e_book_view_stop                   (EBookView *book_view);
-
+void               e_book_view_start                  (EBookView      *book_view);
+void               e_book_view_stop                   (EBookView      *book_view);
+void               e_book_view_set_flags              (EBookView      *book_view,
+						       EBookViewFlags  flags);
 struct _EBook     *e_book_view_get_book               (EBookView *book_view);
 
 G_END_DECLS
