@@ -148,10 +148,12 @@ ebook_test_utils_book_async_remove (EBook          *book,
 void
 ebook_test_utils_book_get_book_view (EBook       *book,
                                      EBookQuery  *query,
+				     GList       *requested_fields,
                                      EBookView  **view);
 void
 ebook_test_utils_book_async_get_book_view (EBook       *book,
                                            EBookQuery  *query,
+					   GList       *requested_fields,
                                            GSourceFunc  callback,
                                            gpointer     user_data);
 

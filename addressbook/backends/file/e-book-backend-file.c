@@ -634,6 +634,33 @@ get_closure (EDataBookView *book_view)
 	return g_object_get_data (G_OBJECT (book_view), "EBookBackendFile.BookView::closure");
 }
 
+static void
+notify_update_vcard (EDataBookView *book_view,
+		     gboolean       uid_only,
+		     gboolean       prefiltered,
+		     const gchar   *id,
+		     const gchar   *vcard)
+{
+	gchar *final_vcard;
+
+	if (uid_only) {
+		/* Create a shallow version of the contacts for views that are
+		 * only interested in the uid. */
+		EContact *shallow = e_contact_new ();
+
+		e_contact_set (shallow, E_CONTACT_UID, id);
+		final_vcard = e_vcard_to_string (E_VCARD (shallow), EVC_FORMAT_VCARD_30);
+		g_object_unref (shallow);
+	} else {
+		final_vcard = g_strdup (vcard);
+	}
+
+	if (prefiltered)
+		e_data_book_view_notify_update_prefiltered_vcard (book_view, id, final_vcard);
+	else
+		e_data_book_view_notify_update_vcard (book_view, final_vcard);
+}
+
 static gpointer
 book_view_thread (gpointer data)
 {
@@ -641,10 +668,11 @@ book_view_thread (gpointer data)
 	FileBackendSearchClosure *closure;
 	EBookBackendFile *bf;
 	const gchar *query;
+	const gchar **requested_fields;
 	DB  *db;
 	DBT id_dbt, vcard_dbt;
 	gint db_error;
-	gboolean allcontacts;
+	gboolean allcontacts, uid_only;
 
 	g_return_val_if_fail (E_IS_DATA_BOOK_VIEW (data), NULL);
 
@@ -673,6 +701,13 @@ book_view_thread (gpointer data)
 		allcontacts = FALSE;
 	}
 
+	/* If only the UID was requested, avoid digging everything else up */
+	requested_fields = e_data_book_view_get_requested_fields (book_view);
+	if (requested_fields && requested_fields[0] != NULL && requested_fields[1] == NULL)
+		uid_only = (strcmp (e_contact_field_name (E_CONTACT_UID), requested_fields[0]) == 0);
+	else
+		uid_only = FALSE;
+
 	d(printf ("signalling parent thread\n"));
 	e_flag_set (closure->running);
 
@@ -690,6 +725,11 @@ book_view_thread (gpointer data)
 			if (!e_flag_is_set (closure->running))
 				break;
 
+			if (uid_only) {
+				notify_update_vcard (book_view, uid_only, TRUE, id, NULL);
+				continue;
+			}
+
 			string_to_dbt (id, &id_dbt);
 			memset (&vcard_dbt, 0, sizeof (vcard_dbt));
 			vcard_dbt.flags = DB_DBT_MALLOC;
@@ -697,7 +737,7 @@ book_view_thread (gpointer data)
 			db_error = db->get (db, NULL, &id_dbt, &vcard_dbt, 0);
 
 			if (db_error == 0) {
-				e_data_book_view_notify_update_prefiltered_vcard (book_view, id, vcard_dbt.data);
+				notify_update_vcard (book_view, uid_only, TRUE, id, vcard_dbt.data);
 			}
 			else {
 				g_warning (G_STRLOC ": db->get failed with %s", db_strerror (db_error));
@@ -725,10 +765,8 @@ book_view_thread (gpointer data)
 
 				/* don't include the version in the list of cards */
 				if (strcmp (id_dbt.data, E_BOOK_BACKEND_FILE_VERSION_NAME)) {
-					if (allcontacts)
-						e_data_book_view_notify_update_prefiltered_vcard (book_view, id_dbt.data, vcard_dbt.data);
-					else
-						e_data_book_view_notify_update_vcard (book_view, vcard_dbt.data);
+					notify_update_vcard (book_view, uid_only, allcontacts, 
+							     id_dbt.data, vcard_dbt.data);
 				} else {
 					g_free (vcard_dbt.data);
 				}

@@ -732,11 +732,12 @@ ebook_test_utils_book_async_remove (EBook       *book,
 void
 ebook_test_utils_book_get_book_view (EBook       *book,
                                      EBookQuery  *query,
+				     GList       *requested_fields,
                                      EBookView  **view)
 {
         GError *error = NULL;
 
-        if (!e_book_get_book_view (book, query, NULL, -1, view, &error)) {
+        if (!e_book_get_book_view (book, query, requested_fields, -1, view, &error)) {
                 const gchar *uri;
 
                 uri = e_book_get_uri (book);
@@ -769,6 +770,7 @@ get_book_view_cb (EBook            *book,
 void
 ebook_test_utils_book_async_get_book_view (EBook       *book,
                                            EBookQuery  *query,
+					   GList       *requested_fields,
                                            GSourceFunc  callback,
                                            gpointer     user_data)
 {
@@ -777,7 +779,7 @@ ebook_test_utils_book_async_get_book_view (EBook       *book,
         closure = g_new0 (EBookTestClosure, 1);
         closure->cb = callback;
         closure->user_data = user_data;
-        if (!e_book_get_book_view_async (book, query, NULL, -1, (EBookBookViewAsyncCallback) get_book_view_cb, closure)) {
+        if (!e_book_get_book_view_async (book, query, requested_fields, -1, (EBookBookViewAsyncCallback) get_book_view_cb, closure)) {
                 g_warning ("failed to set up book view retrieval");
                 exit(1);
         }

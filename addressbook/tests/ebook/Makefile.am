@@ -32,6 +32,7 @@ TESTS = \
 	test-ebook-add-contact			     \
 	test-ebook-get-contact			     \
 	test-ebook-get-book-view		     \
+	test-ebook-get-book-view-uid-only	     \
 	test-ebook-commit-contact		     \
 	test-ebook-remove-contact		     \
 	test-ebook-remove-contact-by-id		     \
@@ -83,6 +84,8 @@ test_ebook_commit_contact_LDADD=$(TEST_LIBS)
 test_ebook_commit_contact_CPPFLAGS=$(TEST_CPPFLAGS)
 test_ebook_get_book_view_LDADD=$(TEST_LIBS)
 test_ebook_get_book_view_CPPFLAGS=$(TEST_CPPFLAGS)
+test_ebook_get_book_view_uid_only_LDADD=$(TEST_LIBS)
+test_ebook_get_book_view_uid_only_CPPFLAGS=$(TEST_CPPFLAGS)
 test_ebook_get_contact_LDADD=$(TEST_LIBS)
 test_ebook_get_contact_CPPFLAGS=$(TEST_CPPFLAGS)
 test_ebook_get_required_fields_LDADD=$(TEST_LIBS)

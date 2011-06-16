@@ -1867,6 +1867,24 @@ e_book_remove_contacts_async (EBook              *book,
 	return TRUE;
 }
 
+static gchar **
+string_array_from_list (GList *list)
+{
+	gchar **array = NULL;
+	gint    size, i;
+	GList  *l;
+
+	if (list) {
+		size = g_list_length (list);
+		array = g_new0 (gchar *, size + 1);
+
+		for (l = list, i = 0; l; l = l->next, i++)
+			array[i] = (gchar *)l->data;
+	}
+
+	return array;
+}
+
 /**
  * e_book_get_book_view:
  * @book: an #EBook
@@ -1893,17 +1911,21 @@ e_book_get_book_view (EBook       *book,
 	GError *err = NULL;
 	EGdbusBookView *gdbus_bookview;
 	gchar *sexp, *view_path;
+	gchar **fields_array = NULL;
 	gboolean ret = TRUE;
 
 	e_return_error_if_fail (E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
 	e_return_error_if_fail (book->priv->gdbus_book, E_BOOK_ERROR_REPOSITORY_OFFLINE);
 
-	sexp = e_book_query_to_string (query);
+	sexp         = e_book_query_to_string (query);
+	fields_array = string_array_from_list (requested_fields);
 
-	if (!e_gdbus_book_call_get_book_view_sync (book->priv->gdbus_book, sexp, max_results, &view_path, NULL, &err)) {
+	if (!e_gdbus_book_call_get_book_view_sync (book->priv->gdbus_book, sexp, 
+						   (const gchar * const *)fields_array, 
+						   max_results, &view_path, NULL, &err)) {
 		*book_view = NULL;
 		g_free (sexp);
-
+		g_free (fields_array);
 		return unwrap_gerror (err, error);
 	}
 
@@ -1925,6 +1947,7 @@ e_book_get_book_view (EBook       *book,
 
 	g_free (view_path);
 	g_free (sexp);
+	g_free (fields_array);
 
 	return ret;
 }
@@ -1998,6 +2021,7 @@ e_book_async_get_book_view (EBook                 *book,
 			    gpointer               closure)
 {
 	AsyncData *data;
+	gchar **fields_array = NULL;
 	gchar *sexp;
 
 	e_return_async_error_val_if_fail (E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
@@ -2009,11 +2033,15 @@ e_book_async_get_book_view (EBook                 *book,
 	data->callback = cb;
 	data->closure = closure;
 
-	sexp = e_book_query_to_string (query);
+	sexp         = e_book_query_to_string (query);
+	fields_array = string_array_from_list (requested_fields);
 
-	e_gdbus_book_call_get_book_view (book->priv->gdbus_book, sexp, max_results, NULL, get_book_view_reply, data);
+	e_gdbus_book_call_get_book_view (book->priv->gdbus_book, sexp,
+					 (const gchar * const *)fields_array,
+					 max_results, NULL, get_book_view_reply, data);
 
 	g_free (sexp);
+	g_free (fields_array);
 	return 0;
 }
 #endif
@@ -2043,6 +2071,7 @@ e_book_get_book_view_async (EBook                      *book,
 			    gpointer                    closure)
 {
 	AsyncData *data;
+	gchar **fields_array = NULL;
 	gchar *sexp;
 
 	e_return_ex_async_error_val_if_fail (E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
@@ -2054,11 +2083,15 @@ e_book_get_book_view_async (EBook                      *book,
 	data->excallback = cb;
 	data->closure = closure;
 
-	sexp = e_book_query_to_string (query);
+	sexp         = e_book_query_to_string (query);
+	fields_array = string_array_from_list (requested_fields);
 
-	e_gdbus_book_call_get_book_view (book->priv->gdbus_book, sexp, max_results, NULL, get_book_view_reply, data);
+	e_gdbus_book_call_get_book_view (book->priv->gdbus_book, sexp,
+					 (const gchar * const *)fields_array,
+					 max_results, NULL, get_book_view_reply, data);
 
 	g_free (sexp);
+	g_free (fields_array);
 
 	return TRUE;
 }

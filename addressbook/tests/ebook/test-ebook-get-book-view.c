@@ -101,7 +101,7 @@ main (gint argc, gchar **argv)
 	 */
 	setup_book (&book);
 	query = e_book_query_any_field_contains ("");
-	ebook_test_utils_book_get_book_view (book, query, &view);
+	ebook_test_utils_book_get_book_view (book, query, NULL, &view);
 	setup_and_start_view (view);
 
 	test_print ("successfully set up the book view\n");
@@ -119,7 +119,7 @@ main (gint argc, gchar **argv)
 	query = e_book_query_any_field_contains ("");
 
 	loop = g_main_loop_new (NULL, TRUE);
-	ebook_test_utils_book_async_get_book_view (book, query,
+	ebook_test_utils_book_async_get_book_view (book, query, NULL,
 			(GSourceFunc) get_book_view_cb, loop);
 
 	g_main_loop_run (loop);
