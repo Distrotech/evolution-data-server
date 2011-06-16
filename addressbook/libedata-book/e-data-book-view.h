@@ -28,6 +28,7 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 #include <libebook/e-contact.h>
+#include <libebook/e-book-view.h>
 #include <libedata-book/e-data-book-types.h>
 #include <libedata-book/e-book-backend.h>
 #include <libedata-book/e-book-backend-sexp.h>
@@ -68,10 +69,10 @@ const gchar *     e_data_book_view_get_card_query    (EDataBookView             
 EBookBackendSExp* e_data_book_view_get_card_sexp     (EDataBookView                *book_view);
 const gchar ** e_data_book_view_get_requested_fields (EDataBookView                *book_view);
 gint              e_data_book_view_get_max_results   (EDataBookView                *book_view);
+EBookViewFlags    e_data_book_view_get_flags         (EDataBookView                *book_view);
 EBookBackend*     e_data_book_view_get_backend       (EDataBookView                *book_view);
 void              e_data_book_view_notify_update     (EDataBookView                *book_view,
 						      EContact                     *contact);
-
 void         e_data_book_view_notify_update_vcard    (EDataBookView                *book_view,
 						      gchar                         *vcard);
 void         e_data_book_view_notify_update_prefiltered_vcard (EDataBookView       *book_view,

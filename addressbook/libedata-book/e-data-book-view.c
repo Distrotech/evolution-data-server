@@ -26,6 +26,7 @@
 
 #include <string.h>
 #include <libebook/e-contact.h>
+#include <libebook/e-book-view.h>
 #include "e-data-book-view.h"
 
 #include "e-gdbus-egdbusbookview.h"
@@ -49,6 +50,7 @@ struct _EDataBookViewPrivate {
 	EBookBackendSExp *card_sexp;
 	gchar           **requested_fields;
 	gint              max_results;
+	EBookViewFlags    flags;
 
 	gboolean running;
 	GMutex *pending_mutex;
@@ -59,7 +61,6 @@ struct _EDataBookViewPrivate {
 
 	GHashTable *ids;
 	guint idle_id;
-
 	guint flush_id;
 };
 
@@ -558,6 +559,19 @@ impl_DataBookView_stop (EGdbusBookView *object, GDBusMethodInvocation *invocatio
 }
 
 static gboolean
+impl_DataBookView_setFlags (EGdbusBookView        *object, 
+			    GDBusMethodInvocation *invocation, 
+			    EBookViewFlags         flags, 
+			    EDataBookView         *book_view)
+{
+	book_view->priv->flags = flags;
+
+	e_gdbus_book_view_complete_set_flags (object, invocation);
+
+	return TRUE;
+}
+
+static gboolean
 impl_DataBookView_dispose (EGdbusBookView *object, GDBusMethodInvocation *invocation, EDataBookView *book_view)
 {
 	e_gdbus_book_view_complete_dispose (object, invocation);
@@ -573,9 +587,12 @@ e_data_book_view_init (EDataBookView *book_view)
 	EDataBookViewPrivate *priv = E_DATA_BOOK_VIEW_GET_PRIVATE (book_view);
 	book_view->priv = priv;
 
+	priv->flags = E_BOOK_VIEW_DEFAULT_FLAGS;
+
 	priv->gdbus_object = e_gdbus_book_view_stub_new ();
 	g_signal_connect (priv->gdbus_object, "handle-start", G_CALLBACK (impl_DataBookView_start), book_view);
 	g_signal_connect (priv->gdbus_object, "handle-stop", G_CALLBACK (impl_DataBookView_stop), book_view);
+	g_signal_connect (priv->gdbus_object, "handle-set-flags", G_CALLBACK (impl_DataBookView_setFlags), book_view);
 	g_signal_connect (priv->gdbus_object, "handle-dispose", G_CALLBACK (impl_DataBookView_dispose), book_view);
 
 	priv->running = FALSE;
@@ -729,6 +746,22 @@ e_data_book_view_get_max_results (EDataBookView *book_view)
 	g_return_val_if_fail (E_IS_DATA_BOOK_VIEW (book_view), 0);
 
 	return book_view->priv->max_results;
+}
+
+/**
+ * e_data_book_view_get_flags:
+ * @book_view: an #EDataBookView
+ *
+ * Gets the #EBookViewFlags that control the behaviour of @book_view.
+ *
+ * Returns: the flags for @book_view.
+ **/
+EBookViewFlags
+e_data_book_view_get_flags (EDataBookView *book_view)
+{
+	g_return_val_if_fail (E_IS_DATA_BOOK_VIEW (book_view), 0);
+
+	return book_view->priv->flags;
 }
 
 /**
