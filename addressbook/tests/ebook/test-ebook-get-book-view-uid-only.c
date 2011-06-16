@@ -164,7 +164,7 @@ setup_book (EBook     **book_out)
 		final = ebook_test_utils_book_get_contact (book, uid);
 
 		/* verify the contact was added "successfully" (not thorough) */
-		g_assert (ebook_test_utils_contacts_are_equal_shallow (contact, contact));
+		g_assert (ebook_test_utils_contacts_are_equal_shallow (contact, final));
 
 		g_free (name);
 		for (j = E_CONTACT_EMAIL_1; j < (E_CONTACT_EMAIL_4 + 1); j++)
