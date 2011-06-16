@@ -35,6 +35,7 @@ typedef struct _EGdbusBookView EGdbusBookView; /* Dummy typedef */
  * @complete: Handler for the #EGdbusBookView::complete signal.
  * @handle_start: Handler for the #EGdbusBookView::handle-start signal.
  * @handle_stop: Handler for the #EGdbusBookView::handle-stop signal.
+ * @handle_set_flags: Handler for the #EGdbusBookView::handle-set-flags signal.
  * @handle_dispose: Handler for the #EGdbusBookView::handle-dispose signal.
  *
  * Virtual table.
@@ -189,6 +190,10 @@ struct _EGdbusBookViewIface
   gboolean (*handle_stop) (
         EGdbusBookView *object,
         GDBusMethodInvocation *invocation);
+  gboolean (*handle_set_flags) (
+        EGdbusBookView *object,
+        GDBusMethodInvocation *invocation,
+	guint in_flags);
   gboolean (*handle_dispose) (
         EGdbusBookView *object,
         GDBusMethodInvocation *invocation);
@@ -229,6 +234,24 @@ gboolean e_gdbus_book_view_call_stop_sync (
         GCancellable *cancellable,
         GError **error);
 
+void e_gdbus_book_view_call_set_flags (
+        EGdbusBookView     *proxy,
+	guint               in_flags,
+        GCancellable       *cancellable,
+        GAsyncReadyCallback callback,
+        gpointer            user_data);
+
+gboolean e_gdbus_book_view_call_set_flags_finish (
+        EGdbusBookView *proxy,
+        GAsyncResult *res,
+        GError **error);
+
+gboolean e_gdbus_book_view_call_set_flags_sync (
+        EGdbusBookView *proxy,
+	guint           in_flags,
+        GCancellable   *cancellable,
+        GError        **error);
+
 void e_gdbus_book_view_call_dispose (
         EGdbusBookView *proxy,
         GCancellable *cancellable,
@@ -251,6 +274,10 @@ void e_gdbus_book_view_complete_start (
         GDBusMethodInvocation *invocation);
 
 void e_gdbus_book_view_complete_stop (
+        EGdbusBookView *object,
+        GDBusMethodInvocation *invocation);
+
+void e_gdbus_book_view_complete_set_flags (
         EGdbusBookView *object,
         GDBusMethodInvocation *invocation);
 
