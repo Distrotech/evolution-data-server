@@ -1230,13 +1230,16 @@ PKG_CHECK_MODULES(E_MAIL_FACTORY, glib-2.0 gtk+-2.0)
 AC_SUBST(E_MAIL_FACTORY_CFLAGS)
 AC_SUBST(E_MAIL_FACTORY_LIBS)
 
-PKG_CHECK_MODULES(GDBUS_CODEGEN, gdbus-codegen )
-
 AC_SUBST(GDBUS_CODEGEN_CFLAGS)
 AC_SUBST(GDBUS_CODEGEN_LIBS)
 
-GDBUS_CODEGEN_STATIC=" `$PKG_CONFIG --variable=libdir gdbus-codegen`/libgdbus-codegen.a "
-AC_SUBST(GDBUS_CODEGEN_STATIC)
+# Link to the standalone gdbus-codegen if the gio (in glib) is not new enough to have it.
+PKG_CHECK_MODULES([GIO_WITH_GDBUS_CODEGEN], [gio-2.0 >= 2.29.3],
+  [],
+  [PKG_CHECK_MODULES([GDBUS_CODEGEN], [gdbus-codegen])
+  GDBUS_CODEGEN_STATIC=" `$PKG_CONFIG --variable=libdir gdbus-codegen`/libgdbus-codegen.a "
+  AC_SUBST(GDBUS_CODEGEN_STATIC)]
+)
 
 PKG_CHECK_MODULES(FFI, libffi)
 
