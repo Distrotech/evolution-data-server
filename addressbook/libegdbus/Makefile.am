@@ -4,7 +4,7 @@ GDBUS_XML_FILES =					\
 	../libedata-book/e-data-book.xml
 
 gdbus-files: $(GDBUS_XML_FILES)
-	gdbus-codegen --namespace=EGdbus --strip-prefix=org.gnome.evolution.dataserver.addressbook --output-prefix=e-gdbus $(GDBUS_XML_FILES)
+	$(GDBUS_CODEGEN) --namespace=EGdbus --strip-prefix=org.gnome.evolution.dataserver.addressbook --output-prefix=e-gdbus $(GDBUS_XML_FILES)
 	rm e-gdbus-bindings.h
 	rm e-gdbus-bindings.stamp
 

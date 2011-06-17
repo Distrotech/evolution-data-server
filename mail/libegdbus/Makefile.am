@@ -1,14 +1,17 @@
 GDBUS_XML_FILES =					\
 	../daemon/e-mail-data-session.xml	\
-	../deamon/e-mail-data-store.xml		\
+	../daemon/e-mail-data-store.xml	\
 	../daemon/e-mail-data-folder.xml
 
+# TODO: This won't work because it doesn't get the generated filename properly. murrayc.
 gdbus-files: $(GDBUS_XML_FILES)
-	~/opt/master/bin/gdbus-codegen --namespace=EGdbus --strip-prefix=org.gnome.evolution.dataserver.mail --generate-c-code=$^ $^.xml
+# $(GDBUS_CODEGEN) --namespace=EGdbus --strip-prefix=org.gnome.evolution.dataserver.mail --generate-c-code=$^ $^.xml
+	$(GDBUS_CODEGEN) --c-namespace=EGdbus --interface-prefix=org.gnome.evolution.dataserver.mail --generate-c-code=$^ $^.xml	
 
-#~/opt/master/bin/gdbus-codegen --namespace=EGdbusSession --strip-prefix=org.gnome.evolution.dataserver.mail. --generate-c-code=e-gdbus-emailsession ../src/e-mail-data-session.xml
-#~/opt/master/bin/gdbus-codegen --namespace=EGdbusFolder --strip-prefix=org.gnome.evolution.dataserver.mail. --generate-c-code=e-gdbus-emailfolder ../src/e-mail-data-folder.xml 
-#~/opt/master/bin/gdbus-codegen --namespace=EGdbusStore --strip-prefix=org.gnome.evolution.dataserver.mail. --generate-c-code=e-gdbus-emailstore ../src/e-mail-data-store.xml
+
+# $(GDBUS_CODEGEN) --c-namespace=EGdbusSession --interface-prefix=org.gnome.evolution.dataserver.mail. --generate-c-code=e-gdbus-emailsession ../daemon/e-mail-data-session.xml
+# $(GDBUS_CODEGEN) --c-namespace=EGdbusFolder --interface-prefix=org.gnome.evolution.dataserver.mail. --generate-c-code=e-gdbus-emailfolder ../daemon/e-mail-data-folder.xml 
+# $(GDBUS_CODEGEN) --c-namespace=EGdbusStore --interface-prefix=org.gnome.evolution.dataserver.mail. --generate-c-code=e-gdbus-emailstore ../daemon/e-mail-data-store.xml
 
 # The library
 noinst_LTLIBRARIES = libegdbus-mail.la

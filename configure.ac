@@ -1241,6 +1241,10 @@ PKG_CHECK_MODULES([GIO_WITH_GDBUS_CODEGEN], [gio-2.0 >= 2.29.3],
   AC_DEFINE([HAVE_STANDALONE_GDBUS_CODEGEN], 1, [Whether we are using the standalone gdbus-codgen instead of the one in gio >= 2.29.3])
 )
 
+# Get the path to gdbus-codegen
+# (This could be from glib or from the standalone gdbus-codegen)
+AC_PATH_PROG(GDBUS_CODEGEN, gdbus-codegen, [no])
+
 PKG_CHECK_MODULES(FFI, libffi)
 
 AC_SUBST(FFI_CFLAGS)

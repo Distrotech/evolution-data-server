@@ -4,7 +4,7 @@ GDBUS_XML_FILES =				\
 	../libedata-cal/e-data-cal.xml
 
 gdbus-files: $(GDBUS_XML_FILES)
-	gdbus-codegen --namespace=EGdbus --strip-prefix=org.gnome.evolution.dataserver.calendar --output-prefix=e-gdbus $(GDBUS_XML_FILES)
+	$(GDBUS_CODEGEN) --namespace=EGdbus --strip-prefix=org.gnome.evolution.dataserver.calendar --output-prefix=e-gdbus $(GDBUS_XML_FILES)
 	rm e-gdbus-bindings.h
 	rm e-gdbus-bindings.stamp
 
