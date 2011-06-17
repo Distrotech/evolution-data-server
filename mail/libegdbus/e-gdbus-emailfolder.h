@@ -6,12 +6,18 @@
 #define __E_GDBUS_EMAILFOLDER_H__
 
 #include <gio/gio.h>
+
+/* This ifdef block was added by hand.
+ * You'll need to re-add it if you regenerate this file from the standalone gdbus-codegen.
+ */
+#ifdef HAVE_STANDALONE_GDBUS_CODEGEN
 #include <gdbusinterface.h>
 #include <gdbusobjectproxy.h>
 #include <gdbusproxymanager.h>
 #include <gdbusobject.h>
 #include <gdbusobjectmanager.h>
 #include <gdbuscodegen-enumtypes.h>
+#endif
 
 G_BEGIN_DECLS
 

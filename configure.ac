@@ -164,8 +164,7 @@ dnl ******************************
 dnl Compiler Warning Flags
 dnl ******************************
 AS_COMPILER_FLAGS(WARNING_FLAGS,
-	"-DG_DISABLE_DEPRECATED
-	-DPANGO_DISABLE_DEPRECATED
+	"-DPANGO_DISABLE_DEPRECATED
 	-DGDK_PIXBUF_DISABLE_DEPRECATED
 	-DGTK_DISABLE_DEPRECATED
 	-DG_DISABLE_SINGLE_INCLUDES
@@ -1238,7 +1237,8 @@ PKG_CHECK_MODULES([GIO_WITH_GDBUS_CODEGEN], [gio-2.0 >= 2.29.3],
   [],
   [PKG_CHECK_MODULES([GDBUS_CODEGEN], [gdbus-codegen])
   GDBUS_CODEGEN_STATIC=" `$PKG_CONFIG --variable=libdir gdbus-codegen`/libgdbus-codegen.a "
-  AC_SUBST(GDBUS_CODEGEN_STATIC)]
+  AC_SUBST([GDBUS_CODEGEN_STATIC])]
+  AC_DEFINE([HAVE_STANDALONE_GDBUS_CODEGEN], 1, [Whether we are using the standalone gdbus-codgen instead of the one in gio >= 2.29.3])
 )
 
 PKG_CHECK_MODULES(FFI, libffi)
