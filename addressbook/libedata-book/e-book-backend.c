@@ -9,6 +9,7 @@
 #include <config.h>
 
 #include <libedataserver/e-data-server-util.h>
+#include <string.h>
 
 #include "e-data-book-view.h"
 #include "e-data-book.h"
@@ -1063,9 +1064,31 @@ e_book_backend_foreach_view (EBookBackend *backend,
 }
 
 static void
-view_notify_update (EDataBookView *view, gpointer contact)
+view_notify_update (EDataBookView *view, gpointer data)
 {
-	e_data_book_view_notify_update (view, contact);
+	EContact     *contact = data;
+	const gchar **requested_fields;
+	gboolean      uid_only = FALSE;
+
+	/* If only the UID was requested, avoid digging everything else up */
+	requested_fields = e_data_book_view_get_requested_fields (view);
+	if (requested_fields && requested_fields[0] != NULL && requested_fields[1] == NULL)
+		uid_only = (strcmp (e_contact_field_name (E_CONTACT_UID), requested_fields[0]) == 0);
+
+	if (uid_only) {
+		/* Create a shallow version of the contacts for views that are
+		 * only interested in the uid. */
+		EContact *shallow = e_contact_new ();
+		gchar    *vcard;
+
+		e_contact_set (shallow, E_CONTACT_UID, e_contact_get_const (contact, E_CONTACT_UID));
+		vcard = e_vcard_to_string (E_VCARD (shallow), EVC_FORMAT_VCARD_30);
+		g_object_unref (shallow);
+
+		e_data_book_view_notify_update_vcard (view, vcard);
+	} else {
+		e_data_book_view_notify_update (view, contact);
+	}
 }
 
 /**

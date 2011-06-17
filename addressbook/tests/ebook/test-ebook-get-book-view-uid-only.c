@@ -25,89 +25,29 @@
 #  define PRINT_TIMER(timer, activity)
 #endif
 
+#define NOTIFICATION_WAIT 2000
 
+static gboolean loading_view;
 static GMainLoop *loop;
 
-#if !COMPARE_PERFORMANCE
+
+/****************************************************************
+ *                     Modify/Setup the EBook                   *
+ ****************************************************************/
 static void
-print_contact (EContact *contact)
+add_contact (EBook *book)
 {
-	GList *emails, *e;
+	EContact *contact = e_contact_new ();
+	EContact *final;
+	const gchar *uid;
 
-	test_print ("Contact: %s\n", (gchar *)e_contact_get_const (contact, E_CONTACT_FULL_NAME));
-	test_print ("UID: %s\n", (gchar *)e_contact_get_const (contact, E_CONTACT_UID));
-	test_print ("Email addresses:\n");
+	e_contact_set (contact, E_CONTACT_FULL_NAME, "Micheal Jackson");
 
-	emails = e_contact_get (contact, E_CONTACT_EMAIL);
-	for (e = emails; e; e = e->next) {
-		test_print ("\t%s\n",  (gchar *)e->data);
-	}
-	g_list_foreach (emails, (GFunc)g_free, NULL);
-	g_list_free (emails);
+	uid   = ebook_test_utils_book_add_contact (book, contact);
+	final = ebook_test_utils_book_get_contact (book, uid);
 
-	test_print ("\n");
-}
-#endif
-
-static void
-contacts_added (EBookView *book_view, const GList *contacts)
-{
-	GList *l;
-	gboolean uid_only;
-
-	uid_only = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (book_view), "uid-only"));
-
-	for (l = (GList*)contacts; l; l = l->next) {
-		EContact *contact = l->data;
-
-#if !COMPARE_PERFORMANCE
-		print_contact (contact);
-#endif
-
-		if (uid_only && e_contact_get_const (contact, E_CONTACT_FULL_NAME) != NULL)
-			g_error ("received contact name `%s' when only the uid was requested",
-				 (gchar *)e_contact_get_const (contact, E_CONTACT_FULL_NAME));
-		else if (!uid_only && e_contact_get_const (contact, E_CONTACT_FULL_NAME) == NULL)
-			g_error ("expected contact name missing");
-	}
-}
-
-static void
-contacts_removed (EBookView *book_view, const GList *ids)
-{
-	GList *l;
-
-	for (l = (GList*)ids; l; l = l->next) {
-		test_print ("Removed contact: %s\n", (gchar *)l->data);
-	}
-}
-
-static void
-view_complete (EBookView *book_view, EBookViewStatus status, const gchar *error_msg)
-{
-	e_book_view_stop (book_view);
-	g_object_unref (book_view);
-	g_main_loop_quit (loop);
-}
-
-static void
-setup_and_start_view (EBookView *view)
-{
-	g_signal_connect (view, "contacts_added", G_CALLBACK (contacts_added), NULL);
-	g_signal_connect (view, "contacts_removed", G_CALLBACK (contacts_removed), NULL);
-	g_signal_connect (view, "view_complete", G_CALLBACK (view_complete), NULL);
-
-	e_book_view_start (view);
-}
-
-static void
-get_book_view_cb (EBookTestClosure *closure)
-{
-	g_assert (closure->view);
-
-	g_object_set_data (G_OBJECT (closure->view), "uid-only", closure->user_data);
-
-	setup_and_start_view (closure->view);
+	/* verify the contact was added "successfully" (not thorough) */
+	g_assert (ebook_test_utils_contacts_are_equal_shallow (contact, final));
 }
 
 static void
@@ -164,7 +104,7 @@ setup_book (EBook     **book_out)
 		final = ebook_test_utils_book_get_contact (book, uid);
 
 		/* verify the contact was added "successfully" (not thorough) */
-		g_assert (ebook_test_utils_contacts_are_equal_shallow (contact, final));
+		g_assert (ebook_test_utils_contacts_are_equal_shallow (contact, contact));
 
 		g_free (name);
 		for (j = E_CONTACT_EMAIL_1; j < (E_CONTACT_EMAIL_4 + 1); j++)
@@ -174,6 +114,115 @@ setup_book (EBook     **book_out)
 	}
 
 	*book_out = book;
+}
+
+/****************************************************************
+ *                 Handle EBookView notifications               *
+ ****************************************************************/
+#if !COMPARE_PERFORMANCE
+static void
+print_contact (EContact *contact)
+{
+	GList *emails, *e;
+
+	test_print ("Contact: %s\n", (gchar *)e_contact_get_const (contact, E_CONTACT_FULL_NAME));
+	test_print ("UID: %s\n", (gchar *)e_contact_get_const (contact, E_CONTACT_UID));
+	test_print ("Email addresses:\n");
+
+	emails = e_contact_get (contact, E_CONTACT_EMAIL);
+	for (e = emails; e; e = e->next) {
+		test_print ("\t%s\n",  (gchar *)e->data);
+	}
+	g_list_foreach (emails, (GFunc)g_free, NULL);
+	g_list_free (emails);
+
+	test_print ("\n");
+}
+#endif
+
+static void
+finish_test (EBookView *book_view)
+{
+	e_book_view_stop (book_view);
+	g_object_unref (book_view);
+	g_main_loop_quit (loop);
+}
+
+static void
+contacts_added (EBookView *book_view, const GList *contacts)
+{
+	GList *l;
+	gboolean uid_only;
+
+	uid_only = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (book_view), "uid-only"));
+
+	for (l = (GList*)contacts; l; l = l->next) {
+		EContact *contact = l->data;
+
+#if !COMPARE_PERFORMANCE
+		print_contact (contact);
+#endif
+
+		if (uid_only && e_contact_get_const (contact, E_CONTACT_FULL_NAME) != NULL)
+			g_error ("received contact name `%s' when only the uid was requested",
+				 (gchar *)e_contact_get_const (contact, E_CONTACT_FULL_NAME));
+		else if (!uid_only && e_contact_get_const (contact, E_CONTACT_FULL_NAME) == NULL)
+			g_error ("expected contact name missing");
+	}
+
+	if (!loading_view)
+		finish_test (book_view);
+}
+
+static void
+contacts_removed (EBookView *book_view, const GList *ids)
+{
+	GList *l;
+
+	for (l = (GList*)ids; l; l = l->next) {
+		test_print ("Removed contact: %s\n", (gchar *)l->data);
+	}
+}
+
+static gboolean
+add_contact_timeout (EBookView *book_view)
+{
+	if (book_view)
+		g_error ("Timed out waiting for notification of added contact");
+
+	return FALSE;
+}
+
+static void
+view_complete (EBookView *book_view, EBookViewStatus status, const gchar *error_msg)
+{
+	/* Now add a contact and assert that we received notification */
+	loading_view = FALSE;
+	add_contact (e_book_view_get_book (book_view));
+
+	g_timeout_add (NOTIFICATION_WAIT, (GSourceFunc)add_contact_timeout, book_view);
+}
+
+static void
+setup_and_start_view (EBookView *view)
+{
+	g_signal_connect (view, "contacts_added", G_CALLBACK (contacts_added), NULL);
+	g_signal_connect (view, "contacts_removed", G_CALLBACK (contacts_removed), NULL);
+	g_signal_connect (view, "view_complete", G_CALLBACK (view_complete), NULL);
+
+	loading_view = TRUE;
+
+	e_book_view_start (view);
+}
+
+static void
+get_book_view_cb (EBookTestClosure *closure)
+{
+	g_assert (closure->view);
+
+	g_object_set_data (G_OBJECT (closure->view), "uid-only", closure->user_data);
+
+	setup_and_start_view (closure->view);
 }
 
 gint
@@ -208,7 +257,6 @@ main (gint argc, gchar **argv)
 	/*
 	 * Sync version with uids only
 	 */
-	//setup_book (&book);
 	query = e_book_query_any_field_contains ("");
 	ebook_test_utils_book_get_book_view (book, query, &requested_field, &view);
 	g_object_set_data (G_OBJECT (view), "uid-only", GINT_TO_POINTER (TRUE));
