@@ -777,7 +777,6 @@ op_status_exec (struct _op_status_msg *m)
 	MailMsg *msg;
 	MailMsgPrivate *data;
 	gchar *out, *p, *o, c;
-	gint pc;
 
 	g_return_if_fail (mail_in_main_thread ());
 
@@ -801,8 +800,6 @@ op_status_exec (struct _op_status_msg *m)
 		*o++ = c;
 	}
 	*o = 0;
-
-	pc = m->pc;
 
 	if (1 /* activity handler */) {
 		gchar *what;
