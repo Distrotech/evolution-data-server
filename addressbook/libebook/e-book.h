@@ -98,16 +98,6 @@ typedef void (*EBookBookViewAsyncCallback) (EBook *book, const GError *error, EB
  **/
 typedef void (*EBookEListAsyncCallback)   (EBook *book, const GError *error, EList *list, gpointer closure);
 
-/**
- * EBookVCardsASyncCallback:
- **/
-typedef void (*EBookVCardsAsyncCallback)   (EBook *book, const GError *error, gchar **vcards, gpointer closure);
-
-/**
- * EBookVCardASyncCallback:
- **/
-typedef void (*EBookVCardAsyncCallback)   (EBook *book, const GError *error, gchar *vcards, gpointer closure);
-
 struct _EBook {
 	GObject       parent;
 	/*< private >*/
@@ -235,13 +225,8 @@ gboolean e_book_authenticate_user_async (EBook                *book,
 
 /* Fetching contacts. */
 gboolean e_book_get_contact                (EBook       *book,
-					    const gchar *id,
+					    const gchar  *id,
 					    EContact   **contact,
-					    GError     **error);
-
-gboolean e_book_get_vcard                  (EBook       *book,
-					    const gchar *id,
-					    gchar       *vcard,
 					    GError     **error);
 
 #ifndef E_BOOK_DISABLE_DEPRECATED
@@ -254,11 +239,6 @@ guint     e_book_async_get_contact         (EBook                 *book,
 gboolean  e_book_get_contact_async      (EBook                    *book,
 					 const gchar              *id,
 					 EBookContactAsyncCallback cb,
-					 gpointer                  closure);
-
-gboolean  e_book_get_vcard_async        (EBook                    *book,
-					 const gchar              *id,
-					 EBookVCardAsyncCallback   cb,
 					 gpointer                  closure);
 
 /* Deleting contacts. */
@@ -371,11 +351,6 @@ gboolean e_book_get_contact_uids               (EBook       *book,
 					    GList      **uids,
 					    GError     **error);
 
-gboolean e_book_get_vcards                 (EBook       *book,
-					    EBookQuery  *query,
-					    gchar      **vcards,
-					    GError     **error);
-
 #ifndef E_BOOK_DISABLE_DEPRECATED
 guint     e_book_async_get_contacts        (EBook             *book,
 					    EBookQuery        *query,
@@ -392,12 +367,6 @@ gboolean  e_book_get_contact_uids_async     (EBook                 *book,
 					     EBookQuery            *query,
 					     EBookListAsyncCallback cb,
 					     gpointer               closure);
-
-
-gboolean  e_book_get_vcards_async       (EBook                   *book,
-					 EBookQuery              *query,
-					 EBookVCardsAsyncCallback cb,
-					 gpointer                 closure);
 
 /* Needed for syncing */
 gboolean e_book_get_changes                (EBook       *book,
