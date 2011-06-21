@@ -53,6 +53,7 @@ struct _EDataBookViewPrivate {
 	EBookViewFlags    flags;
 
 	gboolean running;
+	gboolean complete;
 	GMutex *pending_mutex;
 
 	GArray *adds;
@@ -108,6 +109,7 @@ book_destroyed_cb (gpointer data, GObject *dead)
 	if (priv->running) {
 		e_book_backend_stop_book_view (priv->backend, view);
 		priv->running = FALSE;
+		priv->complete = FALSE;
 	}
 }
 
@@ -225,12 +227,17 @@ notify_remove (EDataBookView *view, gchar *id)
 static void
 notify_add (EDataBookView *view, const gchar *id, gchar *vcard)
 {
+	EBookViewFlags flags;
 	EDataBookViewPrivate *priv = view->priv;
 	send_pending_changes (view);
 	send_pending_removes (view);
 
-	if (priv->adds->len == THRESHOLD_ITEMS) {
-		send_pending_adds (view);
+	/* Do not send contact add notifications during initial stage */
+	flags = e_data_book_view_get_flags (view);
+	if (priv->complete || (flags & E_BOOK_VIEW_NOTIFY_INITIAL) != 0) {
+		if (priv->adds->len == THRESHOLD_ITEMS) {
+			send_pending_adds (view);
+		}
 	}
 
 	g_array_append_val (priv->adds, vcard);
@@ -438,6 +445,8 @@ e_data_book_view_notify_complete (EDataBookView *book_view, const GError *error)
 
 	if (!priv->running)
 		return;
+	/* View is complete */
+	priv->complete = TRUE;
 
 	g_mutex_lock (priv->pending_mutex);
 
@@ -515,6 +524,7 @@ bookview_idle_start (gpointer data)
 	EDataBookView *book_view = data;
 
 	book_view->priv->running = TRUE;
+	book_view->priv->complete = FALSE;
 	book_view->priv->idle_id = 0;
 
 	e_book_backend_start_book_view (book_view->priv->backend, book_view);
@@ -540,6 +550,7 @@ bookview_idle_stop (gpointer data)
 	e_book_backend_stop_book_view (book_view->priv->backend, book_view);
 
 	book_view->priv->running = FALSE;
+	book_view->priv->complete = FALSE;
 	book_view->priv->idle_id = 0;
 
 	return FALSE;
@@ -596,6 +607,7 @@ e_data_book_view_init (EDataBookView *book_view)
 	g_signal_connect (priv->gdbus_object, "handle-dispose", G_CALLBACK (impl_DataBookView_dispose), book_view);
 
 	priv->running = FALSE;
+	priv->complete = FALSE;
 	priv->pending_mutex = g_mutex_new ();
 
 	priv->adds = g_array_sized_new (TRUE, TRUE, sizeof (gchar *), THRESHOLD_ITEMS);
