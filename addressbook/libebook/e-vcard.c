@@ -2085,6 +2085,22 @@ e_vcard_attribute_get_param (EVCardAttribute *attr, const gchar *name)
 }
 
 /**
+ * e_vcard_is_parsed:
+ * @evc: an #EVCard
+ *
+ * Check if the @evc has been parsed already. Used for debugging.
+ *
+ * Return value: %TRUE if @evc has been parsed, %FALSE otherwise.
+ **/
+gboolean
+e_vcard_is_parsed (EVCard *evc)
+{
+        g_return_val_if_fail (E_IS_VCARD (evc), FALSE);
+        return (!evc->priv->vcard && evc->priv->attributes);
+}
+
+
+/**
  * e_vcard_attribute_param_get_name:
  * @param: an #EVCardAttributeParam
  *
