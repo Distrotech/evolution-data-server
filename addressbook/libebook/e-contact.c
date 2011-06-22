@@ -1215,52 +1215,10 @@ EContact*
 e_contact_new_from_vcard  (const gchar *vcard)
 {
 	EContact *contact;
-#if 0
-	const gchar *file_as;
-#endif
 	g_return_val_if_fail (vcard != NULL, NULL);
 
 	contact = g_object_new (E_TYPE_CONTACT, NULL);
 	e_vcard_construct (E_VCARD (contact), vcard);
-
-	/* We need to disable this otherwise the vCard gets parsed */
-#if 0
-	/* Generate a FILE_AS field if needed */
-
-	file_as = e_contact_get_const (contact, E_CONTACT_FILE_AS);
-	if (!file_as || !*file_as) {
-		EContactName *name;
-		const gchar *org;
-		gchar *file_as_new = NULL;
-		gchar *strings[4];
-		gchar **strings_p = strings;
-
-		name = e_contact_get (contact, E_CONTACT_NAME);
-		org = e_contact_get_const (contact, E_CONTACT_ORG);
-
-		if (name) {
-			if (name->family && *name->family)
-				*(strings_p++) = name->family;
-			if (name->given && *name->given)
-				*(strings_p++) = name->given;
-
-			if (strings_p != strings) {
-				*strings_p = NULL;
-				file_as_new = g_strjoinv (", ", strings);
-			}
-
-			e_contact_name_free (name);
-		}
-
-		if (!file_as_new && org && *org)
-			file_as_new = g_strdup (org);
-
-		if (file_as_new) {
-			e_contact_set (contact, E_CONTACT_FILE_AS, file_as_new);
-			g_free (file_as_new);
-		}
-	}
-#endif
 
 	return contact;
 }
