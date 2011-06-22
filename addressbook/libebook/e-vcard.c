@@ -660,6 +660,7 @@ static GList*
 e_vcard_ensure_attributes (EVCard *evc)
 {
         if (evc->priv->vcard) {
+		EVCardAttribute *fileas_attr;
                 gchar *vcs = evc->priv->vcard;
 
                 /* detach vCard to avoid loops */
@@ -668,6 +669,52 @@ e_vcard_ensure_attributes (EVCard *evc)
                 /* Parse the vCard */
                 parse (evc, vcs);
                 g_free (vcs);
+
+		/* Generate a FILE_AS field if needed */
+		fileas_attr = e_vcard_get_attribute (evc, EVC_X_FILE_AS);
+		if (!fileas_attr) {
+			EVCardAttribute *name_attr = NULL;
+			gchar *file_as_new = NULL;
+			gchar *strings[4];
+			gchar **strings_p = strings;
+
+			/* Get name attribute */
+			name_attr = e_vcard_get_attribute (evc, EVC_N);
+
+			if (name_attr) {
+				GList *p = e_vcard_attribute_get_values (name_attr);
+
+				/* Check if family name is present */
+				if (p && p->data)
+					*(strings_p++) = p->data; p = p->next;
+
+				/* Check if given name is present */
+				if (p && p->data)
+					*(strings_p++) = p->data;
+
+				/* Generate new FILE_AS */
+				if (strings_p != strings) {
+					*strings_p = NULL;
+					file_as_new = g_strjoinv (", ", strings);
+				}
+			}
+
+			/* Use org as fallback */
+			if (!file_as_new) {
+				EVCardAttribute *org_attr = e_vcard_get_attribute (evc, EVC_ORG);
+				if (org_attr) {
+					const gchar *org = e_vcard_attribute_get_value (org_attr);
+					file_as_new = g_strdup (org);
+				}
+			}
+
+			if (file_as_new) {
+				EVCardAttribute *fileas_attr_new = e_vcard_attribute_new ("", EVC_X_FILE_AS);
+				e_vcard_add_attribute_with_value (evc, fileas_attr_new, file_as_new);
+
+				g_free (file_as_new);
+			}
+		}
         }
 
         return evc->priv->attributes;
