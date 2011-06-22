@@ -1215,13 +1215,16 @@ EContact*
 e_contact_new_from_vcard  (const gchar *vcard)
 {
 	EContact *contact;
+#if 0
 	const gchar *file_as;
-
+#endif
 	g_return_val_if_fail (vcard != NULL, NULL);
 
 	contact = g_object_new (E_TYPE_CONTACT, NULL);
 	e_vcard_construct (E_VCARD (contact), vcard);
 
+	/* We need to disable this otherwise the vCard gets parsed */
+#if 0
 	/* Generate a FILE_AS field if needed */
 
 	file_as = e_contact_get_const (contact, E_CONTACT_FILE_AS);
@@ -1257,6 +1260,7 @@ e_contact_new_from_vcard  (const gchar *vcard)
 			g_free (file_as_new);
 		}
 	}
+#endif
 
 	return contact;
 }
