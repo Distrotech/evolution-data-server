@@ -577,7 +577,7 @@ fileas_getter (EContact *contact, EVCardAttribute *attr)
 			const gchar *org = e_contact_get_const (contact, E_CONTACT_ORG);
 
 			if (org && *org) {
-				new_file_as = strdup(org);
+				new_file_as = g_strdup(org);
 			}
 		}
 
