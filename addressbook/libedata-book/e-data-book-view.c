@@ -238,13 +238,14 @@ notify_add (EDataBookView *view, const gchar *id, gchar *vcard)
 		if (priv->adds->len == THRESHOLD_ITEMS) {
 			send_pending_adds (view);
 		}
+
+		g_array_append_val (priv->adds, vcard);
+
+		ensure_pending_flush_timeout (view);
 	}
 
-	g_array_append_val (priv->adds, vcard);
 	g_hash_table_insert (priv->ids, g_strdup (id),
 			     GUINT_TO_POINTER (1));
-
-	ensure_pending_flush_timeout (view);
 }
 
 static void
