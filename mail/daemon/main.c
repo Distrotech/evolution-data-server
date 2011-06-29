@@ -35,6 +35,7 @@
 #include "mail-ops.h"
 #include "e-dbus-manager.h"
 #include "mail-send-recv.h"
+#include "e-mail-connection-connman.h"
 
 #include "utils.h"
 
@@ -99,8 +100,9 @@ start_mail_engine ()
 
 	g_free(data_dir);
 
+	e_mail_connection_connman_new();
 	mail_autoreceive_init (session);
-
+	
 	/* In regular intervals, sync to server. We donno how & when the daemon will die */
 	g_timeout_add_seconds (
 			mail_config_get_sync_timeout (),

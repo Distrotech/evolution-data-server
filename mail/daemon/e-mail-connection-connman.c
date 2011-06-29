@@ -1,4 +1,4 @@
-/* e-mail-connection-connman.c */
+/* Based on Evolution's connman plugin */
 
 #include "e-mail-connection-connman.h"
 #include <gio/gio.h>
@@ -25,7 +25,6 @@ static void
 manager_set_state (EMailConnectionConnMan *manager, const gchar *state)
 {
 	/* EMailConnectionConnManPrivate *priv = GET_PRIVATE(manager); */
-
 	camel_session_set_network_available (session, !g_strcmp0 (state, "online"));
 	camel_session_set_online (session, !g_strcmp0 (state, "online"));
 }
@@ -198,7 +197,7 @@ e_mail_connection_connman_class_init (EMailConnectionConnManClass *klass)
   object_class->set_property = e_mail_connection_connman_set_property;
   object_class->dispose = e_mail_connection_connman_dispose;
   object_class->finalize = e_mail_connection_connman_finalize;
-object_class->constructed = e_mail_connection_connman_constructed;
+  object_class->constructed = e_mail_connection_connman_constructed;
 
 }
 
