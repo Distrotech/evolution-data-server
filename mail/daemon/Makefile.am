@@ -2,6 +2,8 @@ factorydir = $(libexecdir)
 
 factory_PROGRAMS = e-mail-factory
 e_mail_factory_SOURCES = main.c	\
+			 e-mail-connection-connman.c	\
+			 e-mail-connection-connman.H	\
 			 e-mail-local.c	\
 			 e-mail-local.h	\
 			 e-mail-store.c	\
