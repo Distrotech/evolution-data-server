@@ -457,3 +457,31 @@ e_cal_view_stop (ECalView *view)
 		g_error_free (error);
 	}
 }
+
+/**
+ * e_cal_view_set_caching_enabled:
+ * @view: A #ECalView object.
+ * @enable: Caching status
+ *
+ * Toggles notifications caching in the view.
+ */
+void 
+e_cal_view_set_caching_enabled (ECalView *view, gboolean enabled)
+{
+	GError *error = NULL;
+	ECalViewPrivate *priv;
+
+	g_return_if_fail (view != NULL);
+	g_return_if_fail (E_IS_CAL_VIEW (view));
+
+	priv = E_CAL_VIEW_GET_PRIVATE(view);
+
+	if (priv->gdbus_calview) {
+		e_gdbus_cal_view_call_set_caching_enabled_sync (priv->gdbus_calview, enabled, NULL, &error);
+	}
+
+	if (error) {
+		g_warning ("Failed to toggle view caching: %s", error->message);
+		g_error_free (error);
+	}
+}

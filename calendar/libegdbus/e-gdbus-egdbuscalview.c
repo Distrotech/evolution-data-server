@@ -71,6 +71,7 @@ enum
   __DONE_SIGNAL,
   __START_METHOD,
   __STOP_METHOD,
+  __SETCACHINGENABLED_METHOD,
   __DISPOSE_METHOD,
   __LAST_SIGNAL
 };
@@ -346,6 +347,7 @@ e_gdbus_cal_view_default_init (EGdbusCalViewIface *iface)
   _property_name_to_gname = g_hash_table_new (g_str_hash, g_str_equal);
   g_hash_table_insert (_method_name_to_id, (gpointer) "start", GUINT_TO_POINTER (__START_METHOD));
   g_hash_table_insert (_method_name_to_id, (gpointer) "stop", GUINT_TO_POINTER (__STOP_METHOD));
+  g_hash_table_insert (_method_name_to_id, (gpointer) "setCachingEnabled", GUINT_TO_POINTER (__SETCACHINGENABLED_METHOD));
   g_hash_table_insert (_method_name_to_id, (gpointer) "dispose", GUINT_TO_POINTER (__DISPOSE_METHOD));
   g_hash_table_insert (_signal_name_to_id, (gpointer) "ObjectsAdded", GUINT_TO_POINTER (__OBJECTS_ADDED_SIGNAL));
   g_hash_table_insert (_signal_name_to_id, (gpointer) "ObjectsModified", GUINT_TO_POINTER (__OBJECTS_MODIFIED_SIGNAL));
@@ -557,6 +559,33 @@ e_gdbus_cal_view_default_init (EGdbusCalViewIface *iface)
                   G_TYPE_BOOLEAN,
                   1,
                   G_TYPE_DBUS_METHOD_INVOCATION);
+
+  /**
+   * EGdbusCalView::handle-setCachingEnabled:
+   * @object: The exported object emitting the signal.
+   * @invocation: A #GDBusMethodInvocation object that can be used to return a value or error.
+   * @enabled: Parameter.
+   *
+   * On exported objects, this signal is emitted when a remote process (identified by @invocation) invokes the <literal>setCachingEnabled</literal> D-Bus method on @object. Use e_gdbus_cal_view_complete_set_caching_enabled() to return a value or g_dbus_method_invocation_return_error() to return an error.
+   *
+   * The signal is emitted in the thread-default main loop of the thread that e_gdbus_cal_view_register_object() was called from.
+   *
+   * On proxies, this signal is never emitted.
+   *
+   * Returns: %TRUE if you want to handle the method call (will stop further handlers from being called), %FALSE otherwise.
+   */
+  signals[__SETCACHINGENABLED_METHOD] =
+    g_signal_new ("handle-setCachingEnabled",
+                  G_TYPE_FROM_INTERFACE (iface),
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (EGdbusCalViewIface, handle_setCachingEnabled),
+                  g_signal_accumulator_true_handled,
+                  NULL,
+                  _e_gdbus_gdbus_cclosure_marshaller_BOOLEAN__OBJECT_BOOLEAN,
+                  G_TYPE_BOOLEAN,
+                  2,
+                  G_TYPE_DBUS_METHOD_INVOCATION,
+                  G_TYPE_BOOLEAN);
 
   /**
    * EGdbusCalView::handle-dispose:
@@ -789,6 +818,113 @@ _out:
 }
 
 /**
+ * e_gdbus_cal_view_call_set_caching_enabled:
+ * @proxy: A #EGdbusCalView.
+ * @enabled: Method parameter.
+ * @cancellable: A #GCancellable or %NULL.
+ * @callback: A #GAsyncReadyCallback to call when the request is satisfied or %NULL if you don't care about the result of the method invocation.
+ * @user_data: Data to pass to @callback.
+ *
+ * Invokes the <literal>org.gnome.evolution.dataserver.calendar.CalView.setCachingEnabled</literal>
+ * D-Bus method on the remote object represented by @proxy.
+ *
+ * This is an asynchronous method. When the operation is finished,
+ * callback will be invoked in the thread-default main loop of the
+ * thread you are calling this method from. You can then call
+ * e_gdbus_cal_view_call_set_caching_enabled_finish() to get the result of the operation.
+ *
+ * See e_gdbus_cal_view_call_set_caching_enabled_sync() for the synchronous version of this method.
+ */
+void 
+e_gdbus_cal_view_call_set_caching_enabled (
+        EGdbusCalView *proxy,
+	gboolean enabled,
+        GCancellable *cancellable,
+        GAsyncReadyCallback callback,
+        gpointer user_data)
+{
+  GVariant *_params;
+  _params = g_variant_new ("(b)",
+                           enabled);
+  g_dbus_proxy_call (G_DBUS_PROXY (proxy),
+                     "setCachingEnabled",
+                     _params,
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     cancellable,
+                     callback,
+                     user_data);
+}
+
+/**
+ * e_gdbus_cal_view_call_set_caching_enabled_finish:
+ * @proxy: A #EGdbusCalView.
+ * @res: A #GAsyncResult obtained from the #GAsyncReadyCallback passed to e_gdbus_cal_view_call_set_caching_enabled().
+ * @error: Return location for error or %NULL.
+ *
+ * Finishes invoking the <literal>org.gnome.evolution.dataserver.calendar.CalView.setCachingEnabled</literal>
+ * D-Bus method on the remote object represented by @proxy.
+ *
+ * Returns: %TRUE if the call succeeded, %FALSE if @error is set.
+ */
+gboolean 
+e_gdbus_cal_view_call_set_caching_enabled_finish (
+        EGdbusCalView *proxy,
+        GAsyncResult *res,
+        GError **error)
+{
+  gboolean _ret = FALSE;
+  GVariant *_result;
+  _result = g_dbus_proxy_call_finish (G_DBUS_PROXY (proxy), res, error);
+  if (_result == NULL)
+    goto _out;
+  g_variant_unref (_result);
+  _ret = TRUE;
+_out:
+  return _ret;
+}
+
+/**
+ * e_gdbus_cal_view_call_set_caching_enabled_sync:
+ * @proxy: A #EGdbusCalView.
+ * @enabled: Caching status.
+ * @cancellable: A #GCancellable or %NULL.
+ * @error: Return location for error or %NULL.
+ *
+ * Synchronously invokes the <literal>org.gnome.evolution.dataserver.calendar.CalView.setCachingEnabled</literal>
+ * D-Bus method on the remote object represented by @proxy.
+ *
+ * The calling thread is blocked until a reply is received.
+ *
+ * Returns: %TRUE if the call succeeded, %FALSE if @error is set.
+ */
+gboolean e_gdbus_cal_view_call_set_caching_enabled_sync (
+	EGdbusCalView *proxy,
+	gboolean enabled,
+        GCancellable *cancellable,
+        GError **error)
+{
+  gboolean _ret = FALSE;
+  GVariant *_result;
+  GVariant *_params;
+  _params = g_variant_new ("(b)",
+                           enabled);
+  _result = g_dbus_proxy_call_sync (G_DBUS_PROXY (proxy),
+                                   "setCachingEnabled",
+                                   _params,
+                                   G_DBUS_CALL_FLAGS_NONE,
+                                   -1,
+                                   cancellable,
+                                   error);
+  if (_result == NULL)
+    goto _out;
+  g_variant_unref (_result);
+  _ret = TRUE;
+_out:
+  return _ret;
+}
+
+/**
  * e_gdbus_cal_view_call_dispose:
  * @proxy: A #EGdbusCalView.
  * @cancellable: A #GCancellable or %NULL.
@@ -923,6 +1059,26 @@ void e_gdbus_cal_view_complete_start (
  */
 void e_gdbus_cal_view_complete_stop (
         EGdbusCalView *object,
+        GDBusMethodInvocation *invocation)
+{
+  g_dbus_method_invocation_return_value (invocation, NULL);
+}
+
+/**
+ * e_gdbus_cal_view_complete_set_caching_enabled:
+ * @object: A #EGdbusCalView.
+ * @invocation: A #GDBusMethodInvocation.
+ *
+ * Completes handling the <literal>org.gnome.evolution.dataserver.calendar.CalView.setCachingEnabled</literal>
+ * D-Bus method invocation by returning a value.
+ *
+ * If you want to return an error, use g_dbus_method_invocation_return_error()
+ * or similar instead.
+ *
+ * This method will free @invocation, you cannot use it afterwards.
+ */
+void e_gdbus_cal_view_complete_set_caching_enabled (
+	EGdbusCalView *object,
         GDBusMethodInvocation *invocation)
 {
   g_dbus_method_invocation_return_value (invocation, NULL);
@@ -1176,6 +1332,29 @@ static const GDBusMethodInfo e_gdbus_cal_view_method_stop =
   (GDBusAnnotationInfo **) NULL,
 };
 
+static const GDBusArgInfo e_gdbus_cal_method_in_setCachingEnabled_enabled =
+{
+  -1,
+  (gchar *) "enabled",
+  (gchar *) "b",
+  (GDBusAnnotationInfo **) NULL,
+};
+
+static const GDBusArgInfo * const e_gdbus_cal_method_in_setCachingEnabled_arg_pointers[] =
+{
+  &e_gdbus_cal_method_in_setCachingEnabled_enabled,
+  NULL
+};
+
+static const GDBusMethodInfo e_gdbus_cal_view_method_setCachingEnabled =
+{
+  -1,
+  (gchar *) "setCachingEnabled",
+  (GDBusArgInfo **) &e_gdbus_cal_method_in_setCachingEnabled_arg_pointers,
+  (GDBusArgInfo **) NULL,
+  (GDBusAnnotationInfo **) NULL,
+};
+
 static const GDBusMethodInfo e_gdbus_cal_view_method_dispose =
 {
   -1,
@@ -1189,6 +1368,7 @@ static const GDBusMethodInfo * const e_gdbus_cal_view_method_info_pointers[] =
 {
   &e_gdbus_cal_view_method_start,
   &e_gdbus_cal_view_method_stop,
+  &e_gdbus_cal_view_method_setCachingEnabled,
   &e_gdbus_cal_view_method_dispose,
   NULL
 };
@@ -1235,6 +1415,22 @@ handle_method_call (GDBusConnection       *connection,
         g_signal_emit (object,
                        signals[method_id],
                        0, invocation, &handled);
+        if (!handled)
+          goto not_implemented;
+      }
+      break;
+
+    case __SETCACHINGENABLED_METHOD:
+      {
+        EGdbusCalView *object = E_GDBUS_CAL_VIEW (user_data);
+        gboolean handled;
+	gboolean enabled;
+        g_variant_get (parameters,
+                       "(b)",
+                       &enabled);
+        g_signal_emit (object,
+                       signals[method_id],
+                       0, invocation, enabled, &handled);
         if (!handled)
           goto not_implemented;
       }

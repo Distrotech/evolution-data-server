@@ -63,6 +63,7 @@ GType      e_cal_view_get_type (void);
 struct _ECal *e_cal_view_get_client (ECalView *view);
 void e_cal_view_start (ECalView *view);
 void e_cal_view_stop (ECalView *view);
+void e_cal_view_set_caching_enabled (ECalView *view, gboolean enabled);
 
 G_END_DECLS
 

@@ -98,6 +98,14 @@ extern void _e_gdbus_gdbus_cclosure_marshaller_BOOLEAN__OBJECT_STRING_STRING_UIN
                                                                                    gpointer      invocation_hint,
                                                                                    gpointer      marshal_data);
 
+/* BOOLEAN:OBJECT,BOOLEAN (e-gdbus-marshallers.list:15) */
+extern void _e_gdbus_gdbus_cclosure_marshaller_BOOLEAN__OBJECT_BOOLEAN (GClosure     *closure,
+                                                                        GValue       *return_value,
+                                                                        guint         n_param_values,
+                                                                        const GValue *param_values,
+                                                                        gpointer      invocation_hint,
+                                                                        gpointer      marshal_data);
+
 G_END_DECLS
 
 #endif /* ___e_gdbus_gdbus_cclosure_marshaller_MARSHAL_H__ */

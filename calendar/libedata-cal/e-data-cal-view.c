@@ -49,6 +49,9 @@ struct _EDataCalViewPrivate {
 	gboolean stopped;
 	gboolean done;
 
+	/* Caching enabled */
+	gboolean caching;
+
 	/* Sexp that defines the query */
 	ECalBackendSExp *sexp;
 
@@ -233,7 +236,7 @@ notify_add (EDataCalView *view, gchar *obj)
 	send_pending_changes (view);
 	send_pending_removes (view);
 
-	if (priv->adds->len == THRESHOLD_ITEMS) {
+	if (!priv->caching || (priv->adds->len == THRESHOLD_ITEMS)) {
 		send_pending_adds (view);
 	}
 	g_array_append_val (priv->adds, obj);
@@ -255,7 +258,7 @@ notify_change (EDataCalView *view, gchar *obj)
 	send_pending_adds (view);
 	send_pending_removes (view);
 
-	if (priv->changes->len == THRESHOLD_ITEMS) {
+	if (!priv->caching || (priv->changes->len == THRESHOLD_ITEMS)) {
 		send_pending_changes (view);
 	}
 
@@ -274,7 +277,7 @@ notify_remove (EDataCalView *view, ECalComponentId *id)
 	send_pending_adds (view);
 	send_pending_changes (view);
 
-	if (priv->removes->len == THRESHOLD_ITEMS) {
+	if (!priv->caching || (priv->removes->len == THRESHOLD_ITEMS)) {
 		send_pending_removes (view);
 	}
 
@@ -333,6 +336,38 @@ impl_DataCalView_stop (EGdbusCalView *object, GDBusMethodInvocation *invocation,
 	priv->stopped = TRUE;
 
 	e_gdbus_cal_view_complete_stop (object, invocation);
+
+	return TRUE;
+}
+
+static gboolean
+impl_DataCalView_setCachingEnabled (EGdbusCalView *object, GDBusMethodInvocation *invocation, gboolean enabled, EDataCalView *query)
+{
+	EDataCalViewPrivate *priv;
+
+	priv = query->priv;
+
+	if (priv->caching != enabled) {
+		priv->caching = enabled;
+		
+		/* Flush if caching gets disabled */
+		if (priv->caching) {
+			g_mutex_lock (priv->pending_mutex);
+			if (priv->flush_id) {
+				/* Disable flush timer */
+				g_source_remove (priv->flush_id);
+				priv->flush_id = 0;
+
+				/* flush */
+				send_pending_adds (query);
+				send_pending_changes (query);
+				send_pending_removes (query);
+			}
+			g_mutex_unlock (priv->pending_mutex);
+		}
+	}
+
+	e_gdbus_cal_view_complete_set_caching_enabled (object, invocation);
 
 	return TRUE;
 }
@@ -402,6 +437,7 @@ e_data_cal_view_init (EDataCalView *query)
 	priv->gdbus_object = e_gdbus_cal_view_stub_new ();
 	g_signal_connect (priv->gdbus_object, "handle-start", G_CALLBACK (impl_DataCalView_start), query);
 	g_signal_connect (priv->gdbus_object, "handle-stop", G_CALLBACK (impl_DataCalView_stop), query);
+	g_signal_connect (priv->gdbus_object, "handle-setCachingEnabled", G_CALLBACK (impl_DataCalView_setCachingEnabled), query);
 	g_signal_connect (priv->gdbus_object, "handle-dispose", G_CALLBACK (impl_DataCalView_dispose), query);
 
 	priv->backend = NULL;
@@ -409,6 +445,7 @@ e_data_cal_view_init (EDataCalView *query)
 	priv->stopped = FALSE;
 	priv->done = FALSE;
 	priv->sexp = NULL;
+        priv->caching = TRUE;
 
 	priv->adds = g_array_sized_new (TRUE, TRUE, sizeof (gchar *), THRESHOLD_ITEMS);
 	priv->changes = g_array_sized_new (TRUE, TRUE, sizeof (gchar *), THRESHOLD_ITEMS);

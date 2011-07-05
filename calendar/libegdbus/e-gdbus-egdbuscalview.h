@@ -35,6 +35,7 @@ typedef struct _EGdbusCalView EGdbusCalView; /* Dummy typedef */
  * @done: Handler for the #EGdbusCalView::done signal.
  * @handle_start: Handler for the #EGdbusCalView::handle-start signal.
  * @handle_stop: Handler for the #EGdbusCalView::handle-stop signal.
+ * @handle_setCachingEnabled: Handler for the #EGdbusCalView::handle-setCachingEnabled signal.
  * @handle_dispose: Handler for the #EGdbusCalView::handle-dispose signal.
  *
  * Virtual table.
@@ -190,6 +191,10 @@ struct _EGdbusCalViewIface
   gboolean (*handle_stop) (
         EGdbusCalView *object,
         GDBusMethodInvocation *invocation);
+  gboolean (*handle_setCachingEnabled) (
+        EGdbusCalView *object,
+        GDBusMethodInvocation *invocation,
+	gboolean enabled);
   gboolean (*handle_dispose) (
         EGdbusCalView *object,
         GDBusMethodInvocation *invocation);
@@ -230,6 +235,24 @@ gboolean e_gdbus_cal_view_call_stop_sync (
         GCancellable *cancellable,
         GError **error);
 
+void e_gdbus_cal_view_call_set_caching_enabled (
+        EGdbusCalView *proxy,
+	gboolean enabled,
+        GCancellable *cancellable,
+        GAsyncReadyCallback callback,
+        gpointer user_data);
+
+gboolean e_gdbus_cal_view_call_set_caching_enabled_finish (
+        EGdbusCalView *proxy,
+        GAsyncResult *res,
+        GError **error);
+
+gboolean e_gdbus_cal_view_call_set_caching_enabled_sync (
+	EGdbusCalView *proxy,
+	gboolean enabled,
+        GCancellable *cancellable,
+        GError **error);
+
 void e_gdbus_cal_view_call_dispose (
         EGdbusCalView *proxy,
         GCancellable *cancellable,
@@ -253,6 +276,10 @@ void e_gdbus_cal_view_complete_start (
 
 void e_gdbus_cal_view_complete_stop (
         EGdbusCalView *object,
+        GDBusMethodInvocation *invocation);
+
+void e_gdbus_cal_view_complete_set_caching_enabled (
+	EGdbusCalView *object,
         GDBusMethodInvocation *invocation);
 
 void e_gdbus_cal_view_complete_dispose (
