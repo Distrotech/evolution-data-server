@@ -236,7 +236,7 @@ notify_add (EDataCalView *view, gchar *obj)
 	send_pending_changes (view);
 	send_pending_removes (view);
 
-	if (!priv->caching || (priv->adds->len == THRESHOLD_ITEMS)) {
+	if (priv->adds->len == THRESHOLD_ITEMS) {
 		send_pending_adds (view);
 	}
 	g_array_append_val (priv->adds, obj);
@@ -247,7 +247,11 @@ notify_add (EDataCalView *view, gchar *obj)
 			     GUINT_TO_POINTER (1));
 	g_object_unref (comp);
 
-	ensure_pending_flush_timeout (view);
+	if (priv->caching) {
+		ensure_pending_flush_timeout (view);
+	} else {
+		send_pending_adds (view);
+	}
 }
 
 static void
@@ -258,13 +262,17 @@ notify_change (EDataCalView *view, gchar *obj)
 	send_pending_adds (view);
 	send_pending_removes (view);
 
-	if (!priv->caching || (priv->changes->len == THRESHOLD_ITEMS)) {
+	if (priv->changes->len == THRESHOLD_ITEMS) {
 		send_pending_changes (view);
 	}
 
 	g_array_append_val (priv->changes, obj);
 
-	ensure_pending_flush_timeout (view);
+	if (priv->caching) {
+		ensure_pending_flush_timeout (view);
+	} else {
+		send_pending_changes (view);
+	}
 }
 
 static void
@@ -277,7 +285,7 @@ notify_remove (EDataCalView *view, ECalComponentId *id)
 	send_pending_adds (view);
 	send_pending_changes (view);
 
-	if (!priv->caching || (priv->removes->len == THRESHOLD_ITEMS)) {
+	if (priv->removes->len == THRESHOLD_ITEMS) {
 		send_pending_removes (view);
 	}
 
@@ -295,7 +303,11 @@ notify_remove (EDataCalView *view, ECalComponentId *id)
 
 	g_hash_table_remove (priv->ids, id);
 
-	ensure_pending_flush_timeout (view);
+	if (priv->caching) {
+		ensure_pending_flush_timeout (view);
+	} else {
+		send_pending_removes (view);
+	}
 }
 
 static void
