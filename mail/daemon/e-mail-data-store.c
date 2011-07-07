@@ -171,8 +171,10 @@ handle_get_folder_info_cb (CamelStore *store, CamelFolderInfo *info, gpointer da
 	g_variant_builder_add (builder, "(sssuii)", "", "", "", 0, -1, -1);
 	
 	variant = g_variant_builder_end (builder);
+	g_variant_ref (variant);
 	g_variant_builder_unref (builder);
 	
+	micro(printf("%s\n", g_variant_print (variant, TRUE)));
 	egdbus_store_ms_complete_get_folder_info (gfi_data->object, gfi_data->invocation, variant);
 	g_variant_unref (variant);
 
@@ -395,6 +397,7 @@ handle_create_folder_cb (CamelFolderInfo *fi, gpointer user_data, GError *error)
 	g_variant_builder_add (builder, "(sssuii)", "", "", "", 0, -1, -1);
 	
 	variant = g_variant_builder_end (builder);
+	g_variant_ref (variant);
 	g_variant_builder_unref (builder);
 	
 	ipc (printf("EMailDataStore: folder create success: %s\n", priv->object_path));

@@ -1396,20 +1396,21 @@ variant_from_info (CamelMessageInfoBase *info)
 			g_variant_builder_add (b1, "t", info->references->references[i].id.id);
 		}
 		v1 = g_variant_builder_end (b1);
+		g_object_ref (v1);
 		g_variant_builder_unref (b1);
 	
 		g_variant_builder_add_value (builder, v1);
-		//g_variant_unref (v1);
+		g_variant_unref (v1);
 	} else {
 		g_variant_builder_add (builder, "i", 0);
 		b1 = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
 		g_variant_builder_add (b1, "t", 0);
 		v1 = g_variant_builder_end (b1);
+		g_object_ref (v1);
 		g_variant_builder_unref (b1);
 	
 		g_variant_builder_add_value (builder, v1);
-		
-
+		g_variant_unref (v1);		
 	}
 
 	/* User Flags */
@@ -1421,10 +1422,11 @@ variant_from_info (CamelMessageInfoBase *info)
 	}
 	g_variant_builder_add (b1, "s", "");
 	v1 = g_variant_builder_end (b1);
+	g_object_ref (v1);
 	g_variant_builder_unref (b1);
 	
 	g_variant_builder_add_value (builder, v1);
-
+	g_object_unref (v1);
 	/* User Tags */
 	b1 = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
 	tags = info->user_tags;
@@ -1434,10 +1436,12 @@ variant_from_info (CamelMessageInfoBase *info)
 		g_variant_builder_add (b2, "s", tags->value);
 		
 		v1 = g_variant_builder_end (b2);
+		g_object_ref (v1);
 		g_variant_builder_unref (b2);
 
 		/* FIXME: Should we handle empty tags? Can it be empty? If it potential crasher ahead*/
 		g_variant_builder_add_value (b1, v1);
+		g_variant_unref (v1);		
 
 		tags = tags->next;
 	}
@@ -1446,15 +1450,23 @@ variant_from_info (CamelMessageInfoBase *info)
 	g_variant_builder_add (b2, "s", "");
 	g_variant_builder_add (b2, "s", "");	
 	v1 = g_variant_builder_end (b2);
+	g_object_ref (v1);
+
 	g_variant_builder_unref (b2);
 	g_variant_builder_add_value (b1, v1);
+	g_object_unref (v1);
 
 	v1 = g_variant_builder_end (b1);
+	g_object_ref (v1);
+
 	g_variant_builder_unref (b1);
 	
 	g_variant_builder_add_value (builder, v1);
+	g_object_unref (v1);
 
 	v = g_variant_builder_end (builder);
+	g_object_ref (v);
+
 	g_variant_builder_unref (builder);
 
 	return v;
@@ -1478,6 +1490,7 @@ gmi_done (gboolean success, gpointer sdata, GError *error)
 	variant = variant_from_info (data->info);
 	micro(printf("MessageInfo: %s %p\n", data->info->uid, data->info));
 	egdbus_folder_cf_complete_get_message_info (data->object, data->invocation, variant);
+	g_object_unref (variant);
 
 	camel_message_info_free (data->info);
 	g_free (data->uid);
