@@ -102,6 +102,8 @@ construct_mail_store_path (char *full_name)
 			path[i] = '_';
 		else if (path[i] == '(')
 			path[i] = '_';
+		else if (path[i] == '-')
+			path[i] = '_';
 		else if (path[i] == '@')
 			path[i] = '_';
 		else if (path[i] == ')')
