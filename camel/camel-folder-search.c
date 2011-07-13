@@ -522,7 +522,8 @@ camel_folder_search_count (CamelFolderSearch *search,
 				/* Suppress no such table */
 				g_clear_error (&local_error);
 			}
-			g_propagate_error (error, local_error);
+			if (error)
+				g_propagate_error (error, local_error);
 		}
 		g_free (tmp);
 	}
