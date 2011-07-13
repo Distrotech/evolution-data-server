@@ -945,9 +945,9 @@ app_msg_done (gboolean success, gpointer sdata, GError *error)
 		return;
 	}
 
-	egdbus_folder_cf_complete_append_message (data->object, data->invocation, data->uid, success);
+	egdbus_folder_cf_complete_append_message (data->object, data->invocation, data->uid ? data->uid : "", success);
 	
-	ipc(printf("Apppend message: %s success: %s\n", priv->path, data->uid));
+	ipc(printf("Apppend message: %s success: %s\n", priv->path, data->uid ? data->uid : ""));
 
 	outbox = e_mail_local_get_folder (E_MAIL_FOLDER_OUTBOX);
 	if (priv->folder == outbox) {
