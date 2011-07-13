@@ -57,6 +57,12 @@ mail_sync_store_cb (CamelStore *store,
                     const gchar *display_name,
                     gpointer not_used)
 {
+	CamelService *service = (CamelService *)store;
+	
+	/* Don't have to sync the local store. Only remote needs to be synced. */
+	if (strcmp(service->url->protocol, "mbox") == 0)
+		return;
+
 	mail_sync_in_progress++;
 
 	mail_sync_store (
