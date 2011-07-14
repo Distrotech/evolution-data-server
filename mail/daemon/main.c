@@ -110,10 +110,12 @@ start_mail_engine ()
 	mail_autoreceive_init (session);
 	
 	/* In regular intervals, sync to server. We donno how & when the daemon will die */
+#if 0
 	g_timeout_add_seconds (
 			mail_config_get_sync_timeout (),
 			(GSourceFunc) mail_auto_sync,
 			NULL);
+#endif
 	e_dbus_manager_new ();
 
 	return FALSE;
