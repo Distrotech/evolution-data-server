@@ -2141,9 +2141,9 @@ imapx_command_idle_stop (CamelIMAPXServer *is, GError **error)
 			"Unable to issue DONE");
 		c(printf("Failed to issue DONE to terminate IDLE\n"));
 		is->state = IMAPX_SHUTDOWN;
+		is->parser_quit = TRUE;
 		if (is->op)
 			camel_operation_cancel(is->op);
-		is->parser_quit = TRUE;
 		return FALSE;
 	}
 
@@ -4871,7 +4871,7 @@ imapx_parser_thread (gpointer d)
 			fds[0].events = G_IO_IN;
 			fds[1].fd = camel_operation_cancel_fd (op);
 			fds[1].events = G_IO_IN;
-			res = g_poll(fds, 2, 1000*30);
+			res = g_poll (fds, 2, -1);
 			if (res == -1)
 				g_usleep(1) /* ?? */ ;
 			else if (res == 0)
@@ -4893,7 +4893,7 @@ imapx_parser_thread (gpointer d)
 
 #include <prio.h>
 
-			res = PR_Poll(pollfds, 2, PR_MillisecondsToInterval (30 * 1000));
+			res = PR_Poll(pollfds, 2, PR_INTERVAL_NO_TIMEOUT);
 			if (res == -1)
 				g_usleep(1) /* ?? */ ;
 			else if (res == 0) {
