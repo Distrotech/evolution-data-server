@@ -1039,7 +1039,10 @@ app_getmsg_operate (CamelFolder *folder, gpointer sdata, GError **error)
 		charset = gconf_client_get_string (gconf, "/apps/evolution/mail/display/charset",NULL);
 		g_object_unref (gconf);
 		if (!charset || !*charset) {
-			ret = g_get_charset (&charset);
+			char *lcharset = NULL;
+			ret = g_get_charset (&lcharset);
+			if (lcharset)
+				charset = g_strdup(lcharset);
 		}
 		micro(printf("Got Charset? %d: %s\n", ret, charset ? charset : ""));
 	}
