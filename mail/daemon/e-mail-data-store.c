@@ -86,14 +86,38 @@ e_mail_data_store_class_init (EMailDataStoreClass *klass)
   object_class->finalize = e_mail_data_store_finalize;
 }
 
+static gboolean
+check_if_ascii (const char *name)
+{
+	int i=0, len;
+
+	len = strlen (name);
+
+	for (i=0; i< len; i++) {
+		if (!g_ascii_isalnum(name[i]))
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
 static gchar *
 construct_mail_store_path (char *full_name)
 {
 	static volatile gint counter = 1;
 	int i, len;
-	char *path = g_strdup_printf (
+	char *path;
+	gsize read=0, written=0;
+	char *name;
+
+	if (check_if_ascii(full_name))
+		name = g_strdup(full_name);
+	else
+		name = g_strdup_printf ("%lu_%d", time(NULL), g_atomic_int_exchange_and_add (&counter, 1));
+	
+	path = g_strdup_printf (
 		       "/org/gnome/evolution/dataserver/mail/folder/%s/%d/%u",
-		       full_name, getpid (), g_atomic_int_exchange_and_add (&counter, 1));
+		       name, getpid (), g_atomic_int_exchange_and_add (&counter, 1));
 	len = strlen(path);
 	for (i=0; i<len ; i++)
 		if (path[i] == '.')
