@@ -653,7 +653,8 @@ imapx_command_addv(CamelIMAPXCommand *ic, const gchar *fmt, va_list ap)
 					s = va_arg(ap, gchar *);
 					c(printf("got string '%s'\n", s));
 				output_string:
-					if (*s) {
+					/* Some broken IMAP servers send NULL, just after lying that they are sending text.*/
+					if (s && *s) {
 						guchar mask = imapx_is_mask(s);
 
 						if (mask & IMAPX_TYPE_ATOM_CHAR)

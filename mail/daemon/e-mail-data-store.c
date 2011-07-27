@@ -241,7 +241,6 @@ handle_mail_get_folder (CamelFolder *folder, gpointer data, GError *error)
 	EMailGetFolderData *send_data = (EMailGetFolderData *)data;
 	EMailDataStore *mstore = send_data->mstore;
 	EMailDataStorePrivate *priv = DATA_STORE_PRIVATE(mstore);
-	char *new_name;
 	EMailDataFolder *efolder = NULL;
 	char *path;
 
@@ -255,16 +254,15 @@ handle_mail_get_folder (CamelFolder *folder, gpointer data, GError *error)
 		return;
 	}
 
-	new_name = g_strdup (camel_folder_get_full_name (folder));
 	g_mutex_lock (priv->folders_lock);
 	g_mutex_lock (priv->datafolders_lock);
 
-	g_hash_table_insert (priv->folders, new_name, folder);
+	g_hash_table_insert (priv->folders, g_strdup(send_data->folder_name), folder);
 	efolder = e_mail_data_folder_new (folder);
 
-	path = construct_mail_store_path (new_name);
+	path = construct_mail_store_path (send_data->folder_name);
 	e_mail_data_folder_register_gdbus_object (efolder, g_dbus_method_invocation_get_connection (send_data->invocation), path, NULL);
-	g_hash_table_insert (priv->datafolders, g_strdup(new_name), efolder);
+	g_hash_table_insert (priv->datafolders, g_strdup(send_data->folder_name), efolder);
 
 	if (send_data->folder_name)
 		egdbus_store_ms_complete_get_folder (send_data->object, send_data->invocation, path);
@@ -275,7 +273,7 @@ handle_mail_get_folder (CamelFolder *folder, gpointer data, GError *error)
 	else
 		egdbus_store_ms_complete_get_trash (send_data->object, send_data->invocation, path);
 
-	ipc (printf("EMailDataStore: get folder : %s %s: %s\n", priv->object_path, new_name, path));
+	ipc (printf("EMailDataStore: get folder : %s %s: %s\n", priv->object_path, send_data->folder_name, path));
 
 	g_mutex_unlock (priv->folders_lock);
 	g_mutex_unlock (priv->datafolders_lock);

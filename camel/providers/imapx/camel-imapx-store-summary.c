@@ -144,7 +144,8 @@ camel_imapx_store_summary_full_to_path(CamelIMAPXStoreSummary *s, const gchar *f
 
 	p = path = g_strdup(full_name);
 
-	if (dir_sep != '/') {
+	/* Some broken IMAP servers don't sent dir_seps which will break the hierarchy.*/
+	if (dir_sep && dir_sep != '/') {
 		while (*p) {
 			if (*p == '/')
 				*p = dir_sep;
