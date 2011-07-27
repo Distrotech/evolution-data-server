@@ -1766,7 +1766,7 @@ e_mail_data_folder_new (CamelFolder *folder)
 
   	efolder = g_object_new (EMAIL_TYPE_DATA_FOLDER, NULL);
 	priv = DATA_FOLDER_PRIVATE(efolder);
-	priv->folder = folder;
+	priv->folder = g_object_ref(folder);
 
 	return efolder;
 }
