@@ -58,6 +58,10 @@ e_mail_data_folder_set_property (GObject *object, guint property_id,
 static void
 e_mail_data_folder_dispose (GObject *object)
 {
+  EMailDataFolderPrivate *priv = DATA_FOLDER_PRIVATE(object);
+  
+  g_object_unref (priv->folder);
+
   G_OBJECT_CLASS (e_mail_data_folder_parent_class)->dispose (object);
 }
 
