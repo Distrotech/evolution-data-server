@@ -1722,6 +1722,7 @@ services/evolution-calendar-factory/Makefile
 services/evolution-source-registry/Makefile
 services/evolution-user-prompter/Makefile
 tests/Makefile
+tests/libedata-book/Makefile
 tests/libebook/Makefile
 tests/libebook-contacts/Makefile
 tests/libebook/client/Makefile
