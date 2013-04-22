@@ -112,6 +112,34 @@ typedef struct {
 	gchar *bdata;
 } EbSdbSearchData;
 
+/**
+ * EbSdbCuror:
+ *
+ * An opaque cursor pointer
+ *
+ * Since: 3.10
+ */
+typedef struct _EbSdbCursor EbSdbCursor;
+
+/**
+ * EbSdbCurorOrigin:
+ * @EBSDB_CURSOR_ORIGIN_CURRENT:  The current cursor position
+ * @EBSDB_CURSOR_ORIGIN_PREVIOUS: The previously recorded cursor position, this can be used to repeat the previous query
+ * @EBSDB_CURSOR_ORIGIN_RESET:    The beginning of the cursor results (or end of the results, if navigating in reverse).
+ *
+ * Defines the behaviour of e_book_backend_sqlitedb_cursor_move_by().
+ *
+ * The cursor always saves the previous cursor position as well as
+ * the new cursor position after performing a move. This allows
+ * cursor queries to be repeated in the case where content may have
+ * changed but the same content window should be refreshed in a UI.
+ */
+typedef enum {
+	EBSDB_CURSOR_ORIGIN_CURRENT,
+	EBSDB_CURSOR_ORIGIN_PREVIOUS,
+	EBSDB_CURSOR_ORIGIN_RESET
+} EbSdbCurorOrigin;
+
 GType		e_book_backend_sqlitedb_get_type
 						(void) G_GNUC_CONST;
 GQuark          e_book_backend_sqlitedb_error_quark
@@ -139,6 +167,8 @@ gboolean	e_book_backend_sqlitedb_unlock_updates
 						(EBookBackendSqliteDB *ebsdb,
 						 gboolean do_commit,
 						 GError **error);
+ECollator      *e_book_backend_sqlitedb_ref_collator
+                                                 (EBookBackendSqliteDB *ebsdb);
 gboolean	e_book_backend_sqlitedb_new_contact
 						(EBookBackendSqliteDB *ebsdb,
 						 const gchar *folderid,
@@ -276,6 +306,56 @@ gboolean        e_book_backend_sqlitedb_check_summary_query
 gboolean        e_book_backend_sqlitedb_check_summary_fields
                                                 (EBookBackendSqliteDB *ebsdb,
 						 GHashTable *fields_of_interest);
+gboolean        e_book_backend_sqlitedb_set_locale
+                                                (EBookBackendSqliteDB *ebsdb,
+						 const gchar          *folderid,
+						 const gchar          *lc_collate,
+						 GError              **error);
+gboolean        e_book_backend_sqlitedb_get_locale
+                                                (EBookBackendSqliteDB *ebsdb,
+						 const gchar          *folderid,
+						 gchar               **locale_out,
+						 GError              **error);
+
+/* Cursor API */
+EbSdbCursor    *e_book_backend_sqlitedb_cursor_new
+                                                (EBookBackendSqliteDB *ebsdb,
+						 const gchar          *folderid,
+						 const gchar          *sexp,
+						 EContactField        *sort_fields,
+						 EBookSortType        *sort_types,
+						 guint                 n_sort_fields,
+						 GError              **error);
+void            e_book_backend_sqlitedb_cursor_free
+                                                (EBookBackendSqliteDB *ebsdb,
+						 EbSdbCursor          *cursor);
+gboolean        e_book_backend_sqlitedb_cursor_move_by
+                                                (EBookBackendSqliteDB *ebsdb,
+						 EbSdbCursor          *cursor,
+						 EbSdbCurorOrigin      origin,
+						 gint                  count,
+						 GSList              **results,
+						 GError              **error);
+void            e_book_backend_sqlitedb_cursor_set_target_alphabetic_index
+                                                (EBookBackendSqliteDB *ebsdb,
+						 EbSdbCursor          *cursor,
+						 gint                  index);
+gboolean        e_book_backend_sqlitedb_cursor_set_sexp
+                                                (EBookBackendSqliteDB *ebsdb,
+						 EbSdbCursor          *cursor,
+						 const gchar          *sexp,
+						 GError              **error);
+gboolean        e_book_backend_sqlitedb_cursor_calculate
+                                                (EBookBackendSqliteDB *ebsdb,
+						 EbSdbCursor          *cursor,
+						 gint                 *total,
+						 gint                 *position,
+						 GError              **error);
+gint            e_book_backend_sqlitedb_cursor_compare
+                                                (EBookBackendSqliteDB *ebsdb,
+						 EbSdbCursor          *cursor,
+						 EContact             *contact,
+						 gboolean             *matches_sexp);
 
 #ifndef EDS_DISABLE_DEPRECATED
 gboolean	e_book_backend_sqlitedb_is_summary_query
