@@ -1,4 +1,4 @@
-ENUM_TYPES = e-source-enums.h
+ENUM_TYPES = e-source-enums.h e-collator.h
 
 e-source-enumtypes.h: $(top_srcdir)/enumtypes.h.template $(ENUM_TYPES)
 	$(AM_V_GEN) $(GLIB_MKENUMS) --template $(top_srcdir)/enumtypes.h.template \
@@ -36,6 +36,7 @@ libedataserver_1_2_la_CPPFLAGS = \
 	$(GIO_UNIX_CFLAGS)						\
 	$(SOUP_CFLAGS)							\
 	$(CODE_COVERAGE_CFLAGS)						\
+	$(ICU_CFLAGS)							\
 	$(NULL)
 
 libedataserver_1_2_la_SOURCES =		\
@@ -44,6 +45,7 @@ libedataserver_1_2_la_SOURCES =		\
 	e-categories.c			\
 	e-client.c			\
 	e-client-private.h		\
+	e-collator.c			\
 	e-credentials.c			\
 	e-flag.c			\
 	e-gdbus-templates.c		\
@@ -102,7 +104,9 @@ libedataserver_1_2_la_LIBADD =				\
 	$(GIO_UNIX_LIBS)				\
 	$(ICONV_LIBS)					\
 	$(SOCKET_LIBS)					\
-	$(SOUP_LIBS)
+	$(SOUP_LIBS)					\
+	$(ICU_LIBS)					\
+	$(NULL)
 
 libedataserver_1_2_la_LDFLAGS = \
 	-version-info $(LIBEDATASERVER_CURRENT):$(LIBEDATASERVER_REVISION):$(LIBEDATASERVER_AGE) $(NO_UNDEFINED) \
@@ -116,6 +120,7 @@ libedataserverinclude_HEADERS =		\
 	e-cancellable-locks.h		\
 	e-categories.h			\
 	e-client.h			\
+	e-collator.h			\
 	e-credentials.h			\
 	e-flag.h			\
 	e-gdbus-templates.h		\
