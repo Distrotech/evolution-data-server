@@ -211,6 +211,11 @@ struct _EBookBackendClass {
 
 	void		(*sync)			(EBookBackend *backend);
 
+	void            (*set_locale)           (EBookBackend *backend,
+						 const gchar  *locale);
+	const gchar    *(*get_locale)           (EBookBackend *backend);
+
+
 	/* Signals */
 	void		(*closed)		(EBookBackend *backend,
 						 const gchar *sender);
@@ -377,6 +382,10 @@ void		e_book_backend_configure_direct	(EBookBackend *backend,
 						 const gchar *config);
 
 void		e_book_backend_sync		(EBookBackend *backend);
+
+void            e_book_backend_set_locale       (EBookBackend *backend,
+						 const gchar  *locale);
+const gchar    *e_book_backend_get_locale       (EBookBackend *backend);
 
 GSimpleAsyncResult *
 		e_book_backend_prepare_for_completion
