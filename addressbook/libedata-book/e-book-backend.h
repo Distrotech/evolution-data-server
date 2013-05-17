@@ -27,8 +27,9 @@
 #include <libebackend/libebackend.h>
 
 #include <libedata-book/e-data-book.h>
-#include <libedata-book/e-data-book-view.h>
+#include <libedata-book/e-data-book-cursor.h>
 #include <libedata-book/e-data-book-direct.h>
+#include <libedata-book/e-data-book-view.h>
 
 /* Standard GObject macros */
 #define E_TYPE_BOOK_BACKEND \
@@ -211,6 +212,19 @@ struct _EBookBackendClass {
 
 	void		(*sync)			(EBookBackend *backend);
 
+	void            (*set_locale)           (EBookBackend *backend,
+						 const gchar  *locale);
+	const gchar    *(*get_locale)           (EBookBackend *backend);
+
+	EDataBookCursor *
+	                (*create_cursor)	(EBookBackend *backend,
+						 EContactField *sort_fields,
+						 EBookSortType *sort_types,
+						 guint n_fields,
+						 GError **error);
+	void            (* delete_cursor)       (EBookBackend *backend,
+						 EDataBookCursor *cursor);
+
 	/* Signals */
 	void		(*closed)		(EBookBackend *backend,
 						 const gchar *sender);
@@ -377,6 +391,19 @@ void		e_book_backend_configure_direct	(EBookBackend *backend,
 						 const gchar *config);
 
 void		e_book_backend_sync		(EBookBackend *backend);
+
+void            e_book_backend_set_locale       (EBookBackend *backend,
+						 const gchar  *locale);
+const gchar    *e_book_backend_get_locale       (EBookBackend *backend);
+
+EDataBookCursor *
+                e_book_backend_create_cursor    (EBookBackend *backend,
+						 EContactField *sort_fields,
+						 EBookSortType *sort_types,
+						 guint n_fields,
+						 GError **error);
+void            e_book_backend_delete_cursor    (EBookBackend *backend,
+						 EDataBookCursor *cursor);
 
 GSimpleAsyncResult *
 		e_book_backend_prepare_for_completion
