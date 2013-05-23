@@ -75,6 +75,7 @@ struct _EBookBackendFilePrivate {
 	gchar     *base_directory;
 	gchar     *photo_dirname;
 	gchar     *revision;
+	gchar     *locale;
 	gint       rev_counter;
 	gboolean   revision_guards;
 	GRWLock    lock;
@@ -677,6 +678,22 @@ e_book_backend_file_load_revision (EBookBackendFile *bf)
 }
 
 static void
+e_book_backend_file_load_locale (EBookBackendFile *bf)
+{
+	GError *error = NULL;
+
+	if (!e_book_backend_sqlitedb_get_locale (bf->priv->sqlitedb,
+						 SQLITEDB_FOLDER_ID,
+						 &bf->priv->locale,
+						 &error)) {
+		g_warning (
+			G_STRLOC ": Error loading database locale setting: %s",
+			error ? error->message : "Unknown error");
+		g_clear_error (&error);
+	}
+}
+
+static void
 set_revision (EBookBackendFile *bf,
               EContact *contact)
 {
@@ -993,6 +1010,7 @@ book_backend_file_finalize (GObject *object)
 
 	g_free (priv->photo_dirname);
 	g_free (priv->revision);
+	g_free (priv->locale);
 	g_free (priv->base_directory);
 	g_rw_lock_clear (&(priv->lock));
 
@@ -1068,6 +1086,7 @@ book_backend_file_open_sync (EBookBackend *backend,
 							BOOK_BACKEND_PROPERTY_REVISION,
 							bf->priv->revision);
 	}
+
 	g_rw_lock_writer_unlock (&(bf->priv->lock));
 
 	e_backend_set_online (E_BACKEND (backend), TRUE);
@@ -1605,6 +1624,33 @@ book_backend_file_sync (EBookBackend *backend)
 	/* FIXME: Tell sqlite to dump NOW ! */
 }
 
+static void
+book_backend_file_set_locale (EBookBackend *backend,
+			      const gchar  *locale)
+{
+	EBookBackendFile *bf = E_BOOK_BACKEND_FILE (backend);
+	GError *error = NULL;
+
+	if (!e_book_backend_sqlitedb_set_locale (bf->priv->sqlitedb,
+						 SQLITEDB_FOLDER_ID,
+						 locale,
+						 &error)) {
+		g_free (bf->priv->locale);
+		bf->priv->locale = g_strdup (locale);
+
+		g_warning ("Failed to set locale on SQLiteDB: %s", error->message);
+		g_error_free (error);
+	}
+}
+
+static const gchar *
+book_backend_file_get_locale (EBookBackend *backend)
+{
+	EBookBackendFile *bf = E_BOOK_BACKEND_FILE (backend);
+
+	return bf->priv->locale;
+}
+
 static gboolean
 book_backend_file_initable_init (GInitable *initable,
                                  GCancellable *cancellable,
@@ -1725,6 +1771,9 @@ book_backend_file_initable_init (GInitable *initable,
 		}
 	}
 
+	/* Load the locale */
+	e_book_backend_file_load_locale (E_BOOK_BACKEND_FILE (initable));
+
 	/* Resolve the photo directory here. */
 	priv->photo_dirname =
 		e_book_backend_file_extract_path_from_source (
@@ -1766,6 +1815,8 @@ e_book_backend_file_class_init (EBookBackendFileClass *class)
 	backend_class->get_direct_book = book_backend_file_get_direct_book;
 	backend_class->configure_direct = book_backend_file_configure_direct;
 	backend_class->sync = book_backend_file_sync;
+	backend_class->set_locale = book_backend_file_set_locale;
+	backend_class->get_locale = book_backend_file_get_locale;
 }
 
 static void
