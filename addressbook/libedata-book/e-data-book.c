@@ -32,6 +32,7 @@
 #include "e-book-backend.h"
 #include "e-book-backend-sexp.h"
 #include "e-book-backend-factory.h"
+#include "e-dbus-localed.h"
 
 #define E_DATA_BOOK_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
@@ -50,6 +51,10 @@ struct _EDataBookPrivate {
 
 	GMutex sender_lock;
 	GHashTable *sender_table;
+
+	guint localed_watch_id;
+	EDBusLocale1 *localed_proxy;
+	GCancellable *localed_cancel;
 };
 
 struct _AsyncContext {
@@ -1454,6 +1459,156 @@ e_data_book_report_backend_property_changed (EDataBook *book,
 	/* Disregard anything else. */
 }
 
+static gchar *
+data_book_interpret_locale_value (const gchar *value)
+{
+	gchar *interpreted_value = NULL;
+	gchar **split;
+
+	split = g_strsplit (value, "=", 2);
+
+	if (split && split[0] && split[1])
+		interpreted_value = g_strdup (split[1]);
+
+	g_strfreev (split);
+
+	if (!interpreted_value)
+		g_warning ("Failed to interpret locale value: %s", value);
+
+	return interpreted_value;
+}
+
+static gchar *
+data_book_interpret_locale (const gchar * const * locale)
+{
+	gint i;
+	gchar *interpreted_locale = NULL;
+
+	/* Prioritize LC_COLLATE and then LANG values
+	 * in the 'locale' specified by localed.
+	 *
+	 * If localed explicitly specifies no locale, then
+	 * default to checking system locale.
+	 */
+	if (locale) {
+
+		for (i = 0; locale[i] != NULL && interpreted_locale == NULL; i++) {
+
+			if (strncmp (locale[i], "LC_COLLATE", 10))
+				interpreted_locale = data_book_interpret_locale_value (locale[i]);
+		}
+
+		for (i = 0; locale[i] != NULL && interpreted_locale == NULL; i++) {
+
+			if (strncmp (locale[i], "LANG", 4))
+				interpreted_locale = data_book_interpret_locale_value (locale[i]);
+		}
+	}
+
+	if (!interpreted_locale) {
+		const gchar *system_locale = setlocale (LC_COLLATE, NULL);
+
+		interpreted_locale = g_strdup (system_locale);
+	}
+
+	return interpreted_locale;
+}
+
+static void
+data_book_locale_changed (GObject *object,
+			  GParamSpec *pspec,
+			  gpointer user_data)
+{
+	EDBusLocale1 *locale_proxy = E_DBUS_LOCALE1 (object);
+	EDataBook *book = (EDataBook *)user_data;
+	EBookBackend *backend;
+
+	backend = e_data_book_ref_backend (book);
+
+	if (backend) {
+		const gchar * const *locale;
+		gchar *interpreted_locale;
+
+		locale = e_dbus_locale1_get_locale (locale_proxy);
+		interpreted_locale = data_book_interpret_locale (locale);
+
+		e_book_backend_set_locale (backend, interpreted_locale);
+
+		e_dbus_address_book_set_locale (book->priv->dbus_interface, interpreted_locale);
+
+		g_free (interpreted_locale);
+	}
+
+	g_object_unref (backend);
+}
+
+static void
+data_book_localed_ready (GObject *source_object,
+			 GAsyncResult *res,
+			 gpointer user_data)
+{
+	EDataBook *book = (EDataBook *)user_data;
+	GError *error = NULL;
+
+	book->priv->localed_proxy = e_dbus_locale1_proxy_new_finish (res, &error);
+
+	if (book->priv->localed_proxy == NULL) {
+		g_warning ("Error fetching localed proxy: %s", error->message);
+		g_error_free (error);
+	}
+
+	if (book->priv->localed_cancel) {
+		g_object_unref (book->priv->localed_cancel);
+		book->priv->localed_cancel = NULL;
+	}
+
+	if (book->priv->localed_proxy) {
+		g_signal_connect (book->priv->localed_proxy, "notify::locale",
+				  G_CALLBACK (data_book_locale_changed), book);
+
+		/* Initial refresh the locale */
+		data_book_locale_changed (G_OBJECT (book->priv->localed_proxy), NULL, book);
+	}
+}
+
+static void
+data_book_localed_appeared (GDBusConnection *connection,
+			    const gchar *name,
+			    const gchar *name_owner,
+			    gpointer user_data)
+{
+	EDataBook *book = (EDataBook *)user_data;
+
+	book->priv->localed_cancel = g_cancellable_new ();
+
+	e_dbus_locale1_proxy_new (connection,
+				  G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
+				  "org.freedesktop.locale1",
+				  "/org/freedesktop/locale1",
+				  book->priv->localed_cancel,
+				  data_book_localed_ready,
+				  book);
+}
+
+static void
+data_book_localed_vanished (GDBusConnection *connection,
+			    const gchar *name,
+			    gpointer user_data)
+{
+	EDataBook *book = (EDataBook *)user_data;
+
+	if (book->priv->localed_cancel) {
+		g_cancellable_cancel (book->priv->localed_cancel);
+		g_object_unref (book->priv->localed_cancel);
+		book->priv->localed_cancel = NULL;
+	}
+
+	if (book->priv->localed_proxy) {
+		g_object_unref (book->priv->localed_proxy);
+		book->priv->localed_proxy = NULL;
+	}
+}
+
 static void
 data_book_set_backend (EDataBook *book,
                        EBookBackend *backend)
@@ -1569,6 +1724,17 @@ data_book_dispose (GObject *object)
 		priv->direct_module = NULL;
 	}
 
+	if (priv->localed_cancel) {
+		g_cancellable_cancel (priv->localed_cancel);
+		g_object_unref (priv->localed_cancel);
+		priv->localed_cancel = NULL;
+	}
+
+	if (priv->localed_proxy) {
+		g_object_unref (priv->localed_proxy);
+		priv->localed_proxy = NULL;
+	}
+
 	g_hash_table_remove_all (priv->sender_table);
 
 	/* Chain up to parent's dispose() metnod. */
@@ -1591,6 +1757,9 @@ data_book_finalize (GObject *object)
 		g_object_unref (priv->dbus_interface);
 		priv->dbus_interface = NULL;
 	}
+
+	if (priv->localed_watch_id > 0)
+		g_bus_unwatch_name (priv->localed_watch_id);
 
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (e_data_book_parent_class)->finalize (object);
@@ -1654,6 +1823,12 @@ data_book_constructed (GObject *object)
 		book, prop_name, prop_value);
 	g_free (prop_value);
 
+	/* Initialize the locale to the value reported by setlocale() until
+	 * systemd says otherwise.
+	 */
+	e_dbus_address_book_set_locale (book->priv->dbus_interface,
+					setlocale (LC_COLLATE, NULL));
+
 	g_object_unref (backend);
 }
 
@@ -1664,6 +1839,8 @@ data_book_initable_init (GInitable *initable,
 {
 	EBookBackend *backend;
 	EDataBook *book;
+	const gchar *locale;
+	GBusType bus_type = G_BUS_TYPE_SYSTEM;
 
 	book = E_DATA_BOOK (initable);
 
@@ -1692,6 +1869,28 @@ data_book_initable_init (GInitable *initable,
 		if (!success)
 			return FALSE;
 	}
+
+	/* Fetch backend configured locale and set that as the initial
+	 * value on the dbus object
+	 */
+	locale = e_book_backend_get_locale (backend);
+	e_dbus_address_book_set_locale (book->priv->dbus_interface, locale);
+
+	/* When running tests, we pretend to be the "org.freedesktop.locale1" service
+	 * on the session bus instead of the real location on the system bus.
+	 */
+	if (g_getenv ("EDS_TESTING") != NULL)
+		bus_type = G_BUS_TYPE_SESSION;
+
+	/* Watch system bus for locale change notifications */
+	book->priv->localed_watch_id =
+		g_bus_watch_name (bus_type,
+				  "org.freedesktop.locale1",
+				  G_BUS_NAME_WATCHER_FLAGS_NONE,
+				  data_book_localed_appeared,
+				  data_book_localed_vanished,
+				  book,
+				  NULL);
 
 	return g_dbus_interface_skeleton_export (
 		G_DBUS_INTERFACE_SKELETON (book->priv->dbus_interface),
