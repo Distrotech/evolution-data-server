@@ -1072,8 +1072,8 @@ check_calendar_changed_on_server (ECalBackendCalDAV *cbdav)
 	soup_message_set_request (message,
 				  "application/xml",
 				  SOUP_MEMORY_COPY,
-				  (gchar *) buf->buffer->content,
-				  buf->buffer->use);
+				  (gchar *)xmlBufContent(buf->buffer),
+				  xmlBufUse(buf->buffer));
 
 	/* Send the request now */
 	send_and_handle_redirection (priv->session, message, NULL);
@@ -1214,8 +1214,8 @@ caldav_server_list_objects (ECalBackendCalDAV *cbdav, CalDAVObject **objs, gint 
 	soup_message_set_request (message,
 				  "application/xml",
 				  SOUP_MEMORY_COPY,
-				  (gchar *) buf->buffer->content,
-				  buf->buffer->use);
+				  (gchar *)xmlBufContent(buf->buffer),
+				  xmlBufUse(buf->buffer));
 
 	/* Send the request now */
 	send_and_handle_redirection (priv->session, message, NULL);
@@ -1530,8 +1530,8 @@ caldav_receive_schedule_outbox_url (ECalBackendCalDAV *cbdav)
 	soup_message_set_request (message,
 				  "application/xml",
 				  SOUP_MEMORY_COPY,
-				  (gchar *) buf->buffer->content,
-				  buf->buffer->use);
+				  (gchar *)xmlBufContent(buf->buffer),
+				  xmlBufUse(buf->buffer));
 
 	/* Send the request now */
 	send_and_handle_redirection (priv->session, message, NULL);
@@ -1580,8 +1580,8 @@ caldav_receive_schedule_outbox_url (ECalBackendCalDAV *cbdav)
 		soup_message_set_request (message,
 				  "application/xml",
 				  SOUP_MEMORY_COPY,
-				  (gchar *) buf->buffer->content,
-				  buf->buffer->use);
+				  (gchar *)xmlBufContent(buf->buffer),
+				  xmlBufUse(buf->buffer));
 
 		/* Send the request now */
 		send_and_handle_redirection (priv->session, message, NULL);
