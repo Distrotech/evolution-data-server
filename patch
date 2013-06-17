@@ -1,0 +1,48 @@
+Index: calendar/backends/caldav/e-cal-backend-caldav.c
+===================================================================
+--- calendar/backends/caldav/e-cal-backend-caldav.c	(revision 5527)
++++ calendar/backends/caldav/e-cal-backend-caldav.c	(revision 5528)
+@@ -1072,8 +1072,8 @@
+ 	soup_message_set_request (message,
+ 				  "application/xml",
+ 				  SOUP_MEMORY_COPY,
+-				  (gchar *) buf->buffer->content,
+-				  buf->buffer->use);
++				  (gchar *)xmlBufContent(buf->buffer),
++				  xmlBufUse(buf->buffer));
+ 
+ 	/* Send the request now */
+ 	send_and_handle_redirection (priv->session, message, NULL);
+@@ -1214,8 +1214,8 @@
+ 	soup_message_set_request (message,
+ 				  "application/xml",
+ 				  SOUP_MEMORY_COPY,
+-				  (gchar *) buf->buffer->content,
+-				  buf->buffer->use);
++				  (gchar *)xmlBufContent(buf->buffer),
++				  xmlBufUse(buf->buffer));
+ 
+ 	/* Send the request now */
+ 	send_and_handle_redirection (priv->session, message, NULL);
+@@ -1530,8 +1530,8 @@
+ 	soup_message_set_request (message,
+ 				  "application/xml",
+ 				  SOUP_MEMORY_COPY,
+-				  (gchar *) buf->buffer->content,
+-				  buf->buffer->use);
++				  (gchar *)xmlBufContent(buf->buffer),
++				  xmlBufUse(buf->buffer));
+ 
+ 	/* Send the request now */
+ 	send_and_handle_redirection (priv->session, message, NULL);
+@@ -1580,8 +1580,8 @@
+ 		soup_message_set_request (message,
+ 				  "application/xml",
+ 				  SOUP_MEMORY_COPY,
+-				  (gchar *) buf->buffer->content,
+-				  buf->buffer->use);
++				  (gchar *)xmlBufContent(buf->buffer),
++				  xmlBufUse(buf->buffer));
+ 
+ 		/* Send the request now */
+ 		send_and_handle_redirection (priv->session, message, NULL);
