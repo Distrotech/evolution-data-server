@@ -178,6 +178,7 @@ libcamel_1_2_la_SOURCES = 			\
 	camel-imapx-folder.c			\
 	camel-imapx-job.c			\
 	camel-imapx-list-response.c		\
+	camel-imapx-namespace.c			\
 	camel-imapx-search.c			\
 	camel-imapx-server.c			\
 	camel-imapx-settings.c			\
@@ -313,6 +314,7 @@ libcamelinclude_HEADERS =			\
 	camel-imapx-folder.h			\
 	camel-imapx-job.h			\
 	camel-imapx-list-response.h		\
+	camel-imapx-namespace.h			\
 	camel-imapx-search.h			\
 	camel-imapx-server.h			\
 	camel-imapx-settings.h			\
