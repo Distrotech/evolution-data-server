@@ -776,6 +776,8 @@ camel_imapx_command_queue_ref_by_tag
 <TITLE>CamelIMAPXFolder</TITLE>
 CamelIMAPXFolder
 camel_imapx_folder_new
+camel_imapx_folder_ref_mailbox
+camel_imapx_folder_set_mailbox
 camel_imapx_folder_dup_quota_root_names
 camel_imapx_folder_set_quota_root_names
 camel_imapx_folder_add_move_to_real_junk
