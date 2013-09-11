@@ -77,11 +77,13 @@ imapx_stream_fill (CamelIMAPXStream *is,
 		memcpy (is->priv->buf, is->priv->ptr, left);
 		is->priv->end = is->priv->buf + left;
 		is->priv->ptr = is->priv->buf;
+		g_print ("%s: Start reading...\n", G_STRFUNC);
 		left = camel_stream_read (
 			is->priv->source,
 			(gchar *) is->priv->end,
 			is->priv->bufsize - (is->priv->end - is->priv->buf),
 			cancellable, error);
+		g_print ("%s: Done reading...\n", G_STRFUNC);
 		if (left > 0) {
 			is->priv->end += left;
 			io (is->tagprefix, "camel_imapx_read: buffer is '%.*s'\n", (gint)(is->priv->end - is->priv->ptr), is->priv->ptr);
@@ -201,9 +203,11 @@ imapx_stream_read (CamelStream *stream,
 		is->priv->ptr += max;
 	} else {
 		max = MIN (is->priv->literal, n);
+		g_print ("%s: Start reading...\n", G_STRFUNC);
 		max = camel_stream_read (
 			is->priv->source,
 			buffer, max, cancellable, error);
+		g_print ("%s: Done reading...\n", G_STRFUNC);
 		if (max <= 0)
 			return max;
 	}

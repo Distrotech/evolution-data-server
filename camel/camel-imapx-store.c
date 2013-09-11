@@ -444,6 +444,12 @@ imapx_store_process_mailbox_attributes (CamelIMAPXStore *store,
 		mailbox_was_subscribed = FALSE;
 	}
 
+	g_message ("%s: %s%s%s%s",
+		G_STRFUNC, mailbox_name,
+		mailbox_was_in_summary ? " (in-summary)" : "",
+		mailbox_is_subscribed ? " (/Subscribed)" : "",
+		mailbox_is_nonexistent ? " (/NonExistent)" : "");
+
 	/* Check if the SUBSCRIBED flags disagree. */
 	if ((flags ^ si->info.flags) & CAMEL_STORE_INFO_FOLDER_SUBSCRIBED) {
 		si->info.flags &= ~CAMEL_FOLDER_SUBSCRIBED;

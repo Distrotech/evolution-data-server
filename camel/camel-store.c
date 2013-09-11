@@ -139,6 +139,7 @@ store_emit_folder_created_cb (gpointer user_data)
 	store = g_weak_ref_get (&signal_closure->store);
 
 	if (store != NULL) {
+		g_message ("FOLDER_CREATED (%s)", signal_closure->folder_info->display_name);
 		g_signal_emit (
 			store,
 			signals[FOLDER_CREATED], 0,
@@ -158,6 +159,7 @@ store_emit_folder_deleted_cb (gpointer user_data)
 	store = g_weak_ref_get (&signal_closure->store);
 
 	if (store != NULL) {
+		g_message ("FOLDER_DELETED (%s)", signal_closure->folder_info->display_name);
 		g_signal_emit (
 			store,
 			signals[FOLDER_DELETED], 0,
@@ -196,6 +198,7 @@ store_emit_folder_renamed_cb (gpointer user_data)
 	store = g_weak_ref_get (&signal_closure->store);
 
 	if (store != NULL) {
+		g_message ("FOLDER_RENAMED (%s)", signal_closure->folder_info->display_name);
 		g_signal_emit (
 			store,
 			signals[FOLDER_RENAMED], 0,

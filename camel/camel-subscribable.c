@@ -75,6 +75,7 @@ subscribable_emit_folder_subscribed_cb (gpointer user_data)
 	subscribable = g_weak_ref_get (&signal_closure->subscribable);
 
 	if (subscribable != NULL) {
+		g_message ("FOLDER_SUBSCRIBED (%s)", signal_closure->folder_info->display_name);
 		g_signal_emit (
 			subscribable,
 			signals[FOLDER_SUBSCRIBED], 0,
@@ -94,6 +95,7 @@ subscribable_emit_folder_unsubscribed_cb (gpointer user_data)
 	subscribable = g_weak_ref_get (&signal_closure->subscribable);
 
 	if (subscribable != NULL) {
+		g_message ("FOLDER_UNSUBSCRIBED (%s)", signal_closure->folder_info->display_name);
 		g_signal_emit (
 			subscribable,
 			signals[FOLDER_UNSUBSCRIBED], 0,
