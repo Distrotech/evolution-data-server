@@ -6084,11 +6084,12 @@ collect_results_for_cursor_cb (gpointer ref,
  * the result list will be stored to @results and should be freed with g_slist_free()
  * and all elements freed with e_book_backend_sqlitedb_search_data_free().
  *
- * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set.
+ * Returns: The number of contacts which the cursor has moved by if successfull.
+ * Otherwise -1 is returned and @error is set.
  *
  * Since: 3.12
  */
-gboolean
+gint
 e_book_backend_sqlitedb_cursor_move_by (EBookBackendSqliteDB *ebsdb,
 					EbSdbCursor          *cursor,
 					EbSdbCursorOrigin     origin,
@@ -6096,7 +6097,7 @@ e_book_backend_sqlitedb_cursor_move_by (EBookBackendSqliteDB *ebsdb,
 					GSList              **results,
 					GError              **error)
 {
-	CursorCollectData data = { NULL, NULL, FALSE, 0 };
+	CursorCollectData data = { NULL, NULL, NULL, FALSE, 0 };
 	GString *query;
 	gboolean success;
 
@@ -6210,7 +6211,10 @@ e_book_backend_sqlitedb_cursor_move_by (EBookBackendSqliteDB *ebsdb,
 				   (GDestroyNotify)e_book_backend_sqlitedb_search_data_free);
 	g_free (data.alloc_vcard);
 
-	return success;
+	if (success)
+		return data.n_results;
+
+	return -1;
 }
 
 /**
