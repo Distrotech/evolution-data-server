@@ -1829,6 +1829,8 @@ docs/reference/camel/Makefile
 docs/reference/libedataserver/Makefile
 docs/reference/libebackend/Makefile
 docs/reference/private/Makefile
+docs/reference/eds/Makefile
+docs/reference/eds/version.xml
 po/Makefile.in
 vala/Makefile
 ])

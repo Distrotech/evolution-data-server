@@ -5,6 +5,7 @@ PRIVATE_DIR = private
 endif
 
 SUBDIRS = \
+	eds	\
 	addressbook \
 	calendar \
 	camel \
