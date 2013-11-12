@@ -662,7 +662,7 @@ e_intervaltree_remove (EIntervalTree *tree,
  * @start: start of the interval
  * @end: end of the interval
  * 
- * Returns list of nodes that overlaps given interval or %NULL.
+ * Returns: list of nodes that overlaps given interval or %NULL.
  *
  * Since: 2.32
  **/

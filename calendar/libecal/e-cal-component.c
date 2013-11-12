@@ -3238,9 +3238,10 @@ e_cal_component_get_exrule_list (ECalComponent *comp,
  * e_cal_component_get_exrule_property_list:
  * @comp: A calendar component object.
  * @recur_list: (out) (transfer none) (element-type icalrecurrencetype):
- * Returns a list of exception rule properties
  *
  * Queries the list of exception rule properties of a calendar component object.
+ *
+ * Returns: a list of exception rule properties
  **/
 void
 e_cal_component_get_exrule_property_list (ECalComponent *comp,

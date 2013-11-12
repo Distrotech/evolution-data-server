@@ -988,18 +988,28 @@ e_cal_backend_store_class_init (ECalBackendStoreClass *class)
 	class->get_components = cal_backend_store_get_components;
 	class->get_component_ids = cal_backend_store_get_component_ids;
 
+	/**
+	 * ECalBackendStore:path:
+	 *
+	 * The directory to store the file.
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_PATH,
 		g_param_spec_string (
 			"path",
-			NULL,
-			NULL,
+			"Path",
+			"The directory to store the file",
 			NULL,
 			G_PARAM_READWRITE |
 			G_PARAM_CONSTRUCT_ONLY |
 			G_PARAM_STATIC_STRINGS));
 
+	/**
+	 * ECalBackendStore:timezone-cache:
+	 *
+	 * An object implementing the ETimezoneCache interface.
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_TIMEZONE_CACHE,
@@ -1385,8 +1395,8 @@ e_cal_backend_store_get_components (ECalBackendStore *store)
 /**
  * e_cal_backend_store_get_components_occuring_in_range:
  * @store: An #ECalBackendStore object.
- * @start:
- * @end:
+ * @start: Start time
+ * @end: End time
  *
  * Retrieves a list of components stored in the store, that are occuring
  * in time range [start, end].

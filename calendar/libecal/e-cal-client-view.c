@@ -740,18 +740,28 @@ e_cal_client_view_class_init (ECalClientViewClass *class)
 	object_class->dispose = cal_client_view_dispose;
 	object_class->finalize = cal_client_view_finalize;
 
+	/**
+	 * ECalClientView:client:
+	 *
+	 * The ECalClient for the view
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_CLIENT,
 		g_param_spec_object (
 			"client",
+			"Client",
 			"The ECalClient for the view",
-			NULL,
 			E_TYPE_CAL_CLIENT,
 			G_PARAM_READWRITE |
 			G_PARAM_CONSTRUCT_ONLY |
 			G_PARAM_STATIC_STRINGS));
 
+	/**
+	 * ECalClientView:connection:
+	 *
+	 * The GDBusConnection used to create the D-Bus proxy
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_CONNECTION,
@@ -765,6 +775,11 @@ e_cal_client_view_class_init (ECalClientViewClass *class)
 			G_PARAM_CONSTRUCT_ONLY |
 			G_PARAM_STATIC_STRINGS));
 
+	/**
+	 * ECalClientView:object-path:
+	 *
+	 * The object path used to create the D-Bus proxy
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_OBJECT_PATH,

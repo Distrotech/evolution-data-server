@@ -297,17 +297,6 @@ get_bool_cb (gpointer ref,
 	return 0;
 }
 
-/**
- * e_book_sql_exec
- * @db:
- * @stmt:
- * @callback:
- * @data:
- * @error:
- *
- * Callers should hold the rw lock depending on read or write operation
- * Returns:
- **/
 static gboolean
 book_backend_sql_exec_real (sqlite3 *db,
                             const gchar *stmt,
@@ -1878,18 +1867,18 @@ e_book_backend_sqlitedb_new_full (const gchar *path,
 }
 
 /**
- * e_book_backend_sqlitedb_new
+ * e_book_backend_sqlitedb_new:
  * @path: location where the db would be created
  * @emailid: email id of the user
  * @folderid: folder id of the address-book
  * @folder_name: name of the address-book
  * @store_vcard: True if the vcard should be stored inside db, if FALSE only the summary fields would be stored inside db.
- * @error:
+ * @error: A location to store any error that may have occurred.
  *
  * If the path for multiple addressbooks are same, the contacts from all addressbooks
  * would be stored in same db in different tables.
  *
- * Returns:
+ * Returns: (transfer full): A reference to a #EBookBackendSqliteDB
  *
  * Since: 3.2
  **/
@@ -2470,13 +2459,13 @@ e_book_backend_sqlitedb_new_contacts (EBookBackendSqliteDB *ebsdb,
 }
 
 /**
- * e_book_backend_sqlitedb_add_contact
- * @ebsdb:
+ * e_book_backend_sqlitedb_add_contact:
+ * @ebsdb: An #EBookBackendSqliteDB
  * @folderid: folder id
  * @contact: EContact to be added
  * @partial_content: contact does not contain full information. Used when
  * the backend cache's partial information for auto-completion.
- * @error:
+ * @error: A location to store any error that may have occurred.
  *
  * This is a convenience wrapper for e_book_backend_sqlitedb_add_contacts,
  * which is the preferred means to add multiple contacts when possible.
@@ -4136,9 +4125,9 @@ book_backend_sqlitedb_search_full (EBookBackendSqliteDB *ebsdb,
 }
 
 /**
- * e_book_backend_sqlitedb_search 
- * @ebsdb: 
- * @folderid: 
+ * e_book_backend_sqlitedb_search:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
  * @sexp: search expression; use NULL or an empty string to get all stored
  * contacts.
  * @fields_of_interest: a #GHashTable containing the names of fields to return,
@@ -4149,7 +4138,7 @@ book_backend_sqlitedb_search_full (EBookBackendSqliteDB *ebsdb,
  * for the provided query @sexp.
  * @with_all_required_fields: (allow none) (out): Whether all the required
  * fields are present in the returned vcards.
- * @error: 
+ * @error: A location to store any error that may have occurred
  *
  * Searching with summary fields is always supported. Search expressions
  * containing any other field is supported only if backend chooses to store
