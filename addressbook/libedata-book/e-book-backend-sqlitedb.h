@@ -96,18 +96,35 @@ typedef enum {
  * Since: 3.2
  **/
 struct _EBookBackendSqliteDB {
+	/*< private >*/
 	GObject parent;
 	EBookBackendSqliteDBPrivate *priv;
 };
 
+/**
+ * EBookBackendSqliteDBClass:
+ *
+ * Class structure for the #EBookBackendSqlite class.
+ */
 struct _EBookBackendSqliteDBClass {
+	/*< private >*/
 	GObjectClass parent_class;
 };
 
 /**
  * EbSdbSearchData:
+ * @vcard: The the vcard string
+ * @uid: The %E_CONTACT_UID field of this contact
+ * @bdata: Extra data set for this contact.
  *
- * FIXME: Document me.
+ * This structure is used to represent contacts returned
+ * by the EBookBackendSqliteDB from various functions
+ * such as e_book_backend_sqlitedb_search().
+ *
+ * The @bdata parameter will contain any data previously
+ * set for the given contact with e_book_backend_sqlitedb_set_contact_bdata().
+ *
+ * These should be freed with e_book_backend_sqlitedb_search_data_free().
  *
  * Since: 3.2
  **/

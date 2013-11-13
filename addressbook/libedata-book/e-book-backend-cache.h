@@ -55,12 +55,25 @@ typedef struct _EBookBackendCache EBookBackendCache;
 typedef struct _EBookBackendCacheClass EBookBackendCacheClass;
 typedef struct _EBookBackendCachePrivate EBookBackendCachePrivate;
 
+/**
+ * EBookBackendCache:
+ *
+ * Contains only private data that should be read and manipulated using the
+ * functions below.
+ */
 struct _EBookBackendCache {
+	/*< private >*/
 	EFileCache parent;
 	EBookBackendCachePrivate *priv;
 };
 
+/**
+ * EBookBackendCacheClass:
+ *
+ * Class structure for the #EBookBackendCache class.
+ */
 struct _EBookBackendCacheClass {
+	/*< private >*/
 	EFileCacheClass parent_class;
 };
 

@@ -1774,7 +1774,7 @@ summary_fields_add_indexes (GArray *array,
  * @folder_name: name of the address-book
  * @store_vcard: True if the vcard should be stored inside db, if FALSE only the summary fields would be stored inside db.
  * @setup: an #ESourceBackendSummarySetup describing how the summary should be setup
- * @error: A location to store any error that may have occurred
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Like e_book_backend_sqlitedb_new(), but allows configuration of which contact fields
  * will be stored for quick reference in the summary. The configuration indicated by
@@ -1873,7 +1873,7 @@ e_book_backend_sqlitedb_new_full (const gchar *path,
  * @folderid: folder id of the address-book
  * @folder_name: name of the address-book
  * @store_vcard: True if the vcard should be stored inside db, if FALSE only the summary fields would be stored inside db.
- * @error: A location to store any error that may have occurred.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * If the path for multiple addressbooks are same, the contacts from all addressbooks
  * would be stored in same db in different tables.
@@ -2362,7 +2362,7 @@ insert_contact (EBookBackendSqliteDB *ebsdb,
  * @folderid: folder id
  * @contact: EContact to be added
  * @replace_existing: Whether this contact should replace another contact with the same UID.
- * @error: A location to store any error that may have occurred.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * This is a convenience wrapper for e_book_backend_sqlitedb_new_contacts,
  * which is the preferred means to add or modify multiple contacts when possible.
@@ -2398,7 +2398,7 @@ e_book_backend_sqlitedb_new_contact (EBookBackendSqliteDB *ebsdb,
  * @folderid: folder id
  * @contacts: list of EContacts
  * @replace_existing: Whether this contact should replace another contact with the same UID.
- * @error: A location to store any error that may have occurred.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Adds or replaces contacts in @ebsdb. If @replace_existing is specified then existing
  * contacts with the same UID will be replaced, otherwise adding an existing contact
@@ -2465,7 +2465,7 @@ e_book_backend_sqlitedb_new_contacts (EBookBackendSqliteDB *ebsdb,
  * @contact: EContact to be added
  * @partial_content: contact does not contain full information. Used when
  * the backend cache's partial information for auto-completion.
- * @error: A location to store any error that may have occurred.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * This is a convenience wrapper for e_book_backend_sqlitedb_add_contacts,
  * which is the preferred means to add multiple contacts when possible.
@@ -2487,16 +2487,15 @@ e_book_backend_sqlitedb_add_contact (EBookBackendSqliteDB *ebsdb,
 }
 
 /**
- * e_book_backend_sqlitedb_add_contacts
- * @ebsdb:
+ * e_book_backend_sqlitedb_add_contacts:
+ * @ebsdb: An #EBookBackendSqliteDB
  * @folderid: folder id
  * @contacts: list of EContacts
  * @partial_content: contact does not contain full information. Used when
  * the backend cache's partial information for auto-completion.
- * @error:
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- *
- * Returns: TRUE on success.
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately.
  *
  * Since: 3.2
  *
@@ -2514,8 +2513,14 @@ e_book_backend_sqlitedb_add_contacts (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_remove_contact:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id
+ * @uid: the uid of the contact to remove
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Removes the contact indicated by @uid from the folder @folderid in @ebsdb.
+ *
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately.
  *
  * Since: 3.2
  **/
@@ -2584,8 +2589,14 @@ generate_delete_stmt (const gchar *table,
 
 /**
  * e_book_backend_sqlitedb_remove_contacts:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id
+ * @uids: a #GSList of uids indicating which contacts to remove
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Removes the contacts indicated by @uids from the folder @folderid in @ebsdb.
+ *
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately.
  *
  * Since: 3.2
  **/
@@ -2652,10 +2663,20 @@ contact_found_cb (gpointer ref,
 
 /**
  * e_book_backend_sqlitedb_has_contact:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id
+ * @uid: The uid of the contact to check for
+ * @partial_content: This parameter is deprecated and unused.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Checks if a contact bearing the UID indicated by @uid is stored
+ * in @folderid of @ebsdb.
  *
- * Note: The @partial_content is unused here.
+ * Returns: %TRUE if the the contact exists and there was no error, otherwise %FALSE.
+ *
+ * <note><para>In order to differentiate an error from a contact which simply
+ * is not stored in @ebsdb, you must pass the @error parameter and check whether
+ * it was set by this function.</para></note>
  *
  * Since: 3.2
  **/
@@ -2709,8 +2730,26 @@ get_vcard_cb (gpointer ref,
 
 /**
  * e_book_backend_sqlitedb_get_contact:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id
+ * @uid: The uid of the contact to fetch
+ * @fields_of_interest: (allow-none): A #GHashTable indicating which fields should be included in returned contacts
+ * @with_all_required_fields: (out) (allow-none): Whether all of the fields of interest were available
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Fetch the #EContact specified by @uid in @folderid of @ebsdb.
+ *
+ * <note><para>The @fields_of_interest parameter is a legacy parameter which can
+ * be used to specify that #EContacts with only the %E_CONTACT_UID
+ * and %E_CONTACT_REV fields. The hash table must use g_str_hash()
+ * and g_str_equal() and the keys 'uid' and 'rev' must be present.</para></note>
+ *
+ * <note><para>In order to differentiate an error from a contact which simply
+ * is not stored in @ebsdb, you must pass the @error parameter and check whether
+ * it was set by this function.</para></note>
+ *
+ * Returns: On success the #EContact corresponding to @uid is returned, otherwise %NULL is
+ * returned if there was an error or if no contact was found for @uid.
  *
  * Since: 3.2
  **/
@@ -2810,10 +2849,17 @@ e_book_backend_sqlitedb_is_summary_fields (GHashTable *fields_of_interest)
 /**
  * e_book_backend_sqlitedb_check_summary_fields:
  * @ebsdb: An #EBookBackendSqliteDB
- * @fields_of_interest: A hash table containing the fields of interest
+ * @fields_of_interest: A #GHashTable containing the fields of interest
  * 
  * Checks if all the specified fields are part of the configured summary
  * fields for @ebsdb
+ *
+ * <note><para>The @fields_of_interest parameter must use g_str_hash()
+ * and g_str_equal() and the keys in the hash table, specifying contact
+ * fields, should be derived using e_contact_field_name().</para></note>
+ *
+ * Returns: %TRUE if the fields specified in @fields_of_interest are configured
+ * in the summary.
  *
  * Since: 3.8
  **/
@@ -2907,8 +2953,8 @@ store_data_to_vcard (gpointer ref,
  * @folderid: The folder id
  * @uid: The uid to fetch a vcard for
  * @fields_of_interest: The required fields for this vcard, or %NULL to require all fields.
- * @with_all_required_fields: (allow none) (out): Whether all the required fields are present in the returned vcard.
- * @error: A location to store any error that may have occurred.
+ * @with_all_required_fields: (allow-none) (out): Whether all the required fields are present in the returned vcard.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Searches @ebsdb in the context of @folderid for @uid.
  *
@@ -3252,12 +3298,14 @@ e_book_backend_sqlitedb_check_summary_query_locked (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_check_summary_query:
- * @ebsdb: an #EBookBackendSqliteDB
+ * @ebsdb: An #EBookBackendSqliteDB
  * @query: the query to check
  * @with_list_attrs: Return location to store whether the query touches upon list attributes
  *
  * Checks whether @query contains only checks for the summary fields
  * configured in @ebsdb
+ *
+ * Returns: %TRUE if @query contains only fields configured in the summary.
  *
  * Since: 3.8
  **/
@@ -3279,8 +3327,11 @@ e_book_backend_sqlitedb_check_summary_query (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_is_summary_query:
+ * @query: the query to check
  *
  * Checks whether the query contains only checks for the default summary fields
+ *
+ * Returns: %TRUE if @query contains only fields configured in the summary.
  *
  * Since: 3.2
  *
@@ -4128,32 +4179,35 @@ book_backend_sqlitedb_search_full (EBookBackendSqliteDB *ebsdb,
  * e_book_backend_sqlitedb_search:
  * @ebsdb: An #EBookBackendSqliteDB
  * @folderid: folder id of the address-book
- * @sexp: search expression; use NULL or an empty string to get all stored
- * contacts.
- * @fields_of_interest: a #GHashTable containing the names of fields to return,
- * or NULL for all.  At the moment if this is non-null, the vcard will be
- * populated with summary fields, else it would return the whole vcard if
- * its stored in the db. [not implemented fully]
- * @searched: (allow none) (out): Whether @ebsdb was capable of searching
+ * @sexp: (allow-none): search expression; use %NULL or an empty string to get all stored contacts.
+ * @fields_of_interest: (allow-none): A #GHashTable indicating which fields should be 
+ * included in the returned contacts
+ * @searched: (allow-none) (out): Whether @ebsdb was capable of searching
  * for the provided query @sexp.
- * @with_all_required_fields: (allow none) (out): Whether all the required
+ * @with_all_required_fields: (allow-none) (out): Whether all the required
  * fields are present in the returned vcards.
- * @error: A location to store any error that may have occurred
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Searching with summary fields is always supported. Search expressions
  * containing any other field is supported only if backend chooses to store
  * the vcard inside the db.
  *
- * Summary fields - uid, rev, nickname, given_name, family_name, file_as
- * email_1, email_2, email_3, email_4, is_list, list_show_addresses, wants_html
+ * If not configured otherwise, the default summary fields include:
+ *   uid, rev, file_as, nickname, full_name, given_name, family_name,
+ *   email, is_list, list_show_addresses, wants_html.
  *
- * If @ebsdb was incapable of returning vcards with results that satisfy
- * @fields_of_interest, then @with_all_required_fields will be updated to
- * @FALSE and only uid fields will be present in the returned vcards. This
- * can be useful when a summary query succeeds and the returned list can be
- * used to iterate and fetch for full required data from another persistance.
+ * Summary fields can be configured at addressbook creation time using
+ * the #ESourceBackendSummarySetup source extension.
  *
- * Returns: List of EbSdbSearchData.
+ * <note><para>The @fields_of_interest parameter is a legacy parameter which can
+ * be used to specify that #EContacts with only the %E_CONTACT_UID
+ * and %E_CONTACT_REV fields. The hash table must use g_str_hash()
+ * and g_str_equal() and the keys 'uid' and 'rev' must be present.</para></note>
+ *
+ * The returned list should be freed with g_slist_free()
+ * and all elements freed with e_book_backend_sqlitedb_search_data_free().
+ *
+ * Returns: (transfer full): A #GSList of #EbSdbSearchData structures.
  *
  * Since: 3.2
  **/
@@ -4235,8 +4289,18 @@ e_book_backend_sqlitedb_search (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_search_uids:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @sexp: (allow-none): search expression; use %NULL or an empty string to get all stored contacts.
+ * @searched: (allow-none) (out): Whether @ebsdb was capable of searching for the provided query @sexp.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Similar to e_book_backend_sqlitedb_search(), but returns only a list of contact UIDs.
+ *
+ * The returned list should be freed with g_slist_free()
+ * and all elements freed with g_free().
+ *
+ * Returns: (transfer full): A #GSList of allocated contact UID strings.
  *
  * Since: 3.2
  **/
@@ -4347,11 +4411,16 @@ get_uids_and_rev_cb (gpointer user_data,
 
 /**
  * e_book_backend_sqlitedb_get_uids_and_rev:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Gets hash table of all uids (key) and rev (value) pairs stored
  * for each contact in the cache. The hash table should be freed
  * with g_hash_table_destroy(), if not needed anymore. Each key
  * and value is a newly allocated string.
+ *
+ * Returns: (transfer full): A #GHashTable of all contact revisions by UID.
  *
  * Since: 3.4
  **/
@@ -4383,8 +4452,17 @@ e_book_backend_sqlitedb_get_uids_and_rev (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_get_is_populated:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Checks whether the 'is populated' flag is set for @folderid in @ebsdb.
+ *
+ * <note><para>In order to differentiate an error from the flag simply being
+ * %FALSE for @ebsdb, you must pass the @error parameter and check whether
+ * it was set by this function.</para></note>
+ *
+ * Returns: Whether the 'is populated' flag is set.
  *
  * Since: 3.2
  **/
@@ -4416,8 +4494,14 @@ e_book_backend_sqlitedb_get_is_populated (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_set_is_populated:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @populated: The new value for the 'is populated' flag.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Sets the value of the 'is populated' flag for @folderid in @ebsdb.
+ *
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately. 
  *
  * Since: 3.2
  **/
@@ -4464,14 +4548,11 @@ e_book_backend_sqlitedb_set_is_populated (EBookBackendSqliteDB *ebsdb,
  * @folderid: folder id of the address-book
  * @revision_out: (out) (transfer full): The location to return the current
  * revision
- * @error: A location to store any error that may have occurred
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Fetches the current revision for the address-book indicated by @folderid.
  *
- * Upon success, @revision_out will hold the returned revision, otherwise
- * %FALSE will be returned and @error will be updated accordingly.
- *
- * Returns: Whether the revision was successfully fetched.
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately. 
  *
  * Since: 3.8
  */
@@ -4506,11 +4587,11 @@ e_book_backend_sqlitedb_get_revision (EBookBackendSqliteDB *ebsdb,
  * @ebsdb: An #EBookBackendSqliteDB
  * @folderid: folder id of the address-book
  * @revision: The new revision
- * @error: A location to store any error that may have occurred
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Sets the current revision for the address-book indicated by @folderid to be @revision.
  *
- * Returns: Whether the revision was successfully set.
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately. 
  *
  * Since: 3.8
  */
@@ -4553,13 +4634,20 @@ e_book_backend_sqlitedb_set_revision (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_get_has_partial_content 
- * @ebsdb: 
- * @folderid: 
- * @error: 
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @error: (allow-none): A location to store any error that may have occurred.
+ *
+ * Fetches the 'partial content' flag from @folderid in @ebsdb.
+ *
+ * This flag is intended to indicate whether the stored vcards contain the full data or
+ * whether they were downloaded only partially.
+ *
+ * <note><para>In order to differentiate an error from the flag simply being
+ * %FALSE for @ebsdb, you must pass the @error parameter and check whether
+ * it was set by this function.</para></note>
  * 
- * 
- * Returns: TRUE if the vcards stored in the db were downloaded partially. It is to indicate
- * the stored vcards does not contain the full data.
+ * Returns: %TRUE if the vcards stored in the db were downloaded partially.
  *
  * Since: 3.2
  **/
@@ -4590,8 +4678,14 @@ e_book_backend_sqlitedb_get_has_partial_content (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_set_has_partial_content:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @partial_content: new value for the 'partial content' flag
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Sets the value of the 'partial content' flag in @folderid of @ebsdb.
+ *
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately. 
  *
  * Since: 3.2
  **/
@@ -4634,8 +4728,18 @@ e_book_backend_sqlitedb_set_has_partial_content (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_get_contact_bdata:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @uid: The UID of the contact to fetch extra data for.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Fetches extra auxiliary data previously set for @uid.
+ *
+ * <note><para>In order to differentiate an error from the @uid simply
+ * not being present in @ebsdb, you must pass the @error parameter and
+ * check whether it was set by this function.</para></note>
+ *
+ * Returns: (transfer full): The extra data previously set for @uid, or %NULL
  *
  * Since: 3.2
  **/
@@ -4672,8 +4776,15 @@ e_book_backend_sqlitedb_get_contact_bdata (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_set_contact_bdata:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @uid: The UID of the contact to fetch extra data for.
+ * @value: The auxiliary data to set for @uid in @folderid.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Sets the extra auxiliary data for the contact indicated by @uid.
+ *
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately. 
  *
  * Since: 3.2
  **/
@@ -4719,8 +4830,13 @@ e_book_backend_sqlitedb_set_contact_bdata (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_get_sync_data:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Fetches data previously set with e_book_backend_sqlitedb_set_sync_data() for the given @folderid.
+ *
+ * Returns: (transfer full): The data previously set with e_book_backend_sqlitedb_set_sync_data().
  *
  * Since: 3.2
  **/
@@ -4750,8 +4866,14 @@ e_book_backend_sqlitedb_get_sync_data (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_set_sync_data:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @sync_data: The data to set.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Sets some auxiliary data for the given @folderid in @ebsdb.
+ *
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately. 
  *
  * Since: 3.2
  **/
@@ -4795,8 +4917,15 @@ e_book_backend_sqlitedb_set_sync_data (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_get_key_value:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @key: the key to fetch a value for
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Fetches data previously set with e_book_backend_sqlitedb_set_key_value() for the
+ * given @key in @folderid.
+ *
+ * Returns: (transfer full): The data previously set with e_book_backend_sqlitedb_set_key_value().
  *
  * Since: 3.2
  **/
@@ -4828,8 +4957,15 @@ e_book_backend_sqlitedb_get_key_value (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_set_key_value:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @key: the key to fetch a value for
+ * @value: the value to story for @key in @folderid
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Sets the auxiliary data @value to be stored in relation to @key in @folderid.
+ *
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately. 
  *
  * Since: 3.2
  **/
@@ -4875,10 +5011,13 @@ e_book_backend_sqlitedb_set_key_value (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_get_partially_cached_ids:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Obsolete, do not use, this always ends with an error.
  *
- * Note: Obsolete, do not use, it always ends with an error
+ * Returns: %NULL
  *
  * Since: 3.2
  **/
@@ -4909,8 +5048,13 @@ e_book_backend_sqlitedb_get_partially_cached_ids (EBookBackendSqliteDB *ebsdb,
 
 /**
  * e_book_backend_sqlitedb_delete_addressbook:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @folderid: folder id of the address-book
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Deletes the addressbook indicated by @folderid in @ebsdb.
+ *
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately. 
  *
  * Since: 3.2
  **/
@@ -4977,8 +5121,9 @@ rollback:
 
 /**
  * e_book_backend_sqlitedb_search_data_free:
+ * @s_data: An #EbSdbSearchData
  *
- * FIXME: Document me.
+ * Frees an #EbSdbSearchData
  *
  * Since: 3.2
  **/
@@ -4995,8 +5140,15 @@ e_book_backend_sqlitedb_search_data_free (EbSdbSearchData *s_data)
 
 /**
  * e_book_backend_sqlitedb_remove:
+ * @ebsdb: An #EBookBackendSqliteDB
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
- * FIXME: Document me.
+ * Removes the entire @ebsdb from storage on disk.
+ *
+ * FIXME: it is unclear when it is safe to call this function,
+ * it should probably be deprecated.
+ *
+ * Returns: %TRUE on success, otherwise %FALSE is returned and @error is set appropriately.
  *
  * Since: 3.2
  **/
@@ -5121,7 +5273,7 @@ sqlitedb_set_locale_internal (EBookBackendSqliteDB *ebsdb,
  * @ebsdb: An #EBookBackendSqliteDB
  * @folderid: folder id of the address-book
  * @lc_collate: The new locale for the addressbook
- * @error: A location to store any error that may have occurred
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Relocalizes any locale specific data in the specified
  * new @lc_collate locale.
@@ -5208,7 +5360,7 @@ e_book_backend_sqlitedb_set_locale (EBookBackendSqliteDB *ebsdb,
  * @ebsdb: An #EBookBackendSqliteDB
  * @folderid: folder id of the address-book
  * @locale_out: (out) (transfer full): The location to return the current locale
- * @error: A location to store any error that may have occurred
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Fetches the current locale setting for the address-book indicated by @folderid.
  *
@@ -5750,7 +5902,7 @@ cursor_count_position_locked (EBookBackendSqliteDB *ebsdb,
  * @sort_fields: (array length=n_sort_fields): An array of #EContactFields as sort keys in order of priority
  * @sort_types: (array length=n_sort_fields): An array of #EBookCursorSortTypes, one for each field in @sort_fields
  * @n_sort_fields: The number of fields to sort results by.
- * @error: A return location to store any error that might be reported.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Creates a new #EbSdbCursor.
  *
@@ -5880,7 +6032,7 @@ collect_results_for_cursor_cb (gpointer ref,
  * @count: A positive or negative amount of contacts to try and fetch
  * @results: (out) (allow-none) (element-type EbSdbSearchData) (transfer full):
  *   A return location to store the results, or %NULL if %EBSDB_CURSOR_STEP_FETCH is not specified in %flags.
- * @error: A return location to store any error that might be reported.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Steps @cursor through it's sorted query by a maximum of @count contacts
  * starting from @origin.
@@ -6139,7 +6291,7 @@ e_book_backend_sqlitedb_cursor_set_target_alphabetic_index (EBookBackendSqliteDB
  * @ebsdb: An #EBookBackendSqliteDB
  * @cursor: The #EbSdbCursor
  * @sexp: The new query expression for @cursor
- * @error: A return location to store any error that might be reported.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Modifies the current query expression for @cursor. This will not
  * modify @cursor's state, but will change the outcome of any further
@@ -6183,7 +6335,7 @@ e_book_backend_sqlitedb_cursor_set_sexp (EBookBackendSqliteDB *ebsdb,
  * @cursor: The #EbSdbCursor
  * @total: (out) (allow-none): A return location to store the total result set for this cursor
  * @position: (out) (allow-none): A return location to store the total results before the cursor value
- * @error: (allow-none): A return location to store any error that might be reported.
+ * @error: (allow-none): A location to store any error that may have occurred.
  *
  * Calculates the @total amount of results for the @cursor's query expression,
  * as well as the current @position of @cursor in the results. @position is

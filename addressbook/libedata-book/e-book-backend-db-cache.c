@@ -425,6 +425,8 @@ e_book_backend_db_cache_is_populated (DB *db)
 
 /**
  * e_book_backend_db_cache_set_time:
+ * @db: A Berkeley DB handle
+ * @t: The time in string format
  *
  * Since: 2.26
  **/
@@ -446,6 +448,7 @@ e_book_backend_db_cache_set_time (DB *db,
 
 /**
  * e_book_backend_db_cache_get_time:
+ * @db: A Berkeley DB handle
  *
  * Since: 2.26
  **/
