@@ -42,5 +42,5 @@ main (gint argc,
 	step_test_add_assertion (data, -8, 16, 17, 5, 1, 8, 3, 2, 11);
 	step_test_add (data, TRUE);
 
-	return e_test_server_utils_run ();
+	return g_test_run ();
 }
