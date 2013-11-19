@@ -56,9 +56,11 @@
 
 #define PAS_ID_PREFIX "pas-id-"
 
-#define SQLITEDB_EMAIL_ID    "addressbook@localbackend.com"
+/* We need to specify the folderid in order to properly
+ * migrate data from the old EBookSqliteDB API.
+ */
 #define SQLITEDB_FOLDER_ID   "folder_id"
-#define SQLITEDB_FOLDER_NAME "folder"
+#define SQLITE_REVISION_KEY  "revision"
 
 /* Forward Declarations */
 static void	e_book_backend_file_initable_init
@@ -82,7 +84,7 @@ struct _EBookBackendFilePrivate {
 	GRWLock    lock;
 	GList     *cursors;
 
-	EBookBackendSqliteDB *sqlitedb;
+	EBookSqlite *sqlitedb;
 };
 
 /****************************************************************
@@ -647,11 +649,10 @@ e_book_backend_file_bump_revision (EBookBackendFile *bf,
 	gboolean success;
 
 	new_revision = e_book_backend_file_new_revision (bf);
-
-	success = e_book_backend_sqlitedb_set_revision (bf->priv->sqlitedb,
-							SQLITEDB_FOLDER_ID,
-							new_revision,
-							&local_error);
+	success = e_book_sqlite_set_key_value (bf->priv->sqlitedb,
+					       SQLITE_REVISION_KEY,
+					       new_revision,
+					       &local_error);
 
 	if (success) {
 		g_free (bf->priv->revision);
@@ -676,10 +677,10 @@ e_book_backend_file_load_revision (EBookBackendFile *bf)
 {
 	GError *error = NULL;
 
-	if (!e_book_backend_sqlitedb_get_revision (bf->priv->sqlitedb,
-						   SQLITEDB_FOLDER_ID,
-						   &bf->priv->revision,
-						   &error)) {
+	if (!e_book_sqlite_get_key_value (bf->priv->sqlitedb,
+					  SQLITE_REVISION_KEY,
+					  &bf->priv->revision,
+					  &error)) {
 		g_warning (
 			G_STRLOC ": Error loading database revision: %s",
 			error ? error->message : "Unknown error");
@@ -694,10 +695,9 @@ e_book_backend_file_load_locale (EBookBackendFile *bf)
 {
 	GError *error = NULL;
 
-	if (!e_book_backend_sqlitedb_get_locale (bf->priv->sqlitedb,
-						 SQLITEDB_FOLDER_ID,
-						 &bf->priv->locale,
-						 &error)) {
+	if (!e_book_sqlite_get_locale (bf->priv->sqlitedb,
+				       &bf->priv->locale,
+				       &error)) {
 		g_warning (
 			G_STRLOC ": Error loading database locale setting: %s",
 			error ? error->message : "Unknown error");
@@ -826,19 +826,18 @@ do_create (EBookBackendFile *bf,
 		GList *tail, *link;
 		GSList *slist = NULL, *l;
 
-		/* XXX EBookBackendSqliteDB still uses GSList. */
+		/* EBookSqlite uses GSList. */
 		tail = g_queue_peek_tail_link (&queue);
 		for (link = tail; link != NULL; link = g_list_previous (link))
 			slist = g_slist_prepend (slist, link->data);
 
-		if (!e_book_backend_sqlitedb_new_contacts (bf->priv->sqlitedb,
-							   SQLITEDB_FOLDER_ID,
-							   slist, FALSE,
-							   &local_error)) {
+		if (!e_book_sqlite_add_contacts (bf->priv->sqlitedb,
+						 slist, NULL, FALSE,
+						 &local_error)) {
 
 			if (g_error_matches (local_error,
-					     E_BOOK_SDB_ERROR,
-					     E_BOOK_SDB_ERROR_CONSTRAINT)) {
+					     E_BOOK_SQL_ERROR,
+					     E_BOOK_SQL_ERROR_CONSTRAINT)) {
 				g_set_error (
 					error, E_BOOK_CLIENT_ERROR,
 					E_BOOK_CLIENT_ERROR_CONTACT_ID_ALREADY_EXISTS,
@@ -923,6 +922,28 @@ notify_update_vcard (EDataBookView *book_view,
 		e_data_book_view_notify_update_vcard (book_view, id, vcard);
 }
 
+static gboolean
+uid_rev_fields (GHashTable *fields_of_interest)
+{
+	GHashTableIter iter;
+	gpointer key, value;
+
+	if (!fields_of_interest || g_hash_table_size (fields_of_interest) > 2)
+		return FALSE;
+
+	g_hash_table_iter_init (&iter, fields_of_interest);
+	while (g_hash_table_iter_next (&iter, &key, &value)) {
+		const gchar *field_name = key;
+		EContactField field = e_contact_field_id (field_name);
+
+		if (field != E_CONTACT_UID &&
+		    field != E_CONTACT_REV)
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
 static gpointer
 book_view_thread (gpointer data)
 {
@@ -931,9 +952,10 @@ book_view_thread (gpointer data)
 	EBookBackendFile *bf;
 	EBookBackendSExp *sexp;
 	const gchar *query;
-	GSList *summary_list, *l;
+	GSList *summary_list = NULL, *l;
 	GHashTable *fields_of_interest;
 	GError *local_error = NULL;
+	gboolean meta_contact, success;
 
 	g_return_val_if_fail (E_IS_DATA_BOOK_VIEW (data), NULL);
 
@@ -955,6 +977,7 @@ book_view_thread (gpointer data)
 	query = e_book_backend_sexp_text (sexp);
 
 	fields_of_interest = e_data_book_view_get_fields_of_interest (book_view);
+	meta_contact = uid_rev_fields (fields_of_interest);
 
 	if ( !strcmp (query, "(contains \"x-evolution-any-field\" \"\")")) {
 		e_data_book_view_notify_progress (book_view, -1, _("Loading..."));
@@ -966,14 +989,14 @@ book_view_thread (gpointer data)
 	e_flag_set (closure->running);
 
 	g_rw_lock_reader_lock (&(bf->priv->lock));
-	summary_list = e_book_backend_sqlitedb_search (
-		bf->priv->sqlitedb,
-		SQLITEDB_FOLDER_ID,
-		query, fields_of_interest,
-		NULL, NULL, &local_error);
+	success = e_book_sqlite_search (bf->priv->sqlitedb,
+					query,
+					meta_contact,
+					&summary_list,
+					&local_error);
 	g_rw_lock_reader_unlock (&(bf->priv->lock));
 
-	if (!summary_list && local_error != NULL) {
+	if (!success) {
 		g_warning (G_STRLOC ": Failed to query initial contacts: %s", local_error->message);
 		g_error_free (local_error);
 		e_data_book_view_notify_complete (
@@ -988,7 +1011,7 @@ book_view_thread (gpointer data)
 	}
 
 	for (l = summary_list; l; l = l->next) {
-		EbSdbSearchData *data = l->data;
+		EbSqlSearchData *data = l->data;
 		gchar *vcard = NULL;
 
 		vcard = data->vcard;
@@ -998,7 +1021,7 @@ book_view_thread (gpointer data)
 		g_free (vcard);
 	}
 
-	g_slist_foreach (summary_list, (GFunc) e_book_backend_sqlitedb_search_data_free, NULL);
+	g_slist_foreach (summary_list, (GFunc) e_book_sqlite_search_data_free, NULL);
 	g_slist_free (summary_list);
 
 	if (e_flag_is_set (closure->running))
@@ -1009,44 +1032,6 @@ book_view_thread (gpointer data)
 	d (printf ("finished population of book view\n"));
 
 	return NULL;
-}
-
-static void
-view_notify_update (EBookBackendFile *backend,
-                    EDataBookView *view,
-                    EContact *contact)
-{
-	EBookBackendSExp *sexp;
-	GHashTable *fields   = e_data_book_view_get_fields_of_interest (view);
-	const gchar *query;
-	gboolean    notified = FALSE;
-	gboolean    with_all_required_fields = FALSE;
-
-	sexp = e_data_book_view_get_sexp (view);
-	query = e_book_backend_sexp_text (sexp);
-
-	if (e_book_backend_sqlitedb_check_summary_query (backend->priv->sqlitedb, query, NULL) &&
-	    e_book_backend_sqlitedb_check_summary_fields (backend->priv->sqlitedb, fields)) {
-
-		const gchar *uid = e_contact_get_const (contact, E_CONTACT_UID);
-		gchar       *vcard;
-
-		vcard = e_book_backend_sqlitedb_get_vcard_string (
-			backend->priv->sqlitedb,
-			SQLITEDB_FOLDER_ID, uid,
-			fields, &with_all_required_fields, NULL);
-
-		if (vcard) {
-			if (with_all_required_fields) {
-				e_data_book_view_notify_update_prefiltered_vcard (view, uid, vcard);
-				notified = TRUE;
-			}
-			g_free (vcard);
-		}
-	}
-
-	if (!notified)
-		e_data_book_view_notify_update (view, contact);
 }
 
 static void
@@ -1179,7 +1164,7 @@ book_backend_file_create_contacts_sync (EBookBackend *backend,
 
 	g_rw_lock_writer_lock (&(bf->priv->lock));
 
-	success = e_book_backend_sqlitedb_lock_updates (bf->priv->sqlitedb, error);
+	success = e_book_sqlite_lock_updates (bf->priv->sqlitedb, TRUE, error);
 
 	if (success)
 		success = do_create (bf, vcards, out_contacts, error);
@@ -1188,13 +1173,13 @@ book_backend_file_create_contacts_sync (EBookBackend *backend,
 		success = e_book_backend_file_bump_revision (bf, error);
 
 	if (success)
-		success = e_book_backend_sqlitedb_unlock_updates (bf->priv->sqlitedb,
-								  TRUE, error);
+		success = e_book_sqlite_unlock_updates (bf->priv->sqlitedb,
+							TRUE, error);
 	else {
 		GError *local_error = NULL;
 
 		/* Rollback transaction */
-		if (!e_book_backend_sqlitedb_unlock_updates (bf->priv->sqlitedb, FALSE, &local_error)) {
+		if (!e_book_sqlite_unlock_updates (bf->priv->sqlitedb, FALSE, &local_error)) {
 			g_warning ("Failed to rollback transaction after failing to add contacts: %s",
 				   local_error->message);
 			g_clear_error (&local_error);
@@ -1225,12 +1210,12 @@ book_backend_file_modify_contacts_sync (EBookBackend *backend,
 
 	g_rw_lock_writer_lock (&(bf->priv->lock));
 
-	if (!e_book_backend_sqlitedb_lock_updates (bf->priv->sqlitedb, error))
+	if (!e_book_sqlite_lock_updates (bf->priv->sqlitedb, TRUE, error))
 		status = STATUS_ERROR;
 
 	for (ii = 0; ii < length && status != STATUS_ERROR; ii++) {
 		gchar *id;
-		EContact *mod_contact, *old_contact;
+		EContact *mod_contact, *old_contact = NULL;
 		const gchar *mod_contact_rev, *old_contact_rev;
 
 		mod_contact = e_contact_new_from_vcard (vcards[ii]);
@@ -1247,11 +1232,9 @@ book_backend_file_modify_contacts_sync (EBookBackend *backend,
 			break;
 		}
 
-		old_contact = e_book_backend_sqlitedb_get_contact (
-			bf->priv->sqlitedb,
-			SQLITEDB_FOLDER_ID, id,
-			NULL, NULL, &local_error);
-		if (!old_contact) {
+		if (!e_book_sqlite_get_contact (bf->priv->sqlitedb,
+						id, FALSE, &old_contact,
+						&local_error)) {
 			g_warning (G_STRLOC ": Failed to load contact %s: %s", id, local_error->message);
 			g_propagate_error (error, local_error);
 			local_error = NULL;
@@ -1325,7 +1308,7 @@ book_backend_file_modify_contacts_sync (EBookBackend *backend,
 			mod_link = g_list_next (mod_link);
 		}
 
-		/* XXX EBookBackendSqliteDB still uses GSList. */
+		/* XXX EBookSqlite still uses GSList. */
 		mod_link = g_queue_peek_tail_link (&mod_contact_queue);
 		while (mod_link != NULL) {
 			slist = g_slist_prepend (slist, mod_link->data);
@@ -1333,10 +1316,9 @@ book_backend_file_modify_contacts_sync (EBookBackend *backend,
 		}
 
 		/* Update summary as well */
-		if (!e_book_backend_sqlitedb_new_contacts (bf->priv->sqlitedb,
-							   SQLITEDB_FOLDER_ID,
-							   slist, TRUE,
-							   &local_error)) {
+		if (!e_book_sqlite_add_contacts (bf->priv->sqlitedb,
+						 slist, NULL, TRUE,
+						 &local_error)) {
 			g_warning ("Failed to modify contacts: %s", local_error->message);
 			g_propagate_error (error, local_error);
 			local_error = NULL;
@@ -1356,13 +1338,13 @@ book_backend_file_modify_contacts_sync (EBookBackend *backend,
 	/* Commit or rollback transaction */
 	if (status != STATUS_ERROR) {
 
-		if (!e_book_backend_sqlitedb_unlock_updates (bf->priv->sqlitedb,
-							     TRUE, error))
+		if (!e_book_sqlite_unlock_updates (bf->priv->sqlitedb,
+						   TRUE, error))
 			status = STATUS_ERROR;
 
 	} else {
 		/* Rollback transaction */
-		if (!e_book_backend_sqlitedb_unlock_updates (bf->priv->sqlitedb, FALSE, &local_error)) {
+		if (!e_book_sqlite_unlock_updates (bf->priv->sqlitedb, FALSE, &local_error)) {
 			g_warning ("Failed to rollback transaction after failing to modify contacts: %s",
 				   local_error->message);
 			g_clear_error (&local_error);
@@ -1418,31 +1400,28 @@ book_backend_file_remove_contacts_sync (EBookBackend *backend,
 
 	g_rw_lock_writer_lock (&(bf->priv->lock));
 
-	success = e_book_backend_sqlitedb_lock_updates (bf->priv->sqlitedb, error);
+	success = e_book_sqlite_lock_updates (bf->priv->sqlitedb, TRUE, error);
 
 	for (ii = 0; ii < length && success; ii++) {
-		EContact *contact;
+		EContact *contact = NULL;
 
 		/* First load the EContacts which need to be removed, we might delete some
 		 * photos from disk because of this...
 		 *
-		 * Note: sqlitedb backend can probably make this faster by executing a
+		 * Note: sqlite backend can probably make this faster by executing a
 		 * single query to fetch a list of contacts for a list of ids, the
 		 * current method makes a query for each UID.
 		 */
-		contact = e_book_backend_sqlitedb_get_contact (
-			bf->priv->sqlitedb,
-			SQLITEDB_FOLDER_ID, uids[ii],
-			NULL, NULL, &local_error);
-
-		if (contact) {
+		if (e_book_sqlite_get_contact (bf->priv->sqlitedb,
+					       uids[ii], FALSE, &contact,
+					       &local_error)) {
 			removed_ids      = g_slist_prepend (removed_ids, g_strdup (uids[ii]));
 			removed_contacts = g_slist_prepend (removed_contacts, contact);
 		} else {
 
 			if (g_error_matches (local_error,
-					     E_BOOK_SDB_ERROR,
-					     E_BOOK_SDB_ERROR_CONTACT_NOT_FOUND)) {
+					     E_BOOK_SQL_ERROR,
+					     E_BOOK_SQL_ERROR_CONTACT_NOT_FOUND)) {
 				g_set_error (
 					error, E_BOOK_CLIENT_ERROR,
 					E_BOOK_CLIENT_ERROR_CONTACT_NOT_FOUND,
@@ -1467,9 +1446,8 @@ book_backend_file_remove_contacts_sync (EBookBackend *backend,
 		}
 
 		/* Remove from summary as well */
-		if (!e_book_backend_sqlitedb_remove_contacts (bf->priv->sqlitedb,
-						      SQLITEDB_FOLDER_ID,
-						      removed_ids, &local_error)) {
+		if (!e_book_sqlite_remove_contacts (bf->priv->sqlitedb,
+						    removed_ids, &local_error)) {
 			g_warning ("Failed to remove contacts: %s", local_error->message);
 			g_propagate_error (error, local_error);
 		}
@@ -1479,11 +1457,11 @@ book_backend_file_remove_contacts_sync (EBookBackend *backend,
 
 	/* Commit or rollback transaction */
 	if (success) {
-		success = e_book_backend_sqlitedb_unlock_updates (bf->priv->sqlitedb,
-								  TRUE, error);
+		success = e_book_sqlite_unlock_updates (bf->priv->sqlitedb,
+							TRUE, error);
 	} else {
 		/* Rollback transaction */
-		if (!e_book_backend_sqlitedb_unlock_updates (bf->priv->sqlitedb, FALSE, &local_error)) {
+		if (!e_book_sqlite_unlock_updates (bf->priv->sqlitedb, FALSE, &local_error)) {
 			g_warning ("Failed to rollback transaction after failing to modify contacts: %s",
 				   local_error->message);
 			g_clear_error (&local_error);
@@ -1512,28 +1490,21 @@ book_backend_file_get_contact_sync (EBookBackend *backend,
                                     GError **error)
 {
 	EBookBackendFile *bf = E_BOOK_BACKEND_FILE (backend);
-	EContact *contact;
+	EContact *contact = NULL;
+	gboolean success;
 	GError *local_error = NULL;
 
 	g_rw_lock_reader_lock (&(bf->priv->lock));
-
-	contact = e_book_backend_sqlitedb_get_contact (
-		bf->priv->sqlitedb,
-		SQLITEDB_FOLDER_ID, uid,
-		NULL, NULL, &local_error);
-
+	success = e_book_sqlite_get_contact (bf->priv->sqlitedb,
+					     uid, FALSE, &contact,
+					     &local_error);
 	g_rw_lock_reader_unlock (&(bf->priv->lock));
 
-	/* Sanity check. */
-	g_return_val_if_fail (
-		((contact != NULL) && (local_error == NULL)) ||
-		((contact == NULL) && (local_error != NULL)), NULL);
-
-	if (local_error) {
+	if (!success) {
 
 		if (g_error_matches (local_error,
-				     E_BOOK_SDB_ERROR,
-				     E_BOOK_SDB_ERROR_CONTACT_NOT_FOUND)) {
+				     E_BOOK_SQL_ERROR,
+				     E_BOOK_SQL_ERROR_CONTACT_NOT_FOUND)) {
 			g_set_error (
 				error, E_BOOK_CLIENT_ERROR,
 				E_BOOK_CLIENT_ERROR_CONTACT_NOT_FOUND,
@@ -1555,7 +1526,7 @@ book_backend_file_get_contact_list_sync (EBookBackend *backend,
                                          GError **error)
 {
 	EBookBackendFile *bf = E_BOOK_BACKEND_FILE (backend);
-	GSList *summary_list;
+	GSList *summary_list = NULL;
 	GSList *link;
 	gboolean success = TRUE;
 	GError *local_error = NULL;
@@ -1563,19 +1534,20 @@ book_backend_file_get_contact_list_sync (EBookBackend *backend,
 	d (printf ("book_backend_file_get_contact_list_sync (%s)\n", query));
 
 	g_rw_lock_reader_lock (&(bf->priv->lock));
-	summary_list = e_book_backend_sqlitedb_search (
-		bf->priv->sqlitedb, SQLITEDB_FOLDER_ID,
-		query, NULL,
-		NULL, NULL, &local_error);
+	success = e_book_sqlite_search (bf->priv->sqlitedb,
+					query,
+					FALSE,
+					&summary_list,
+					&local_error);
 	g_rw_lock_reader_unlock (&(bf->priv->lock));
 
-	if (local_error != NULL) {
+	if (!success) {
 
 		g_warn_if_fail (summary_list == NULL);
 
 		if (g_error_matches (local_error,
-				     E_BOOK_SDB_ERROR,
-				     E_BOOK_SDB_ERROR_NOT_SUPPORTED)) {
+				     E_BOOK_SQL_ERROR,
+				     E_BOOK_SQL_ERROR_NOT_SUPPORTED)) {
 			g_set_error (
 				error, E_CLIENT_ERROR,
 				E_CLIENT_ERROR_NOT_SUPPORTED,
@@ -1583,8 +1555,8 @@ book_backend_file_get_contact_list_sync (EBookBackend *backend,
 			g_error_free (local_error);
 
 		} else if (g_error_matches (local_error,
-				     E_BOOK_SDB_ERROR,
-				     E_BOOK_SDB_ERROR_INVALID_QUERY)) {
+				     E_BOOK_SQL_ERROR,
+				     E_BOOK_SQL_ERROR_INVALID_QUERY)) {
 			g_set_error (
 				error, E_CLIENT_ERROR,
 				E_CLIENT_ERROR_INVALID_QUERY,
@@ -1595,12 +1567,10 @@ book_backend_file_get_contact_list_sync (EBookBackend *backend,
 			g_warning ("Failed to fetch contact ids: %s", local_error->message);
 			g_propagate_error (error, local_error);
 		}
-
-		success = FALSE;
 	}
 
 	for (link = summary_list; link != NULL; link = g_slist_next (link)) {
-		EbSdbSearchData *data = link->data;
+		EbSqlSearchData *data = link->data;
 		EContact *contact;
 
 		contact = e_contact_new_from_vcard (data->vcard);
@@ -1609,7 +1579,7 @@ book_backend_file_get_contact_list_sync (EBookBackend *backend,
 
 	g_slist_free_full (
 		summary_list, (GDestroyNotify)
-		e_book_backend_sqlitedb_search_data_free);
+		e_book_sqlite_search_data_free);
 
 	return success;
 }
@@ -1622,7 +1592,7 @@ book_backend_file_get_contact_list_uids_sync (EBookBackend *backend,
                                               GError **error)
 {
 	EBookBackendFile *bf = E_BOOK_BACKEND_FILE (backend);
-	GSList *uids;
+	GSList *uids = NULL;
 	GSList *link;
 	gboolean success = TRUE;
 	GError *local_error = NULL;
@@ -1630,19 +1600,19 @@ book_backend_file_get_contact_list_uids_sync (EBookBackend *backend,
 	d (printf ("book_backend_file_get_contact_list_sync (%s)\n", query));
 
 	g_rw_lock_reader_lock (&(bf->priv->lock));
-	uids = e_book_backend_sqlitedb_search_uids (
-		bf->priv->sqlitedb,
-		SQLITEDB_FOLDER_ID,
-		query, NULL, &local_error);
+	success = e_book_sqlite_search_uids (bf->priv->sqlitedb,
+					     query,
+					     &uids,
+					     &local_error);
 	g_rw_lock_reader_unlock (&(bf->priv->lock));
 
-	if (local_error != NULL) {
+	if (!success) {
 
 		g_warn_if_fail (uids == NULL);
 
 		if (g_error_matches (local_error,
-				     E_BOOK_SDB_ERROR,
-				     E_BOOK_SDB_ERROR_NOT_SUPPORTED)) {
+				     E_BOOK_SQL_ERROR,
+				     E_BOOK_SQL_ERROR_NOT_SUPPORTED)) {
 			g_set_error (
 				error, E_CLIENT_ERROR,
 				E_CLIENT_ERROR_NOT_SUPPORTED,
@@ -1650,8 +1620,8 @@ book_backend_file_get_contact_list_uids_sync (EBookBackend *backend,
 			g_error_free (local_error);
 
 		} else if (g_error_matches (local_error,
-				     E_BOOK_SDB_ERROR,
-				     E_BOOK_SDB_ERROR_INVALID_QUERY)) {
+				     E_BOOK_SQL_ERROR,
+				     E_BOOK_SQL_ERROR_INVALID_QUERY)) {
 			g_set_error (
 				error, E_CLIENT_ERROR,
 				E_CLIENT_ERROR_INVALID_QUERY,
@@ -1662,8 +1632,6 @@ book_backend_file_get_contact_list_uids_sync (EBookBackend *backend,
 			g_warning ("Failed to fetch contact ids: %s", local_error->message);
 			g_propagate_error (error, local_error);
 		}
-
-		success = FALSE;
 	}
 
 	/* Transfer UID strings to the GQueue. */
@@ -1708,23 +1676,6 @@ book_backend_file_stop_view (EBookBackend *backend,
 		g_thread_join (closure->thread);
 		closure->thread = NULL;
 	}
-}
-
-static void
-book_backend_file_notify_update (EBookBackend *backend,
-                                 const EContact *contact)
-{
-	GList *list, *link;
-
-	list = e_book_backend_list_views (backend);
-
-	for (link = list; link != NULL; link = g_list_next (link))
-		view_notify_update (
-			E_BOOK_BACKEND_FILE (backend),
-			E_DATA_BOOK_VIEW (link->data),
-			(EContact *) contact);
-
-	g_list_free_full (list, (GDestroyNotify) g_object_unref);
 }
 
 static EDataBookDirect *
@@ -1778,6 +1729,18 @@ book_backend_file_sync (EBookBackend *backend)
 }
 
 static void
+book_backend_file_vcard_changed (const gchar        *uid,
+				 const gchar        *vcard,
+				 EBookBackend       *backend)
+{
+	EContact *contact;
+
+	contact = e_contact_new_from_vcard_with_uid (vcard, uid);
+	e_book_backend_notify_update (backend, contact);
+	g_object_unref (contact);
+}
+
+static void
 book_backend_file_set_locale (EBookBackend *backend,
 			      const gchar  *locale)
 {
@@ -1787,8 +1750,9 @@ book_backend_file_set_locale (EBookBackend *backend,
 
 	g_rw_lock_writer_lock (&(bf->priv->lock));
 
-	success = e_book_backend_sqlitedb_lock_updates (bf->priv->sqlitedb,
-							&error);
+	success = e_book_sqlite_lock_updates (bf->priv->sqlitedb,
+					      TRUE,
+					      &error);
 
 	if (!success) {
 		g_warning ("Failed to start SQLite transaction: %s", error->message);
@@ -1796,12 +1760,13 @@ book_backend_file_set_locale (EBookBackend *backend,
 	}
 
 	if (success) {
-		success = e_book_backend_sqlitedb_set_locale (bf->priv->sqlitedb,
-							      SQLITEDB_FOLDER_ID,
-							      locale,
-							      &error);
+		success = e_book_sqlite_set_locale (
+			bf->priv->sqlitedb, locale,
+			(EbSqlChangeCallback)book_backend_file_vcard_changed,
+			backend, &error);
+
 		if (!success) {
-			g_warning ("Failed to set locale on SQLiteDB: %s", error->message);
+			g_warning ("Failed to set locale on SQLite: %s", error->message);
 			g_clear_error (&error);
 		}
 	}
@@ -1810,14 +1775,14 @@ book_backend_file_set_locale (EBookBackend *backend,
 		success = e_book_backend_file_bump_revision (bf, &error);
 
 		if (!success) {
-			g_warning ("Failed to set locale on SQLiteDB: %s", error->message);
+			g_warning ("Failed to set locale on SQLite: %s", error->message);
 			g_clear_error (&error);
 		}
 	}
 
 	if (success) {
-		success = e_book_backend_sqlitedb_unlock_updates (bf->priv->sqlitedb,
-								  TRUE, &error);
+		success = e_book_sqlite_unlock_updates (bf->priv->sqlitedb,
+							TRUE, &error);
 
 		if (!success) {
 			g_warning ("Failed to commit SQLite transaction: %s", error->message);
@@ -1828,7 +1793,7 @@ book_backend_file_set_locale (EBookBackend *backend,
 		GError *error = NULL;
 
 		/* Rollback transaction */
-		if (!e_book_backend_sqlitedb_unlock_updates (bf->priv->sqlitedb, FALSE, &error)) {
+		if (!e_book_sqlite_unlock_updates (bf->priv->sqlitedb, FALSE, &error)) {
 			g_warning ("Failed to rollback transaction after failing to add contacts: %s",
 				   error->message);
 			g_clear_error (&error);
@@ -1873,7 +1838,7 @@ book_backend_file_create_cursor (EBookBackend *backend,
 
 	cursor = e_data_book_cursor_sqlite_new (backend,
 						bf->priv->sqlitedb,
-						SQLITEDB_FOLDER_ID,
+						SQLITE_REVISION_KEY,
 						sort_fields,
 						sort_types,
 						n_fields,
@@ -1925,9 +1890,8 @@ book_backend_file_initable_init (GInitable *initable,
 	ESourceRegistry *registry;
 	ESource *source;
 	const gchar *extension_name;
-	gchar *backup;
-	gchar *dirname;
-	gchar *filename;
+	gchar *backup, *dirname;
+	gchar *filename, *fullpath;
 	gboolean success = TRUE;
 
 	priv = E_BOOK_BACKEND_FILE_GET_PRIVATE (initable);
@@ -1946,16 +1910,16 @@ book_backend_file_initable_init (GInitable *initable,
 			registry, source, GET_PATH_DB_DIR);
 
 	filename = g_build_filename (dirname, "addressbook.db", NULL);
-	backup = g_build_filename (dirname, "addressbook.db.old", NULL);
+	backup   = g_build_filename (dirname, "addressbook.db.old", NULL);
+	fullpath = g_build_filename (dirname, "contacts.db", NULL);
 
 	/* The old BDB exists, lets migrate that to sqlite right away. */
 	if (g_file_test (filename, G_FILE_TEST_EXISTS)) {
-		priv->sqlitedb = e_book_backend_sqlitedb_new_full (
-			dirname,
-			SQLITEDB_EMAIL_ID,
+		priv->sqlitedb = e_book_sqlite_new_full (
+			fullpath,
 			SQLITEDB_FOLDER_ID,
-			SQLITEDB_FOLDER_NAME,
-			TRUE, setup_extension,
+			NULL, NULL,
+			setup_extension,
 			error);
 
 		if (priv->sqlitedb == NULL) {
@@ -1963,10 +1927,9 @@ book_backend_file_initable_init (GInitable *initable,
 			goto exit;
 		}
 
+		/* Do the migration from BDB, see e-book-backend-file-migrate-bdb.c */
 		success = e_book_backend_file_migrate_bdb (
-			priv->sqlitedb,
-			SQLITEDB_FOLDER_ID,
-			dirname, filename, error);
+			priv->sqlitedb, dirname, filename, error);
 
 		if (!success)
 			goto exit;
@@ -1988,7 +1951,7 @@ book_backend_file_initable_init (GInitable *initable,
 	/* If we already have a handle on this, it means there
 	 * was an old BDB migrated and no need to reopen it. */
 	if (priv->sqlitedb == NULL) {
-		gboolean populated;
+		gint populated = 0;
 		GError *local_error = NULL;
 
 		/* Ensure the directory exists first. */
@@ -1998,12 +1961,11 @@ book_backend_file_initable_init (GInitable *initable,
 			goto exit;
 
 		/* Create the sqlitedb. */
-		priv->sqlitedb = e_book_backend_sqlitedb_new_full (
-			dirname,
-			SQLITEDB_EMAIL_ID,
+		priv->sqlitedb = e_book_sqlite_new_full (
+			fullpath,
 			SQLITEDB_FOLDER_ID,
-			SQLITEDB_FOLDER_NAME,
-			TRUE, setup_extension,
+			NULL, NULL,
+			setup_extension,
 			error);
 
 		if (priv->sqlitedb == NULL) {
@@ -2012,9 +1974,10 @@ book_backend_file_initable_init (GInitable *initable,
 		}
 
 		/* An sqlite DB only 'exists' if the populated flag is set. */
-		populated = e_book_backend_sqlitedb_get_is_populated (
+		e_book_sqlite_get_key_value_int (
 			priv->sqlitedb,
-			SQLITEDB_FOLDER_ID,
+			E_BOOK_SQL_IS_POPULATED_KEY,
+			&populated,
 			&local_error);
 
 		if (local_error != NULL) {
@@ -2025,10 +1988,11 @@ book_backend_file_initable_init (GInitable *initable,
 
 		if (!populated) {
 			/* Set the populated flag. */
-			success = e_book_backend_sqlitedb_set_is_populated (
+			success = e_book_sqlite_set_key_value_int (
 				priv->sqlitedb,
-				SQLITEDB_FOLDER_ID,
-				TRUE, error);
+				E_BOOK_SQL_IS_POPULATED_KEY,
+				TRUE,
+				error);
 
 			if (!success)
 				goto exit;
@@ -2046,6 +2010,7 @@ book_backend_file_initable_init (GInitable *initable,
 
 exit:
 	g_free (dirname);
+	g_free (fullpath);
 	g_free (filename);
 	g_free (backup);
 
@@ -2075,7 +2040,6 @@ e_book_backend_file_class_init (EBookBackendFileClass *class)
 	backend_class->get_contact_list_uids_sync = book_backend_file_get_contact_list_uids_sync;
 	backend_class->start_view = book_backend_file_start_view;
 	backend_class->stop_view = book_backend_file_stop_view;
-	backend_class->notify_update = book_backend_file_notify_update;
 	backend_class->get_direct_book = book_backend_file_get_direct_book;
 	backend_class->configure_direct = book_backend_file_configure_direct;
 	backend_class->sync = book_backend_file_sync;
