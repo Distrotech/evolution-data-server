@@ -518,6 +518,41 @@ main (gint argc,
 
 		add_client_test (
 			suites[i].prefix,
+			"/Or/SearchByUID",
+			suites[i].func,
+			e_book_query_orv (
+				e_book_query_field_test (
+					E_CONTACT_UID,
+					E_BOOK_QUERY_IS,
+					"custom-1"),
+				e_book_query_field_test (
+					E_CONTACT_UID,
+					E_BOOK_QUERY_IS,
+					"custom-2"),
+				e_book_query_field_test (
+					E_CONTACT_UID,
+					E_BOOK_QUERY_IS,
+					"custom-3"),
+				/* This one has a capital C, test will fail
+				 * if the backend mistakenly normalizes the
+				 * UID for comparison.
+				 */
+				e_book_query_field_test (
+					E_CONTACT_UID,
+					E_BOOK_QUERY_IS,
+					"Custom-4"),
+				e_book_query_field_test (
+					E_CONTACT_UID,
+					E_BOOK_QUERY_IS,
+					"custom-5"),
+				NULL),
+			5,
+			suites[i].direct,
+			suites[i].custom,
+			FALSE);
+
+		add_client_test (
+			suites[i].prefix,
 			"/Or/TwoEmails",
 			suites[i].func,
 			e_book_query_orv (
